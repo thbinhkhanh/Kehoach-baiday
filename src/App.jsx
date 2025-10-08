@@ -42,57 +42,63 @@ function AppContent() {
           }}
         >
           {/* Logo + Tiêu đề */}
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, ml: -2 }}>
-            <img
-              src="/Logo.png"
-              alt="Logo"
-              style={{ height: "40px", flexShrink: 0 }}
-            />
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, ml: -2, whiteSpace: "nowrap", overflowX: "auto" }}>
+            <img src="/Logo.png" alt="Logo" style={{ height: "40px", flexShrink: 0 }} />
             <Typography variant="h6" sx={{ color: "white" }}>
-              KẾ HOẠCH BÀI DẠY TRỰC TUYẾN
+              KẾ HOẠCH BÀI DẠY
             </Typography>
           </Box>
 
+
           {/* Phần user/account */}
-          <Box sx={{ display: "flex", alignItems: "center" }}>
-            <AccountCircle sx={{ mr: 1, color: "white" }} />
-            <Typography sx={{ color: "white", mr: 1 }}> {displayName}</Typography>
+          <Box
+  sx={{
+    display: "flex",
+    alignItems: "center",
+    whiteSpace: "nowrap",   // giữ tất cả trên 1 hàng
+    overflowX: "auto",      // scroll ngang nếu quá dài
+    gap: 1,                  // khoảng cách giữa các phần tử
+  }}
+>
+  <AccountCircle sx={{ color: "white" }} />
+  <Typography sx={{ color: "white" }}>{displayName}</Typography>
 
-            <IconButton size="large" color="inherit" onClick={handleMenu}>
-              <MenuIcon />
-            </IconButton>
+  <IconButton size="large" color="inherit" onClick={handleMenu}>
+    <MenuIcon />
+  </IconButton>
 
-            <Menu
-              anchorEl={anchorEl}
-              open={open}
-              onClose={handleClose}
-              anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-              transformOrigin={{ vertical: "top", horizontal: "right" }}
-            >
-              <MenuItem
-                onClick={() => {
-                  handleClose();
-                  navigate("/change-password");
-                }}
-              >
-                Đổi mật khẩu
-              </MenuItem>
-              <MenuItem
-                onClick={async () => {
-                  handleClose();
-                  try {
-                    await supabase.auth.signOut();
-                    setCurrentUser(null);
-                    navigate("/", { replace: true });
-                  } catch (err) {
-                    console.error("❌ Lỗi đăng xuất:", err);
-                  }
-                }}
-              >
-                Đăng xuất
-              </MenuItem>
-            </Menu>
-          </Box>
+  <Menu
+    anchorEl={anchorEl}
+    open={open}
+    onClose={handleClose}
+    anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+    transformOrigin={{ vertical: "top", horizontal: "right" }}
+  >
+    <MenuItem
+      onClick={() => {
+        handleClose();
+        navigate("/change-password");
+      }}
+    >
+      Đổi mật khẩu
+    </MenuItem>
+    <MenuItem
+      onClick={async () => {
+        handleClose();
+        try {
+          await supabase.auth.signOut();
+          setCurrentUser(null);
+          navigate("/", { replace: true });
+        } catch (err) {
+          console.error("❌ Lỗi đăng xuất:", err);
+        }
+      }}
+    >
+      Đăng xuất
+    </MenuItem>
+  </Menu>
+</Box>
+
         </Toolbar>
       </AppBar>
 
