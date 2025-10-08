@@ -317,7 +317,7 @@ export default function Users({ user }) {
         {/* Upload Card */}
         <Card sx={{ width: "100%", flexShrink: 0, mt: -3 }}>
           <CardContent sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <Typography variant="h5" gutterBottom>
+            <Typography variant="h5" gutterBottom color="primary">
               📚 Kế hoạch bài dạy
             </Typography>
 

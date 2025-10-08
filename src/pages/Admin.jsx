@@ -336,15 +336,15 @@ export default function Admin({ user }) {
         {/* Upload Card */}
         <Card sx={{ width: "100%", flexShrink: 0, mt: -3 }}>
           <CardContent sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <Typography
+           <Typography
               variant="h5"
               gutterBottom
+              color="primary"
               sx={{ display: "flex", alignItems: "center", gap: 1 }}
             >
               <SettingsIcon color="primary" />
               Quản trị hệ thống
             </Typography>
-
             {/* Chọn tài khoản */}
             <FormControl fullWidth size="small">
               <InputLabel>👤 Giáo viên</InputLabel>

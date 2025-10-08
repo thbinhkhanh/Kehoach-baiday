@@ -10,6 +10,9 @@ import {
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabase";
 import { useProfile } from "../contexts/ProfileContext";
+import Banner from "./Banner";
+//import { AppBar, Toolbar } from "@mui/material";
+
 
 export default function ChangePassword({ user: propUser }) {
   const { currentUser, setCurrentUser, setAllProfiles } = useProfile();
@@ -108,114 +111,120 @@ export default function ChangePassword({ user: propUser }) {
   }, [countdown, navigate]);
 
   return (
+  <Box
+    sx={{
+      width: "100vw",
+      minHeight: "100vh",
+      backgroundColor: "#e3f2fd",
+      display: "flex",
+      flexDirection: "column",
+    }}
+  >
+    {/* 🔹 Banner hiển thị tiêu đề */}
+    <Banner title="ĐỔI MẬT KHẨU" subtitle="Bảo vệ tài khoản của bạn" />
+
+    {/* 🧩 Form đổi mật khẩu */}
     <Box
       sx={{
-        width: "100vw",
-        minHeight: "100vh",
-        backgroundColor: "#e3f2fd",
+        flex: 1,
         display: "flex",
-        flexDirection: "column",
-        mt: -2,
+        alignItems: "flex-start",
+        justifyContent: "center",
+        mt: { xs: 2, sm: 4 }, // tránh bị banner che
+        mb: 4,
       }}
     >
-      <Box
+      <Card
+        elevation={10}
         sx={{
-          flex: 1,
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "center",
-          mt: 7,
+          p: 3,
+          borderRadius: 4,
+          width: { xs: "90%", sm: 350 },
+          backgroundColor: "white",
         }}
       >
-        <Card
-          elevation={10}
-          sx={{
-            p: 3,
-            borderRadius: 4,
-            width: { xs: "90%", sm: 350 },
-            backgroundColor: "white",
-          }}
-        >
-          <Stack spacing={3} alignItems="center">
-            <div style={{ fontSize: 50 }}>🔄</div>
+        <Stack spacing={3} alignItems="center">
+          <div style={{ fontSize: 50 }}>🔄</div>
 
-            <Typography variant="h5" fontWeight="bold" color="primary">
-              ĐỔI MẬT KHẨU
-            </Typography>
+          <Typography variant="h5" fontWeight="bold" color="primary">
+            ĐỔI MẬT KHẨU
+          </Typography>
 
-            <Typography variant="body1" sx={{ fontWeight: "bold" }}>
-              🧑 Tài khoản: {user?.username || user?.email || "Unknown"}
-            </Typography>
+          <Typography variant="body1" sx={{ fontWeight: "bold" }}>
+            🧑 Tài khoản: {user?.username || user?.email || "Unknown"}
+          </Typography>
 
-            <TextField
-              label="🆕 Mật khẩu mới"
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
+          <TextField
+            label="🆕 Mật khẩu mới"
+            type="password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            fullWidth
+            size="small"
+          />
+
+          <TextField
+            label="✅ Xác nhận mật khẩu"
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            fullWidth
+            size="small"
+            onKeyDown={(e) => e.key === "Enter" && handleChangePassword()}
+          />
+
+          <Stack direction="row" spacing={2} width="100%">
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleChangePassword}
               fullWidth
-              size="small"
-            />
-
-            <TextField
-              label="✅ Xác nhận mật khẩu"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
+            >
+              🔁 CẬP NHẬT
+            </Button>
+            <Button
+              variant="outlined"
+              color="secondary"
+              onClick={handleCancel}
               fullWidth
-              size="small"
-              onKeyDown={(e) => e.key === "Enter" && handleChangePassword()}
-            />
+            >
+              🔙 HỦY
+            </Button>
+          </Stack>
 
-            <Stack direction="row" spacing={2} width="100%">
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleChangePassword}
-                fullWidth
+          {status && (
+            <>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: status.startsWith("✅") ? "green" : "red",
+                  textAlign: "center",
+                  fontSize: "0.95rem",
+                }}
               >
-                🔁 CẬP NHẬT
-              </Button>
-              <Button
-                variant="outlined"
-                color="secondary"
-                onClick={handleCancel}
-                fullWidth
-              >
-                🔙 HỦY
-              </Button>
-            </Stack>
+                {status}
+              </Typography>
 
-            {status && (
-              <>
+              {countdown !== null && (
                 <Typography
                   variant="body2"
                   sx={{
-                    color: status.startsWith("✅") ? "green" : "red",
+                    color: "red",
                     textAlign: "center",
                     fontSize: "0.95rem",
+                    mt: 0.5,
                   }}
                 >
-                  {status}
+                  ⏳ Trang sẽ quay lại sau {countdown} giây...
                 </Typography>
-
-                {countdown !== null && (
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      color: "red",
-                      textAlign: "center",
-                      fontSize: "0.95rem",
-                      mt: 0.5,
-                    }}
-                  >
-                    ⏳ Trang sẽ quay lại sau {countdown} giây...
-                  </Typography>
-                )}
-              </>
-            )}
-          </Stack>
-        </Card>
-      </Box>
+              )}
+            </>
+          )}
+        </Stack>
+      </Card>
     </Box>
-  );
+  </Box>
+);
+
+
 }
