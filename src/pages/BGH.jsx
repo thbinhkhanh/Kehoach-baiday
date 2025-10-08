@@ -133,7 +133,7 @@ export default function BGH({ user }) {
 
     return `${formattedDate}, ${formattedTime}`;
   };
-  
+
   return (
     <Box
       sx={{
@@ -143,22 +143,23 @@ export default function BGH({ user }) {
         gap: 2,
         p: 2,
         alignItems: "flex-start",
+        flexDirection: { xs: "column", sm: "row" }, // stack trên mobile
       }}
     >
       {/* Cột bộ lọc và danh sách file */}
       <Box
         sx={{
-          width: "25%",
+          width: { xs: "100%", sm: "25%" },
           minWidth: 250,
           display: "flex",
           flexDirection: "column",
           gap: 2,
-          height: "95%",
+          height: { xs: "auto", sm: "95%" },
         }}
       >
         {/* Bộ lọc */}
         <Card sx={{ width: "100%", flexShrink: 0, mt: -3 }}>
-                  <CardContent sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <CardContent sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
             <Typography variant="h5" gutterBottom>
               📚 Tra cứu bài dạy
             </Typography>
@@ -172,7 +173,6 @@ export default function BGH({ user }) {
                 onChange={(e) => setSelectedUsername(e.target.value)}
               >
                 {usernames
-                  // Lọc bỏ các tài khoản không cần hiển thị
                   .filter((name) => {
                     const lower = name?.toLowerCase() || "";
                     return (
@@ -182,13 +182,11 @@ export default function BGH({ user }) {
                       !lower.includes("thbinhkhanh")
                     );
                   })
-                  // ✅ Sắp xếp theo tên tiếng Việt (lấy tên cuối)
                   .sort((a, b) => {
                     const getLastName = (fullName) =>
                       fullName?.trim().split(" ").slice(-1)[0]?.toLowerCase() || "";
                     return getLastName(a).localeCompare(getLastName(b), "vi");
                   })
-                  // Hiển thị danh sách
                   .map((name) => (
                     <MenuItem key={name} value={name}>
                       {name}
@@ -198,8 +196,14 @@ export default function BGH({ user }) {
             </FormControl>
 
             {/* Môn học + Lớp */}
-            <Box sx={{ display: "flex", gap: 2 }}>
-              <FormControl size="small" sx={{ width: "60%" }}>
+            <Box
+              sx={{
+                display: "flex",
+                gap: 2,
+                flexWrap: "wrap", // wrap trên mobile
+              }}
+            >
+              <FormControl size="small" sx={{ flex: 1, minWidth: 100 }}>
                 <InputLabel>Môn học</InputLabel>
                 <Select
                   value={subject}
@@ -208,14 +212,14 @@ export default function BGH({ user }) {
                 >
                   <MenuItem value="Âm nhạc">Âm nhạc</MenuItem>
                   <MenuItem value="Công nghệ">Công nghệ</MenuItem>
-                  <MenuItem value="Giáo dục thể chất">Giáo dục thể chất</MenuItem>
+                  <MenuItem value="Giáo dục thể chất">GD thể chất</MenuItem>
                   <MenuItem value="Mĩ thuật">Mĩ thuật</MenuItem>
                   <MenuItem value="Tiếng Anh">Tiếng Anh</MenuItem>
                   <MenuItem value="Tin học">Tin học</MenuItem>
                 </Select>
               </FormControl>
 
-              <FormControl size="small" sx={{ width: "40%" }}>
+              <FormControl size="small" sx={{ flex: 1, minWidth: 80 }}>
                 <InputLabel>Lớp</InputLabel>
                 <Select
                   value={className}
@@ -273,12 +277,19 @@ export default function BGH({ user }) {
               })
             )}
           </List>
-
         </Card>
       </Box>
 
-      {/* Khung xem file */}
-      <Card sx={{ width: "70%", minWidth: 0, height: "120%", mt: -15 }}>
+      {/* Khung xem file (ẩn trên mobile) */}
+      <Card
+        sx={{
+          width: { xs: "100%", sm: "70%" },
+          minWidth: 0,
+          height: "120%",
+          mt: { xs: 2, sm: -15 },
+          display: { xs: "none", sm: "block" }, // ẩn iframe trên mobile
+        }}
+      >
         <CardContent sx={{ height: "100%", p: 0 }}>
           {selectedFile ? (
             <iframe
@@ -297,4 +308,5 @@ export default function BGH({ user }) {
       </Card>
     </Box>
   );
+
 }

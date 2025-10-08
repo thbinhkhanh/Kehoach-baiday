@@ -200,7 +200,7 @@ useEffect(() => {
             style={{ height: "40px", flexShrink: 0, marginLeft: 8 }} // nếu muốn 8px cách mép
           />
           <Typography variant="h6" sx={{ color: "white" }}>
-            KẾ HOẠCH BÀI DẠY TRỰC TUYẾN
+            KẾ HOẠCH BÀI DẠY
           </Typography>
         </Toolbar>
       </AppBar>

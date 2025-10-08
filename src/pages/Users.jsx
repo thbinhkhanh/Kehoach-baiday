@@ -292,206 +292,206 @@ export default function Users({ user }) {
   };
 
   return (
-  <Box
-    sx={{
-      height: "95vh",
-      width: "100vw",
-      display: "flex",
-      gap: 2,
-      p: 2,
-      alignItems: "flex-start",
-      flexDirection: { xs: "column", sm: "row" }, // stack trên mobile
-    }}
-  >
-    {/* Cột trái: Upload + Danh sách file */}
     <Box
       sx={{
-        width: { xs: "100%", sm: "25%" },
-        minWidth: 250,
+        height: "95vh",
+        width: "100vw",
         display: "flex",
-        flexDirection: "column",
         gap: 2,
-        height: { xs: "auto", sm: "95%" },
+        p: 2,
+        alignItems: "flex-start",
+        flexDirection: { xs: "column", sm: "row" }, // stack trên mobile
       }}
     >
-      {/* Upload Card */}
-      <Card sx={{ width: "100%", flexShrink: 0, mt: -3 }}>
-        <CardContent sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <Typography variant="h5" gutterBottom>
-            📚 Kế hoạch bài dạy
-          </Typography>
+      {/* Cột trái: Upload + Danh sách file */}
+      <Box
+        sx={{
+          width: { xs: "100%", sm: "25%" },
+          minWidth: 250,
+          display: "flex",
+          flexDirection: "column",
+          gap: 2,
+          height: { xs: "auto", sm: "95%" },
+        }}
+      >
+        {/* Upload Card */}
+        <Card sx={{ width: "100%", flexShrink: 0, mt: -3 }}>
+          <CardContent sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <Typography variant="h5" gutterBottom>
+              📚 Kế hoạch bài dạy
+            </Typography>
 
-          {/* Nhóm chọn môn và lớp */}
-          <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap" }}>
-            <FormControl size="small" sx={{ flex: 1 }}>
-              <InputLabel>Môn học</InputLabel>
-              <Select value={subject} label="Môn học" onChange={(e) => setSubject(e.target.value)}>
-                <MenuItem value="Âm nhạc">Âm nhạc</MenuItem>
-                <MenuItem value="Công nghệ">Công nghệ</MenuItem>
-                <MenuItem value="Giáo dục thể chất">GD thể chất</MenuItem>
-                <MenuItem value="Mĩ thuật">Mĩ thuật</MenuItem>
-                <MenuItem value="Tiếng Anh">Tiếng Anh</MenuItem>
-                <MenuItem value="Tin học">Tin học</MenuItem>
-              </Select>
-            </FormControl>
+            {/* Nhóm chọn môn và lớp */}
+            <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap" }}>
+              <FormControl size="small" sx={{ flex: 1 }}>
+                <InputLabel>Môn học</InputLabel>
+                <Select value={subject} label="Môn học" onChange={(e) => setSubject(e.target.value)}>
+                  <MenuItem value="Âm nhạc">Âm nhạc</MenuItem>
+                  <MenuItem value="Công nghệ">Công nghệ</MenuItem>
+                  <MenuItem value="Giáo dục thể chất">GD thể chất</MenuItem>
+                  <MenuItem value="Mĩ thuật">Mĩ thuật</MenuItem>
+                  <MenuItem value="Tiếng Anh">Tiếng Anh</MenuItem>
+                  <MenuItem value="Tin học">Tin học</MenuItem>
+                </Select>
+              </FormControl>
 
-            <FormControl size="small" sx={{ flex: 1 }}>
-              <InputLabel>Lớp</InputLabel>
-              <Select value={className} label="Lớp" onChange={(e) => setClassName(e.target.value)}>
-                <MenuItem value="1">Lớp 1</MenuItem>
-                <MenuItem value="2">Lớp 2</MenuItem>
-                <MenuItem value="3">Lớp 3</MenuItem>
-                <MenuItem value="4">Lớp 4</MenuItem>
-                <MenuItem value="5">Lớp 5</MenuItem>
-              </Select>
-            </FormControl>
-          </Box>
+              <FormControl size="small" sx={{ flex: 1 }}>
+                <InputLabel>Lớp</InputLabel>
+                <Select value={className} label="Lớp" onChange={(e) => setClassName(e.target.value)}>
+                  <MenuItem value="1">Lớp 1</MenuItem>
+                  <MenuItem value="2">Lớp 2</MenuItem>
+                  <MenuItem value="3">Lớp 3</MenuItem>
+                  <MenuItem value="4">Lớp 4</MenuItem>
+                  <MenuItem value="5">Lớp 5</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
 
-          {/* Nhóm nút thao tác */}
-          <Box
+            {/* Nhóm nút thao tác */}
+            <Box
+              sx={{
+                display: "flex",
+                gap: 2,
+                flexWrap: "nowrap", // luôn trên 1 hàng
+                overflowX: "auto",  // scroll ngang nếu nhỏ màn hình
+              }}
+            >
+              <Button
+                variant="contained"
+                component="label"
+                disabled={uploading}
+                sx={{ flex: 1, whiteSpace: "nowrap" }}
+              >
+                📤 Tải file
+                <input type="file" accept=".doc,.docx" multiple hidden onChange={handleUpload} />
+              </Button>
+
+              <Button
+                variant="outlined"
+                color="error"
+                disabled={!fileList.some((file) => file.selected)}
+                onClick={() => {
+                  const selectedFiles = fileList.filter((file) => file.selected);
+                  handleDeleteFiles(selectedFiles);
+                }}
+                sx={{ flex: 1, whiteSpace: "nowrap" }}
+              >
+                🗑️ Xóa file
+              </Button>
+            </Box>
+
+            {/* Hiển thị tiến trình tải lên */}
+            {uploading && (
+              <Box sx={{ display: "inline-flex", ml: 2, alignItems: "center" }}>
+                <CircularProgress size={24} />
+                <Typography sx={{ ml: 1 }}>Đang tải lên...</Typography>
+              </Box>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Danh sách file */}
+        <Card sx={{ flex: 1, display: "flex", flexDirection: "column" }}>
+          <CardContent
             sx={{
+              p: 1,
               display: "flex",
-              gap: 2,
-              flexWrap: "nowrap", // luôn trên 1 hàng
-              overflowX: "auto",  // scroll ngang nếu nhỏ màn hình
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexShrink: 0,
             }}
           >
-            <Button
-              variant="contained"
-              component="label"
-              disabled={uploading}
-              sx={{ flex: 1, whiteSpace: "nowrap" }}
-            >
-              📤 Tải file
-              <input type="file" accept=".doc,.docx" multiple hidden onChange={handleUpload} />
-            </Button>
-
-            <Button
-              variant="outlined"
-              color="error"
-              disabled={!fileList.some((file) => file.selected)}
-              onClick={() => {
-                const selectedFiles = fileList.filter((file) => file.selected);
-                handleDeleteFiles(selectedFiles);
-              }}
-              sx={{ flex: 1, whiteSpace: "nowrap" }}
-            >
-              🗑️ Xóa file
-            </Button>
-          </Box>
-
-          {/* Hiển thị tiến trình tải lên */}
-          {uploading && (
-            <Box sx={{ display: "inline-flex", ml: 2, alignItems: "center" }}>
-              <CircularProgress size={24} />
-              <Typography sx={{ ml: 1 }}>Đang tải lên...</Typography>
-            </Box>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Danh sách file */}
-      <Card sx={{ flex: 1, display: "flex", flexDirection: "column" }}>
-        <CardContent
-          sx={{
-            p: 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flexShrink: 0,
-          }}
-        >
-          <Typography variant="h6">📂 Danh sách file</Typography>
-          {fileList.length > 0 && (
-            <Box sx={{ display: "flex", alignItems: "center", mr: 1.25 }}>
-              <Typography variant="body2" sx={{ mr: 1 }}>
-                Chọn tất cả
-              </Typography>
-              <input
-                type="checkbox"
-                checked={fileList.every((file) => file.selected === true)}
-                onChange={(e) => {
-                  const checked = e.target.checked;
-                  setFileList((prev) => prev.map((file) => ({ ...file, selected: checked })));
-                }}
-              />
-            </Box>
-          )}
-        </CardContent>
-
-        <List sx={{ height: "100%", overflowY: "auto", p: 0 }}>
-          {fileList.length === 0 ? (
-            <ListItem>
-              <ListItemText primary="Chưa có file nào." />
-            </ListItem>
-          ) : (
-            fileList.map((file, index) => {
-              const isSelected = selectedFile?.url === file.url;
-              return (
-                <ListItem
-                  key={index}
-                  onClick={() => setSelectedFile(file)}
-                  sx={{
-                    mb: 1,
-                    border: "1px solid #ddd",
-                    borderRadius: 1,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    cursor: "pointer",
-                    bgcolor: isSelected ? "rgba(25,118,210,0.1)" : "background.paper",
-                    "&:hover": {
-                      bgcolor: isSelected ? "rgba(25,118,210,0.15)" : "action.hover",
-                    },
+            <Typography variant="h6">📂 Danh sách file</Typography>
+            {fileList.length > 0 && (
+              <Box sx={{ display: "flex", alignItems: "center", mr: 1.25 }}>
+                <Typography variant="body2" sx={{ mr: 1 }}>
+                  Chọn tất cả
+                </Typography>
+                <input
+                  type="checkbox"
+                  checked={fileList.every((file) => file.selected === true)}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setFileList((prev) => prev.map((file) => ({ ...file, selected: checked })));
                   }}
-                >
-                  <ListItemText
-                    primary={file.name}
-                    secondary={`Tải lên: ${formatVNDate(file.uploaded_at)}`}
-                  />
-                  <input
-                    type="checkbox"
-                    checked={!!file.selected}
-                    onChange={(e) => {
-                      const checked = e.target.checked;
-                      setFileList((prev) =>
-                        prev.map((f, i) => (i === index ? { ...f, selected: checked } : f))
-                      );
+                />
+              </Box>
+            )}
+          </CardContent>
+
+          <List sx={{ height: "100%", overflowY: "auto", p: 0 }}>
+            {fileList.length === 0 ? (
+              <ListItem>
+                <ListItemText primary="Chưa có file nào." />
+              </ListItem>
+            ) : (
+              fileList.map((file, index) => {
+                const isSelected = selectedFile?.url === file.url;
+                return (
+                  <ListItem
+                    key={index}
+                    onClick={() => setSelectedFile(file)}
+                    sx={{
+                      mb: 1,
+                      border: "1px solid #ddd",
+                      borderRadius: 1,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      cursor: "pointer",
+                      bgcolor: isSelected ? "rgba(25,118,210,0.1)" : "background.paper",
+                      "&:hover": {
+                        bgcolor: isSelected ? "rgba(25,118,210,0.15)" : "action.hover",
+                      },
                     }}
-                  />
-                </ListItem>
-              );
-            })
+                  >
+                    <ListItemText
+                      primary={file.name}
+                      secondary={`Tải lên: ${formatVNDate(file.uploaded_at)}`}
+                    />
+                    <input
+                      type="checkbox"
+                      checked={!!file.selected}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setFileList((prev) =>
+                          prev.map((f, i) => (i === index ? { ...f, selected: checked } : f))
+                        );
+                      }}
+                    />
+                  </ListItem>
+                );
+              })
+            )}
+          </List>
+        </Card>
+      </Box>
+
+      {/* Khung xem file (ẩn trên mobile) */}
+      <Card
+        sx={{
+          width: { xs: "100%", sm: "70%" },
+          minWidth: 0,
+          height: "120%",
+          mt: { xs: 2, sm: -15 },
+          display: { xs: "none", sm: "block" }, // ẩn iframe trên mobile
+        }}
+      >
+        <CardContent sx={{ height: "100%", p: 0 }}>
+          {selectedFile ? (
+            <iframe
+              src={`https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(selectedFile.url)}`}
+              style={{ width: "100%", height: "100%", border: "none" }}
+              title="File Preview"
+            />
+          ) : (
+            <Box sx={{ p: 2 }}>
+              <Typography>Chọn một file để xem nội dung.</Typography>
+            </Box>
           )}
-        </List>
+        </CardContent>
       </Card>
     </Box>
-
-    {/* Khung xem file (ẩn trên mobile) */}
-    <Card
-      sx={{
-        width: { xs: "100%", sm: "70%" },
-        minWidth: 0,
-        height: "120%",
-        mt: { xs: 2, sm: -15 },
-        display: { xs: "none", sm: "block" }, // ẩn iframe trên mobile
-      }}
-    >
-      <CardContent sx={{ height: "100%", p: 0 }}>
-        {selectedFile ? (
-          <iframe
-            src={`https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(selectedFile.url)}`}
-            style={{ width: "100%", height: "100%", border: "none" }}
-            title="File Preview"
-          />
-        ) : (
-          <Box sx={{ p: 2 }}>
-            <Typography>Chọn một file để xem nội dung.</Typography>
-          </Box>
-        )}
-      </CardContent>
-    </Card>
-  </Box>
-);
+  );
 
 }

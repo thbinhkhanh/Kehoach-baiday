@@ -52,53 +52,52 @@ function AppContent() {
 
           {/* Phần user/account */}
           <Box
-  sx={{
-    display: "flex",
-    alignItems: "center",
-    whiteSpace: "nowrap",   // giữ tất cả trên 1 hàng
-    overflowX: "auto",      // scroll ngang nếu quá dài
-    gap: 1,                  // khoảng cách giữa các phần tử
-  }}
->
-  <AccountCircle sx={{ color: "white" }} />
-  <Typography sx={{ color: "white" }}>{displayName}</Typography>
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            whiteSpace: "nowrap",   // giữ tất cả trên 1 hàng
+            overflowX: "auto",      // scroll ngang nếu quá dài
+            gap: 1,                  // khoảng cách giữa các phần tử
+          }}
+        >
+          <AccountCircle sx={{ color: "white" }} />
+          <Typography sx={{ color: "white" }}>{displayName}</Typography>
 
-  <IconButton size="large" color="inherit" onClick={handleMenu}>
-    <MenuIcon />
-  </IconButton>
+          <IconButton size="large" color="inherit" onClick={handleMenu}>
+            <MenuIcon />
+          </IconButton>
 
-  <Menu
-    anchorEl={anchorEl}
-    open={open}
-    onClose={handleClose}
-    anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-    transformOrigin={{ vertical: "top", horizontal: "right" }}
-  >
-    <MenuItem
-      onClick={() => {
-        handleClose();
-        navigate("/change-password");
-      }}
-    >
-      Đổi mật khẩu
-    </MenuItem>
-    <MenuItem
-      onClick={async () => {
-        handleClose();
-        try {
-          await supabase.auth.signOut();
-          setCurrentUser(null);
-          navigate("/", { replace: true });
-        } catch (err) {
-          console.error("❌ Lỗi đăng xuất:", err);
-        }
-      }}
-    >
-      Đăng xuất
-    </MenuItem>
-  </Menu>
-</Box>
-
+          <Menu
+            anchorEl={anchorEl}
+            open={open}
+            onClose={handleClose}
+            anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+            transformOrigin={{ vertical: "top", horizontal: "right" }}
+          >
+            <MenuItem
+              onClick={() => {
+                handleClose();
+                navigate("/change-password");
+              }}
+            >
+              Đổi mật khẩu
+            </MenuItem>
+            <MenuItem
+              onClick={async () => {
+                handleClose();
+                try {
+                  await supabase.auth.signOut();
+                  setCurrentUser(null);
+                  navigate("/", { replace: true });
+                } catch (err) {
+                  console.error("❌ Lỗi đăng xuất:", err);
+                }
+              }}
+            >
+              Đăng xuất
+            </MenuItem>
+          </Menu>
+        </Box>
         </Toolbar>
       </AppBar>
 
