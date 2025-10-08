@@ -174,8 +174,7 @@ useEffect(() => {
   return (
   <Box
     sx={{
-      //width: "100vw",
-      width: { xs: "98vw", sm: "100vw" }, // 📱 90% trên mobile, full trên PC
+      width: "100vw",
       minHeight: "100vh",
       backgroundColor: "#e3f2fd",
       display: "flex",
@@ -190,7 +189,8 @@ useEffect(() => {
           alignItems: "center",
           justifyContent: "flex-start",
           minHeight: "46px !important",
-          px: 0,
+          //px: 0,
+          px: { xs: 2.5 }, 
           gap: 1,
           ml: -3,
         }}

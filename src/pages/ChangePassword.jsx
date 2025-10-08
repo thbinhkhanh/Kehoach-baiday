@@ -113,8 +113,7 @@ export default function ChangePassword({ user: propUser }) {
   return (
   <Box
     sx={{
-      //width: "100vw",
-      width: { xs: "98%", sm: "100vw" }, // 📱 90% trên mobile, full trên PC
+      width: "100vw",
       minHeight: "100vh",
       backgroundColor: "#e3f2fd",
       display: "flex",

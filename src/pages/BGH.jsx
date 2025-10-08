@@ -138,8 +138,7 @@ export default function BGH({ user }) {
     <Box
       sx={{
         height: "90vh",
-        //width: "100vw",
-        width: { xs: "98%", sm: "100vw" }, // 📱 90% trên mobile, full trên PC
+        width: "100vw",
         display: "flex",
         gap: 2,
         p: 2,

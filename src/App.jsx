@@ -38,7 +38,8 @@ function AppContent() {
             justifyContent: "space-between",
             alignItems: "center",
             minHeight: "44px !important",
-            px: 0, // bỏ padding trái phải
+            //px: 0, // bỏ padding trái phải
+            px: { xs: 2.5 }, 
           }}
         >
           {/* Logo + Tiêu đề */}
