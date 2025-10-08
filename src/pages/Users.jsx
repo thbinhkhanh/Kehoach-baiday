@@ -470,7 +470,7 @@ export default function Users({ user }) {
       {/* Khung xem file (ẩn trên mobile) */}
       <Card
         sx={{
-          width: { xs: "95%", sm: "70%" },
+          width: { xs: "100%", sm: "70%" },
           minWidth: 0,
           height: "120%",
           mt: { xs: 2, sm: -15 },
