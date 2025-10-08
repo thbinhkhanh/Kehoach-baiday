@@ -315,7 +315,7 @@ export default function Admin({ user }) {
       sx={{
         height: "95vh",
         //width: "100vw",
-        width: { xs: "90%", sm: "100vw" }, // 📱 90% trên mobile, full trên PC
+        width: { xs: "98%", sm: "100vw" }, // 📱 90% trên mobile, full trên PC
         display: "flex",
         gap: 2,
         p: 2,
