@@ -501,7 +501,10 @@ export default function Admin({ user }) {
                     onClick={() => {
                       // Nếu đang ở trên điện thoại → mở file trực tiếp
                       if (window.innerWidth < 600) {
-                        window.open(file.url, "_blank");
+                        window.open(
+                          `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(file.url)}`,
+                          "_blank"
+                        );
                       } else {
                         setSelectedFile(file);
                       }
