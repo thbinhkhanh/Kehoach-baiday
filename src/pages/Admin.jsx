@@ -498,7 +498,14 @@ export default function Admin({ user }) {
                 return (
                   <ListItem
                     key={index}
-                    onClick={() => setSelectedFile(file)}
+                    onClick={() => {
+                      // Nếu đang ở trên điện thoại → mở file trực tiếp
+                      if (window.innerWidth < 600) {
+                        window.open(file.url, "_blank");
+                      } else {
+                        setSelectedFile(file);
+                      }
+                    }}
                     sx={{
                       mb: 1,
                       border: "1px solid #ddd",
@@ -528,6 +535,7 @@ export default function Admin({ user }) {
                       }}
                     />
                   </ListItem>
+
                 );
               })
             )}
