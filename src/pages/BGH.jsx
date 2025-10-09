@@ -161,7 +161,7 @@ export default function BGH({ user }) {
         <Card sx={{ width: "100%", flexShrink: 0, mt: -3 }}>
           <CardContent sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
             <Typography variant="h5" gutterBottom color="primary">
-              📚 Tra cứu bài dạy
+              📚 Kế hoạch bài dạy
             </Typography>
 
             {/* Tài khoản */}

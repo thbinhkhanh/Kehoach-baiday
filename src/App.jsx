@@ -43,12 +43,30 @@ function AppContent() {
           }}
         >
           {/* Logo + Tiêu đề */}
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, ml: -2, whiteSpace: "nowrap", overflowX: "auto" }}>
-            <img src="/Logo.png" alt="Logo" style={{ height: "40px", flexShrink: 0 }} />
-            <Typography variant="h6" sx={{ color: "white" }}>
-              KẾ HOẠCH BÀI DẠY
-            </Typography>
-          </Box>
+          <Box
+  sx={{
+    display: "flex",
+    alignItems: "center",
+    gap: 1,
+    ml: -2,
+    whiteSpace: "nowrap",
+    overflowX: "auto",
+  }}
+>
+  <img
+    src="/Logo.png"
+    alt="Logo"
+    style={{ height: "40px", flexShrink: 0 }}
+  />
+  <Typography
+    variant="h6"
+    sx={{
+      color: "white",
+    }}
+  >
+    TỔ BỘ MÔN
+  </Typography>
+</Box>
 
 
           {/* Phần user/account */}

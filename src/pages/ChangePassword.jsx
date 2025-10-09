@@ -111,120 +111,122 @@ export default function ChangePassword({ user: propUser }) {
   }, [countdown, navigate]);
 
   return (
-  <Box
-    sx={{
-      width: "100vw",
-      minHeight: "100vh",
-      backgroundColor: "#e3f2fd",
-      display: "flex",
-      flexDirection: "column",
-    }}
-  >
-    {/* 🔹 Banner hiển thị tiêu đề */}
-    <Banner title="ĐỔI MẬT KHẨU" subtitle="Bảo vệ tài khoản của bạn" />
-
-    {/* 🧩 Form đổi mật khẩu */}
     <Box
       sx={{
-        flex: 1,
+        width: "100vw",
+        minHeight: "100vh",
+        backgroundColor: "#e3f2fd",
         display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "center",
-        mt: { xs: 2, sm: 4 }, // tránh bị banner che
-        mb: 4,
+        flexDirection: "column",
       }}
     >
-      <Card
-        elevation={10}
+      {/* 🔹 Banner hiển thị tiêu đề */}
+      <Banner title="" subtitle="" />
+
+      {/* 🧩 Form đổi mật khẩu */}
+      <Box
         sx={{
-          p: 3,
-          borderRadius: 4,
-          width: { xs: "90%", sm: 350 },
-          backgroundColor: "white",
+          flex: 1,
+          display: "flex",
+          alignItems: "flex-start", // giữ nguyên theo yêu cầu
+          justifyContent: "center", // căn giữa ngang
+          mt: { xs: 2, sm: 4 }, // giữ nguyên khoảng cách trên
+          mb: 4, // giữ nguyên khoảng cách dưới
+          px: 2, // tránh bị dính lề trên mobile
         }}
       >
-        <Stack spacing={3} alignItems="center">
-          <div style={{ fontSize: 50 }}>🔄</div>
+        <Card
+          elevation={10}
+          sx={{
+            p: 3,
+            borderRadius: 4,
+            width: "100%",
+            maxWidth: 350, // căn theo tỉ lệ responsive
+            backgroundColor: "white",
+          }}
+        >
+          <Stack spacing={3} alignItems="center">
+            <div style={{ fontSize: 50 }}>🔄</div>
 
-          <Typography variant="h5" fontWeight="bold" color="primary">
-            ĐỔI MẬT KHẨU
-          </Typography>
+            <Typography variant="h5" fontWeight="bold" color="primary">
+              ĐỔI MẬT KHẨU
+            </Typography>
 
-          <Typography variant="body1" sx={{ fontWeight: "bold" }}>
-            🧑 Tài khoản: {user?.username || user?.email || "Unknown"}
-          </Typography>
+            <Typography variant="body1" sx={{ fontWeight: "bold", textAlign: "center" }}>
+              🧑 Tài khoản: {user?.username || user?.email || "Unknown"}
+            </Typography>
 
-          <TextField
-            label="🆕 Mật khẩu mới"
-            type="password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            fullWidth
-            size="small"
-          />
-
-          <TextField
-            label="✅ Xác nhận mật khẩu"
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            fullWidth
-            size="small"
-            onKeyDown={(e) => e.key === "Enter" && handleChangePassword()}
-          />
-
-          <Stack direction="row" spacing={2} width="100%">
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleChangePassword}
+            <TextField
+              label="🆕 Mật khẩu mới"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
               fullWidth
-            >
-              🔁 CẬP NHẬT
-            </Button>
-            <Button
-              variant="outlined"
-              color="secondary"
-              onClick={handleCancel}
-              fullWidth
-            >
-              🔙 HỦY
-            </Button>
-          </Stack>
+              size="small"
+            />
 
-          {status && (
-            <>
-              <Typography
-                variant="body2"
-                sx={{
-                  color: status.startsWith("✅") ? "green" : "red",
-                  textAlign: "center",
-                  fontSize: "0.95rem",
-                }}
+            <TextField
+              label="✅ Xác nhận mật khẩu"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              fullWidth
+              size="small"
+              onKeyDown={(e) => e.key === "Enter" && handleChangePassword()}
+            />
+
+            <Stack direction="row" spacing={2} width="100%">
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleChangePassword}
+                fullWidth
+                sx={{ fontWeight: "bold" }}
               >
-                {status}
-              </Typography>
+                🔁 CẬP NHẬT
+              </Button>
+              <Button
+                variant="outlined"
+                color="secondary"
+                onClick={handleCancel}
+                fullWidth
+                sx={{ fontWeight: "bold" }}
+              >
+                🔙 HỦY
+              </Button>
+            </Stack>
 
-              {countdown !== null && (
+            {status && (
+              <>
                 <Typography
                   variant="body2"
                   sx={{
-                    color: "red",
+                    color: status.startsWith("✅") ? "green" : "red",
                     textAlign: "center",
                     fontSize: "0.95rem",
-                    mt: 0.5,
                   }}
                 >
-                  ⏳ Trang sẽ quay lại sau {countdown} giây...
+                  {status}
                 </Typography>
-              )}
-            </>
-          )}
-        </Stack>
-      </Card>
+
+                {countdown !== null && (
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: "red",
+                      textAlign: "center",
+                      fontSize: "0.95rem",
+                      mt: 0.5,
+                    }}
+                  >
+                    ⏳ Trang sẽ quay lại sau {countdown} giây...
+                  </Typography>
+                )}
+              </>
+            )}
+          </Stack>
+        </Card>
+      </Box>
     </Box>
-  </Box>
-);
-
-
+  );
 }

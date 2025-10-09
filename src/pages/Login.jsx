@@ -172,193 +172,189 @@ useEffect(() => {
   };
 
   return (
-  <Box
-    sx={{
-      width: "100vw",
-      minHeight: "100vh",
-      backgroundColor: "#e3f2fd",
-      display: "flex",
-      flexDirection: "column",
-    }}
-  >
-    {/* 🔵 Thanh tiêu đề cố định */}
-    <AppBar position="fixed" sx={{ background: "#1976d2" }}>
-      <Toolbar
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "flex-start",
-          minHeight: "46px !important",
-          //px: 0,
-          px: { xs: 2.5 }, 
-          gap: 1,
-          ml: -3,
-        }}
-      >
-        <img
-          src="/Logo.png"
-          alt="Logo"
-          style={{ height: "40px", flexShrink: 0, marginLeft: 8 }}
-        />
-        <Typography variant="h6" sx={{ color: "white" }}>
-          KẾ HOẠCH BÀI DẠY
-        </Typography>
-      </Toolbar>
-    </AppBar>
-
-    {/* 🔹 Banner nằm ngay dưới AppBar */}
-    <Box sx={{ mt: { xs: 5, sm: 5, md: 5 } }}>
-      <Box
-        sx={{
-          position: "relative",
-          width: "100%",
-          height: { xs: 100, sm: 140, md: 180 },
-          backgroundImage: "url('/banner.png')",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          mb: 2,
-          "&::before": {
-            content: '""',
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.4)",
-            zIndex: 1,
-          },
-        }}
-      >
-        <Box
-          sx={{ position: "relative", zIndex: 2, textAlign: "center", px: 1 }}
-        >
-          <Typography
-            variant="h5"
-            color="white"
-            fontWeight="bold"
-            sx={{ fontSize: { xs: "1.5rem", sm: "2rem", md: "2.5rem" } }}
-          >
-            ĐĂNG NHẬP HỆ THỐNG
-          </Typography>
-          <Typography
-            variant="subtitle2"
-            color="white"
-            sx={{ fontSize: { xs: "0.8rem", sm: "1rem" } }}
-          >
-            Hệ thống quản lý kế hoạch bài dạy
-          </Typography>
-        </Box>
-      </Box>
-    </Box>
-
-    {/* 🧩 Form đăng nhập */}
     <Box
       sx={{
-        flex: 1,
+        width: "100vw",
+        minHeight: "100vh",
+        backgroundColor: "#e3f2fd",
         display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "center",
-        mt: 2,
+        flexDirection: "column",
       }}
     >
-      <Card
-        elevation={10}
+      {/* 🔵 Thanh tiêu đề cố định */}
+      <AppBar position="fixed" sx={{ background: "#1976d2" }}>
+        <Toolbar
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "flex-start",
+            minHeight: "46px !important",
+            px: { xs: 2.5 },
+            gap: 1,
+            ml: -3,
+          }}
+        >
+          <img
+            src="/Logo.png"
+            alt="Logo"
+            style={{ height: "40px", flexShrink: 0, marginLeft: 8 }}
+          />
+          <Typography variant="h6" sx={{ color: "white" }}>
+            TỔ BỘ MÔN
+          </Typography>
+        </Toolbar>
+      </AppBar>
+
+      {/* 🔹 Banner nằm ngay dưới AppBar */}
+      <Box sx={{ mt: { xs: 5, sm: 5, md: 5 } }}>
+        <Box
+          sx={{
+            position: "relative",
+            width: "100%",
+            height: { xs: 100, sm: 140, md: 180 },
+            backgroundImage: "url('/banner.png')",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            mb: 2,
+            "&::before": {
+              content: '""',
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "rgba(0, 0, 0, 0.4)",
+              zIndex: 1,
+            },
+          }}
+        >
+          <Box
+            sx={{ position: "relative", zIndex: 2, textAlign: "center", px: 1 }}
+          >
+            <Typography
+              variant="h5"
+              color="white"
+              fontWeight="bold"
+              sx={{ fontSize: { xs: "1.2rem", sm: "1.8rem", md: "2.2rem" } }}
+            >
+              KẾ HOẠCH BÀI DẠY TRỰC TUYẾN
+            </Typography>
+          </Box>
+        </Box>
+      </Box>
+
+      {/* 🧩 Form đăng nhập */}
+      <Box
         sx={{
-          p: 3,
-          borderRadius: 4,
-          width: { xs: "90%", sm: 350 },
-          backgroundColor: "white",
+          flex: 1,
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "center",
+          mt: 2,
+          px: 2, // tránh dính lề
         }}
       >
-        <Stack spacing={3} alignItems="center">
-          <div style={{ fontSize: 50 }}>🔐</div>
+        <Card
+          elevation={10}
+          sx={{
+            p: { xs: 3, sm: 4 },
+            borderRadius: 4,
+            width: { xs: "90%", sm: 350, md: 350 }, // 👈 Mobile: 90%, Desktop: giữ nguyên
+            maxWidth: 350,                     // 👈 Giới hạn tối đa
+            mx: "auto",
+            backgroundColor: "white",
+          }}
+        >
+          <Stack spacing={3} alignItems="center">
+            <div style={{ fontSize: 50 }}>🔐</div>
 
-          <Typography variant="h5" fontWeight="bold" color="primary">
-            ĐĂNG NHẬP
-          </Typography>
-
-          <FormControl fullWidth size="small">
-            <InputLabel>👤 Tài khoản</InputLabel>
-            <Select
-              value={username}
-              label="Tài khoản"
-              onChange={(e) => setUsername(e.target.value)}
-            >
-              {usernames
-                .sort((a, b) => {
-                  const normalize = (s) => s?.toLowerCase().trim() || "";
-                  const aName = normalize(a);
-                  const bName = normalize(b);
-
-                  const isAdminA =
-                    aName.includes("admin") || aName.includes("thbinhkhanh");
-                  const isAdminB =
-                    bName.includes("admin") || bName.includes("thbinhkhanh");
-
-                  const isBGHA =
-                    aName === "bgh" ||
-                    aName.includes("ban giám hiệu") ||
-                    aName.includes("chuyenmon");
-                  const isBGHB =
-                    bName === "bgh" ||
-                    bName.includes("ban giám hiệu") ||
-                    bName.includes("chuyenmon");
-
-                  if (isAdminA && !isAdminB) return 1;
-                  if (!isAdminA && isAdminB) return -1;
-                  if (isBGHA && !isBGHB) return 1;
-                  if (!isBGHA && isBGHB) return -1;
-
-                  const getLastName = (fullName) =>
-                    fullName?.trim().split(" ").slice(-1)[0]?.toLowerCase() || "";
-                  return getLastName(a).localeCompare(getLastName(b), "vi");
-                })
-                .map((name) => (
-                  <MenuItem key={name} value={name}>
-                    {name}
-                  </MenuItem>
-                ))}
-            </Select>
-          </FormControl>
-
-          <TextField
-            fullWidth
-            size="small"
-            type="password"
-            label="🔑 Mật khẩu"
-            placeholder="Nhập mật khẩu"
-            autoComplete="new-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleLogin(e)}
-          />
-
-          {error && (
-            <Typography color="error" fontSize="0.9rem" textAlign="center">
-              {error}
+            <Typography variant="h5" fontWeight="bold" color="primary">
+              ĐĂNG NHẬP
             </Typography>
-          )}
 
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleLogin}
-            fullWidth
-            sx={{
-              fontWeight: "bold",
-              textTransform: "none",
-              fontSize: "1rem",
-            }}
-          >
-            🔐 Đăng nhập
-          </Button>
-        </Stack>
-      </Card>
+            <FormControl fullWidth size="small">
+              <InputLabel>👤 Tài khoản</InputLabel>
+              <Select
+                value={username}
+                label="Tài khoản"
+                onChange={(e) => setUsername(e.target.value)}
+              >
+                {usernames
+                  .sort((a, b) => {
+                    const normalize = (s) => s?.toLowerCase().trim() || "";
+                    const aName = normalize(a);
+                    const bName = normalize(b);
+
+                    const isAdminA =
+                      aName.includes("admin") || aName.includes("thbinhkhanh");
+                    const isAdminB =
+                      bName.includes("admin") || bName.includes("thbinhkhanh");
+
+                    const isBGHA =
+                      aName === "bgh" ||
+                      aName.includes("ban giám hiệu") ||
+                      aName.includes("chuyenmon");
+                    const isBGHB =
+                      bName === "bgh" ||
+                      bName.includes("ban giám hiệu") ||
+                      bName.includes("chuyenmon");
+
+                    if (isAdminA && !isAdminB) return 1;
+                    if (!isAdminA && isAdminB) return -1;
+                    if (isBGHA && !isBGHB) return 1;
+                    if (!isBGHA && isBGHB) return -1;
+
+                    const getLastName = (fullName) =>
+                      fullName?.trim().split(" ").slice(-1)[0]?.toLowerCase() || "";
+                    return getLastName(a).localeCompare(getLastName(b), "vi");
+                  })
+                  .map((name) => (
+                    <MenuItem key={name} value={name}>
+                      {name}
+                    </MenuItem>
+                  ))}
+              </Select>
+            </FormControl>
+
+            <TextField
+              fullWidth
+              size="small"
+              type="password"
+              label="🔑 Mật khẩu"
+              placeholder="Nhập mật khẩu"
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleLogin(e)}
+            />
+
+            {error && (
+              <Typography color="error" fontSize="0.9rem" textAlign="center">
+                {error}
+              </Typography>
+            )}
+
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleLogin}
+              fullWidth
+              sx={{
+                fontWeight: "bold",
+                textTransform: "none",
+                fontSize: "1rem",
+              }}
+            >
+              🔐 Đăng nhập
+            </Button>
+          </Stack>
+        </Card>
+      </Box>
     </Box>
-  </Box>
-);
+  );
+
 
 }
