@@ -455,7 +455,7 @@ export default function BGH({ user }) {
         sx={{
           width: { xs: "100%", sm: "70%" },
           minWidth: 0,
-          height: "165%",
+          height: "200%",
           mt: { xs: 2, sm: -15 },
           display: { xs: "none", sm: "block" },
         }}
