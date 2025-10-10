@@ -237,7 +237,7 @@ useEffect(() => {
             <Typography
               variant="h5"
               color="white"
-              fontWeight="bold"
+              //fontWeight="bold"
               sx={{ fontSize: { xs: "1.2rem", sm: "1.8rem", md: "2.2rem" } }}
             >
               KẾ HOẠCH BÀI DẠY TRỰC TUYẾN

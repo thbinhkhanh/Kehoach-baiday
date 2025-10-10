@@ -33,7 +33,7 @@ export default function Banner() {
         <Typography
           variant="h5"
           color="white"
-          fontWeight="bold"
+          //fontWeight="bold"
           sx={{ fontSize: { xs: "1rem", sm: "1.5rem", md: "2rem" } }}
         >
           KẾ HOẠCH BÀI DẠY TRỰC TUYẾN
