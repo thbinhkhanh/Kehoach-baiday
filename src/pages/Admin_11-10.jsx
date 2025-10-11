@@ -1,10 +1,13 @@
+// 🔧 PHIÊN BẢN ĐÃ SỬA
 import React, { useState, useEffect } from "react";
 import { supabase } from "../supabase";
 import { 
   Box, Card, CardContent, Typography, List, ListItem, ListItemText,
   Button, CircularProgress, IconButton, FormControl, InputLabel, Select, MenuItem,
-  useTheme, useMediaQuery, LinearProgress
+  useTheme, useMediaQuery, 
 } from "@mui/material";
+
+
 
 import DeleteIcon from "@mui/icons-material/Delete";
 import SettingsIcon from "@mui/icons-material/Settings";
@@ -12,8 +15,6 @@ import SettingsIcon from "@mui/icons-material/Settings";
 export default function Admin({ user }) {
   const [fileList, setFileList] = useState([]);
   const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadMode, setUploadMode] = useState("upload"); // "upload" | "delete" | "reset"
   const [selectedFile, setSelectedFile] = useState(null);
   const [subject, setSubject] = useState("");
   const [className, setClassName] = useState("1");
@@ -119,6 +120,7 @@ export default function Admin({ user }) {
     }
   };
 
+
   useEffect(() => {
     fetchFileList();
   }, [subject, className, selectedUsername]);
@@ -126,7 +128,7 @@ export default function Admin({ user }) {
   // Tải file đồng loạt
   const handleUpload = async (e) => {
     const files = Array.from(e.target.files); // Chuyển FileList thành Array
-    e.target.value = null; // 👈 Thêm dòng này để reset input file
+
     if (files.length === 0) return;
 
     // Kiểm tra loại file
@@ -148,39 +150,20 @@ export default function Admin({ user }) {
     }
 
     try {
-      setUploadMode("upload"); // 👈 Thêm dòng này — báo UI là đang tải lên
       setUploading(true);
-      setUploadProgress(0); // 👈 reset % về 0
 
       const targetUser = usernameMap[selectedUsername];
       const folder = getUserFolder(targetUser.email);
       const cleanSubject = normalizeFolderName(subject);
       const cleanClass = normalizeFolderName(className);
 
-      const totalFiles = files.length;
-      const stepPerFile = 100 / totalFiles;
-
-      for (let i = 0; i < totalFiles; i++) {
-        const file = files[i];
-
-        // 👇 Giả lập tiến trình cho mỗi file
-        let localProgress = 0;
-        const timer = setInterval(() => {
-          localProgress = Math.min(localProgress + Math.random() * 25, 95);
-          const globalProgress = Math.min(
-            Math.round(i * stepPerFile + (localProgress / 100) * stepPerFile),
-            99
-          );
-          setUploadProgress(globalProgress);
-        }, 200);
-
+      for (const file of files) {
         const cleanName = normalizeFileName(file.name);
         const filePath = `${folder}/${cleanSubject}/${cleanClass}/${Date.now()}_${cleanName}`;
 
         const { error: uploadError } = await supabase.storage
           .from("data")
           .upload(filePath, file, { upsert: false });
-        clearInterval(timer);
         if (uploadError) throw uploadError;
 
         const { data: publicData, error: urlError } = await supabase.storage
@@ -194,27 +177,23 @@ export default function Admin({ user }) {
             path: filePath,
             url: publicData.publicUrl,
             uploaded_by: targetUser.email,
+            //uploaded_at: new Date().toISOString(),
             uploaded_at: new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString(),
             subject,
             class: className,
           },
         ]);
         if (insertError) throw insertError;
-
-        setUploadProgress(Math.round((i + 1) * stepPerFile));
       }
 
-      setUploadProgress(100);
       fetchFileList();
     } catch (err) {
       console.error("❌ Lỗi khi upload:", err);
       alert("❌ Không thể tải file lên.");
     } finally {
-      setTimeout(() => setUploadProgress(0), 800);
       setUploading(false);
     }
   };
-
 
   // ✅ Xóa file
   const handleDeleteFiles = async (files) => {
@@ -228,33 +207,11 @@ export default function Admin({ user }) {
     if (!window.confirm(confirmMessage)) return;
 
     try {
-      // 👇 Bật tiến trình xóa
-      setUploadMode("delete"); // để thanh tiến trình biết là đang xóa
-      setUploading(true);
-      setUploadProgress(0);
-
-      const totalFiles = files.length;
-      const stepPerFile = 100 / totalFiles;
-
-      for (let i = 0; i < totalFiles; i++) {
-        const file = files[i];
-
-        // 👇 Giả lập tiến trình xóa cho từng file
-        let localProgress = 0;
-        const timer = setInterval(() => {
-          localProgress = Math.min(localProgress + Math.random() * 25, 95);
-          const globalProgress = Math.min(
-            Math.round(i * stepPerFile + (localProgress / 100) * stepPerFile),
-            99
-          );
-          setUploadProgress(globalProgress);
-        }, 200);
-
+      for (const file of files) {
         // Xóa file trong storage
         const { error: storageError } = await supabase.storage
           .from("data")
           .remove([file.path]);
-        clearInterval(timer);
         if (storageError) throw storageError;
 
         // Xóa file trong DB (dùng email người upload thực tế)
@@ -264,34 +221,23 @@ export default function Admin({ user }) {
           .eq("path", file.path)
           .eq("uploaded_by", file.uploaded_by);
         if (dbError) throw dbError;
-
-        // ✅ Cập nhật tiến trình
-        setUploadProgress(Math.round((i + 1) * stepPerFile));
       }
 
-      // ✅ Hoàn tất
-      setUploadProgress(100);
       fetchFileList();
     } catch (err) {
       console.error("❌ Lỗi khi xóa file:", err);
       alert("❌ Không thể xóa file. Vui lòng thử lại sau.");
-    } finally {
-      // ✅ Ẩn tiến trình sau 0.8 giây
-      setTimeout(() => setUploadProgress(0), 800);
-      setUploading(false);
     }
   };
 
-
-
   // ✅ Giao diện
-  {/*if (!isAdmin) {
+  if (!isAdmin) {
     return (
       <Box sx={{ p: 2 }}>
         <Typography>⚠️ Bạn không có quyền truy cập Admin.</Typography>
       </Box>
     );
-  }*/}
+  }
 
   const formatVNDate = (isoString) => {
     const date = new Date(isoString);
@@ -351,90 +297,139 @@ export default function Admin({ user }) {
   };
 
   const handleResetAll = async (selectedTeachers = []) => {
-    try {
-      if (selectedTeachers.length === 0) {
-        alert("⚠️ Không có giáo viên nào được chọn.");
-        return;
-      }
-
-      // 👉 Báo UI biết đang trong chế độ "reset"
-      setUploadMode("reset");
-      setUploading(true);
-      setUploadProgress(0);
-
-      // Lấy email của GV cần xóa
-      const selectedEmails = selectedTeachers
-        .map((name) => usernameMap[name]?.email)
-        .filter(Boolean);
-
-      // Lấy tất cả file thuộc các email này
-      const { data: allRows, error: getError } = await supabase
-        .from("uploaded_files")
-        .select("id, path, uploaded_by")
-        .in("uploaded_by", selectedEmails);
-
-      if (getError) throw getError;
-
-      if (!allRows || allRows.length === 0) {
-        alert("📭 Không có dữ liệu nào để xóa.");
-        setUploading(false);
-        return;
-      }
-
-      const totalFiles = allRows.length;
-      const chunkSize = 200;
-      const totalChunks = Math.ceil(totalFiles / chunkSize);
-      const stepPerChunk = 100 / totalChunks;
-
-      // Xóa file trong storage (chia nhỏ từng nhóm 200)
-      for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
-        const chunkStart = chunkIndex * chunkSize;
-        const chunk = allRows.slice(chunkStart, chunkStart + chunkSize).map((r) => r.path);
-
-        // 👇 Giả lập tiến trình từng chunk (cho mượt)
-        let localProgress = 0;
-        const timer = setInterval(() => {
-          localProgress = Math.min(localProgress + Math.random() * 25, 95);
-          const globalProgress = Math.min(
-            Math.round(chunkIndex * stepPerChunk + (localProgress / 100) * stepPerChunk),
-            99
-          );
-          setUploadProgress(globalProgress);
-        }, 200);
-
-        const { error: removeError } = await supabase.storage
-          .from("data")
-          .remove(chunk);
-        clearInterval(timer);
-        if (removeError) console.error("⚠️ Lỗi khi xóa file:", removeError);
-
-        setUploadProgress(Math.min(Math.round((chunkIndex + 1) * stepPerChunk), 100));
-      }
-
-      // Xóa bản ghi trong DB
-      const allIds = allRows.map((r) => r.id);
-      const { error: deleteError } = await supabase
-        .from("uploaded_files")
-        .delete()
-        .in("id", allIds);
-      if (deleteError) throw deleteError;
-
-      setUploadProgress(100);
-      //alert(`✅ Đã xóa toàn bộ file của ${selectedTeachers.length} giáo viên.`);
-
-      fetchFileList();
-      setStatsData([]);
-      setShowStats(false);
-    } catch (err) {
-      console.error("❌ Lỗi khi xóa dữ liệu:", err);
-      alert("❌ Không thể xóa dữ liệu. Vui lòng thử lại.");
-    } finally {
-      setTimeout(() => setUploadProgress(0), 800);
-      setUploading(false);
+  try {
+    if (selectedTeachers.length === 0) {
+      alert("⚠️ Không có giáo viên nào được chọn.");
+      return;
     }
-  };
+
+    // Lấy email của GV cần xóa
+    const selectedEmails = selectedTeachers
+      .map((name) => usernameMap[name]?.email)
+      .filter(Boolean);
+
+    // Lấy tất cả file thuộc các email này
+    const { data: allRows, error: getError } = await supabase
+      .from("uploaded_files")
+      .select("id, path, uploaded_by")
+      .in("uploaded_by", selectedEmails);
+
+    if (getError) throw getError;
+
+    if (!allRows || allRows.length === 0) {
+      alert("📭 Không có dữ liệu nào để xóa.");
+      return;
+    }
+
+    // Xóa file trong storage
+    const allPaths = allRows.map((r) => r.path);
+    const chunkSize = 200;
+    for (let i = 0; i < allPaths.length; i += chunkSize) {
+      const chunk = allPaths.slice(i, i + chunkSize);
+      const { error: removeError } = await supabase.storage
+        .from("data")
+        .remove(chunk);
+      if (removeError) console.error("⚠️ Lỗi khi xóa file:", removeError);
+    }
+
+    // Xóa bản ghi trong DB
+    const allIds = allRows.map((r) => r.id);
+    const { error: deleteError } = await supabase
+      .from("uploaded_files")
+      .delete()
+      .in("id", allIds);
+    if (deleteError) throw deleteError;
+
+    alert(`✅ Đã xóa toàn bộ file của ${selectedTeachers.length} giáo viên.`);
+    fetchFileList();
+    setStatsData([]);
+    setShowStats(false);
+  } catch (err) {
+    console.error("❌ Lỗi khi xóa dữ liệu:", err);
+    alert("❌ Không thể xóa dữ liệu. Vui lòng thử lại.");
+  }
+};
 
 
+  {/*const handleResetAll_OK = async () => {
+  try {
+    // 1️⃣ Kiểm tra bảng uploaded_files trước
+    const { data: allRows, error: getError } = await supabase
+      .from("uploaded_files")
+      .select("id");
+
+    if (getError) throw getError;
+
+    if (!allRows || allRows.length === 0) {
+      alert("📭 Không có dữ liệu nào để xóa.");
+      return;
+    }
+
+    // 2️⃣ Xác nhận xóa nếu có dữ liệu
+    const confirmDelete = window.confirm("⚠️ Bạn có chắc muốn xóa toàn bộ file đã tải lên?");
+    if (!confirmDelete) return;
+
+    // 3️⃣ Hàm đệ quy gom toàn bộ đường dẫn file trong bucket "data"
+    const collectAllFilePaths = async (path = "") => {
+      const { data: items, error } = await supabase.storage.from("data").list(path, { limit: 1000 });
+      if (error) {
+        console.warn("⚠️ Lỗi khi liệt kê:", path, error);
+        return [];
+      }
+
+      const tasks = items.map(async (item) => {
+        const fullPath = path ? `${path.replace(/\/$/, "")}/${item.name}` : item.name;
+
+        if (item.metadata?.size === undefined) {
+          return await collectAllFilePaths(fullPath);
+        } else {
+          return [fullPath];
+        }
+      });
+
+      const results = await Promise.all(tasks);
+      return results.flat();
+    };
+
+    // 4️⃣ Gom và xóa toàn bộ file trong bucket "data"
+    const allFilePaths = await collectAllFilePaths("");
+
+    if (allFilePaths.length > 0) {
+      const chunkSize = 200;
+      for (let i = 0; i < allFilePaths.length; i += chunkSize) {
+        const chunk = allFilePaths.slice(i, i + chunkSize);
+        const { error: removeError } = await supabase.storage.from("data").remove(chunk);
+        if (removeError) {
+          console.error("❌ Lỗi khi xóa file:", removeError);
+        } else {
+          console.log(`🗑️ Đã xóa ${chunk.length} file`);
+        }
+      }
+    } else {
+      console.log("📁 Không có file nào để xóa trong bucket data");
+    }
+
+    // 5️⃣ Xóa toàn bộ dữ liệu trong bảng uploaded_files
+    const allIds = allRows.map((r) => r.id);
+    const { error: deleteError } = await supabase
+      .from("uploaded_files")
+      .delete()
+      .in("id", allIds);
+
+    if (deleteError) throw deleteError;
+
+    console.log(`✅ Đã xóa ${allIds.length} dòng trong bảng uploaded_files`);
+
+    // 6️⃣ Hoàn tất
+    alert("✅ Đã xóa toàn bộ file và dữ liệu thành công.");
+    fetchFileList();
+    setStatsData([]);
+    setShowStats(false);
+  } catch (err) {
+    console.error("❌ Lỗi khi xóa tất cả:", err);
+    alert("❌ Không thể xóa tất cả. Vui lòng thử lại.");
+  }
+};*/}
 
 // Khi usernames thay đổi (sau khi load từ server)
 useEffect(() => {
@@ -544,11 +539,11 @@ useEffect(() => {
                   onChange={(e) => setSubject(e.target.value)}
                 >
                   <MenuItem value="Âm nhạc">Âm nhạc</MenuItem>
-                    <MenuItem value="Công nghệ">Công nghệ</MenuItem>
-                    <MenuItem value="Giáo dục thể chất">GD thể chất</MenuItem>
-                    <MenuItem value="Mĩ thuật">Mĩ thuật</MenuItem>
-                    <MenuItem value="Tiếng Anh">Tiếng Anh</MenuItem>
-                    <MenuItem value="Tin học">Tin học</MenuItem>
+                  <MenuItem value="Công nghệ">Công nghệ</MenuItem>
+                  <MenuItem value="Giáo dục thể chất">GD thể chất</MenuItem>
+                  <MenuItem value="Mĩ thuật">Mĩ thuật</MenuItem>
+                  <MenuItem value="Tiếng Anh">Tiếng Anh</MenuItem>
+                  <MenuItem value="Tin học">Tin học</MenuItem>
                 </Select>
               </FormControl>
 
@@ -642,31 +637,16 @@ useEffect(() => {
                   setShowResetConfirm(true);
                 }}
               >
-                🔄 Reset
+                🔄 Reset data
               </Button>
             </Box>
 
             {uploading && (
-              <Box sx={{ width: "60%", mx: "auto", mt: 2 }}>
-                <LinearProgress
-                  variant="determinate"
-                  value={uploadProgress}
-                  sx={{ height: 4, borderRadius: 3 }}
-                />
-                <Typography
-                  variant="body2"
-                  align="center"
-                  sx={{ mt: 1, color: "text.secondary" }}
-                >
-                  {uploadMode === "delete"
-                    ? `Đang xóa: ${uploadProgress}%`
-                    : uploadMode === "reset"
-                    ? `Đang reset: ${uploadProgress}%`
-                    : `Đang tải lên: ${uploadProgress}%`}
-                </Typography>
+              <Box sx={{ display: "inline-flex", ml: 2, alignItems: "center" }}>
+                <CircularProgress size={24} />
+                <Typography sx={{ ml: 1 }}>Đang tải lên...</Typography>
               </Box>
             )}
-
           </CardContent>
         </Card>
 
@@ -725,8 +705,8 @@ useEffect(() => {
                         `⚠️ Xóa toàn bộ file của ${selectedTeachersToDelete.length} giáo viên đã chọn?`
                       );
                       if (!confirm) return;
+                      await handleResetAll(selectedTeachersToDelete);
                       setShowResetConfirm(false);
-                      await handleResetAll(selectedTeachersToDelete);                      
                     }}
                   >
                     ✅ Xác nhận xóa

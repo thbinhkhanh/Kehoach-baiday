@@ -9,13 +9,15 @@ import {
   ListItem,
   ListItemText,
   Button,
+  CircularProgress,
   IconButton,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
-  LinearProgress, 
 } from "@mui/material";
+
+import DeleteIcon from "@mui/icons-material/Delete";
 
 export default function Users({ user }) {
   const [fileList, setFileList] = useState([]);
@@ -23,9 +25,6 @@ export default function Users({ user }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [subject, setSubject] = useState("");
   const [className, setClassName] = useState("");
-
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadMode, setUploadMode] = useState("upload"); // "upload" | "delete"
 
   // ✅ Lấy môn học theo tài khoản đăng nhập
   useEffect(() => {
@@ -108,10 +107,11 @@ export default function Users({ user }) {
   //Tải file đồng loạt
 
   const handleUpload = async (e) => {
-    const files = Array.from(e.target.files);
-    e.target.value = null; // 👈 Thêm dòng này để reset input file
+    const files = Array.from(e.target.files); // Chuyển FileList thành Array
+
     if (files.length === 0) return;
 
+    // Kiểm tra loại file
     for (const file of files) {
       if (
         ![
@@ -130,71 +130,46 @@ export default function Users({ user }) {
     }
 
     try {
-      setUploadMode("upload");
       setUploading(true);
-      setUploadProgress(0);
 
       const folder = getUserFolder(user?.email);
       const cleanSubject = normalizeFolderName(subject);
       const cleanClass = normalizeFolderName(className);
 
-      const totalFiles = files.length;
-      const stepPerFile = 100 / totalFiles;
-
-      for (let i = 0; i < totalFiles; i++) {
-        const file = files[i];
+      for (const file of files) {
         const cleanName = normalizeFileName(file.name);
         const filePath = `${folder}/${cleanSubject}/${cleanClass}/${Date.now()}_${cleanName}`;
 
-        // 🔹 Giả lập tiến trình trong mỗi file (nội bộ)
-        let localProgress = 0;
-        const timer = setInterval(() => {
-          localProgress = Math.min(localProgress + Math.random() * 15, 95);
-          const globalProgress = Math.min(
-            Math.round(i * stepPerFile + (localProgress / 100) * stepPerFile),
-            99
-          );
-          setUploadProgress(globalProgress);
-        }, 200);
-
-        // 🔹 Upload thật
         const { error: uploadError } = await supabase.storage
           .from("data")
           .upload(filePath, file, { upsert: false });
-        clearInterval(timer);
         if (uploadError) throw uploadError;
 
-        // 🔹 Lấy URL công khai
         const { data: publicData, error: urlError } = await supabase.storage
           .from("data")
           .getPublicUrl(filePath);
         if (urlError) throw urlError;
 
-        // 🔹 Ghi vào database
         const { error: insertError } = await supabase.from("uploaded_files").insert([
           {
             name: file.name,
             path: filePath,
             url: publicData.publicUrl,
             uploaded_by: user?.email || "unknown",
+            //uploaded_at: new Date().toISOString(),
             uploaded_at: new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString(),
             subject,
             class: className,
           },
         ]);
         if (insertError) throw insertError;
-
-        // 🔹 Hoàn tất file hiện tại
-        setUploadProgress(Math.round((i + 1) * stepPerFile));
       }
 
-      setUploadProgress(100);
       fetchFileList();
     } catch (err) {
       console.error("❌ Lỗi khi upload:", err);
       alert("❌ Không thể tải file lên.");
     } finally {
-      setTimeout(() => setUploadProgress(0), 800);
       setUploading(false);
     }
   };
@@ -207,6 +182,7 @@ export default function Users({ user }) {
 
     if (files.length === 0) return;
 
+    // Tạo thông báo tùy theo số lượng file
     const confirmMessage =
       files.length === 1
         ? `🗑️ Bạn có chắc muốn xóa "${files[0].name}" không?`
@@ -216,32 +192,11 @@ export default function Users({ user }) {
     if (!confirmDelete) return;
 
     try {
-      setUploadMode("delete");
-      setUploading(true);
-      setUploadProgress(0);
-
-      const totalFiles = files.length;
-      const stepPerFile = 100 / totalFiles;
-
-      for (let i = 0; i < totalFiles; i++) {
-        const file = files[i];
-
-        // Giả lập tiến trình xóa
-        let localProgress = 0;
-        const timer = setInterval(() => {
-          localProgress = Math.min(localProgress + Math.random() * 25, 95);
-          const globalProgress = Math.min(
-            Math.round(i * stepPerFile + (localProgress / 100) * stepPerFile),
-            99
-          );
-          setUploadProgress(globalProgress);
-        }, 200);
-
+      for (const file of files) {
         // Xóa file trong storage
         const { error: storageError } = await supabase.storage
           .from("data")
           .remove([file.path]);
-        clearInterval(timer);
         if (storageError) throw storageError;
 
         // Xóa file trong DB
@@ -251,21 +206,15 @@ export default function Users({ user }) {
           .eq("path", file.path)
           .eq("uploaded_by", user.email);
         if (dbError) throw dbError;
-
-        setUploadProgress(Math.round((i + 1) * stepPerFile));
       }
 
-      setUploadProgress(100);
+      // Cập nhật lại danh sách
       fetchFileList();
     } catch (err) {
       console.error("❌ Lỗi khi xóa file:", err);
       alert("❌ Không thể xóa file. Vui lòng thử lại sau.");
-    } finally {
-      setTimeout(() => setUploadProgress(0), 800);
-      setUploading(false);
     }
   };
-
 
   useEffect(() => {
     fetchFileList();
@@ -374,24 +323,11 @@ export default function Users({ user }) {
               </Button>
             </Box>
 
- 
+            {/* Hiển thị tiến trình tải lên */}
             {uploading && (
-              <Box sx={{ width: "60%", mx: "auto", mt: 2 }}>
-                <LinearProgress
-                  variant="determinate"
-                  value={uploadProgress}
-                  sx={{
-                    height: 4,
-                    borderRadius: 3,
-                  }}
-                />
-                <Typography
-                  variant="body2"
-                  align="center"
-                  sx={{ mt: 1, color: "text.secondary" }}
-                >
-                  {`${uploadMode === "delete" ? "Đang xóa" : "Đang tải lên"}: ${uploadProgress}%`}
-                </Typography>
+              <Box sx={{ display: "inline-flex", ml: 2, alignItems: "center" }}>
+                <CircularProgress size={24} />
+                <Typography sx={{ ml: 1 }}>Đang tải lên...</Typography>
               </Box>
             )}
           </CardContent>
@@ -490,7 +426,7 @@ export default function Users({ user }) {
         sx={{
           width: { xs: "100%", sm: "70%" },
           minWidth: 0,
-          height: "200%",
+          height: "120%",
           mt: { xs: 2, sm: -15 },
           display: { xs: "none", sm: "block" }, // ẩn iframe trên mobile
         }}
