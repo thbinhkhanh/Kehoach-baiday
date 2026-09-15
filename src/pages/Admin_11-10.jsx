@@ -539,6 +539,7 @@ useEffect(() => {
                   onChange={(e) => setSubject(e.target.value)}
                 >
                   <MenuItem value="Âm nhạc">Âm nhạc</MenuItem>
+                  <MenuItem value="Đạo đức">Đạo đức</MenuItem>
                   <MenuItem value="Công nghệ">Công nghệ</MenuItem>
                   <MenuItem value="Giáo dục thể chất">GD thể chất</MenuItem>
                   <MenuItem value="Mĩ thuật">Mĩ thuật</MenuItem>

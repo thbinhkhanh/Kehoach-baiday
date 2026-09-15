@@ -545,6 +545,7 @@ useEffect(() => {
                 >
                   <MenuItem value="Âm nhạc">Âm nhạc</MenuItem>
                     <MenuItem value="Công nghệ">Công nghệ</MenuItem>
+                    <MenuItem value="Đạo đức">Đạo đức</MenuItem>
                     <MenuItem value="Giáo dục thể chất">GD thể chất</MenuItem>
                     <MenuItem value="Mĩ thuật">Mĩ thuật</MenuItem>
                     <MenuItem value="Tiếng Anh">Tiếng Anh</MenuItem>
