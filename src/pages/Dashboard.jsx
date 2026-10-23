@@ -249,7 +249,7 @@ export default function Dashboard({ onSelectModule }) {
             display: "grid",
             gap: 2,
             gridTemplateColumns: {
-              xs: "repeat(1, minmax(0, 1fr))",
+              xs: "repeat(2, minmax(0, 1fr))",
               sm: "repeat(2, minmax(0, 1fr))",
               md: "repeat(3, minmax(0, 1fr))",
               lg: "repeat(5, minmax(0, 1fr))",
