@@ -1,194 +1,321 @@
-// src/App.jsx
-import React from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import React, { useState } from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { AppBar, Toolbar, Typography, Box, Menu, MenuItem, IconButton } from "@mui/material";
 import AccountCircle from "@mui/icons-material/AccountCircle";
-import { supabase } from "./supabase";
-import Login from "./pages/Login";
 import Users from "./pages/Users";
 import Admin from "./pages/Admin";
 import BGH from "./pages/BGH";
+import Dashboard from "./pages/Dashboard"; 
 import { ProfileProvider, useProfile } from "./contexts/ProfileContext";
-import ChangePassword from "./pages/ChangePassword"; // tạo component mới
+import ChangePasswordDialog from "./dialogs/ChangePasswordDialog"; 
 import MenuIcon from "@mui/icons-material/Menu";
-
-function PrivateRoute({ user, children }) {
-  return user ? children : <Navigate to="/" replace />;
-}
+import PhanQuyen from "./pages/PhanQuyen";
+import LockResetIcon from "@mui/icons-material/LockReset";
+import LogoutIcon from "@mui/icons-material/Logout";
+import Login from "./pages/Login";
 
 function AppContent() {
-  const { currentUser, setCurrentUser } = useProfile(); // lấy user từ context
+  const { currentUser, setCurrentUser } = useProfile();
   const navigate = useNavigate();
-  const [anchorEl, setAnchorEl] = React.useState(null);
+  const location = useLocation(); // 🌟 Lấy thông tin đường dẫn hiện tại
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [openChangePassword, setOpenChangePassword] = useState(false); 
+  const [zoomLogo, setZoomLogo] = useState(false);
+
   const open = Boolean(anchorEl);
   const handleMenu = (e) => setAnchorEl(e.currentTarget);
   const handleClose = () => setAnchorEl(null);
 
-  // Nếu chưa có user → render Login
-  if (!currentUser) return <Login onLogin={setCurrentUser} />;
+  // Kiểm tra xem có đang ở trang Dashboard (trang chủ "/") hay không
+  const isDashboard = location.pathname === "/";
+  const isLoginPage = location.pathname === "/login";
 
-  const displayName = currentUser.username || currentUser.email;
+  // Tên hiển thị cạnh icon user
+  const displayName = currentUser?.username || "Chưa đăng nhập";
+
+  const lowerName = currentUser?.username?.toLowerCase() || "";
+  const isAdmin = lowerName === "admin" || currentUser?.role === "admin";
+  const isBGH = lowerName === "bgh" || lowerName.includes("chuyên môn") || currentUser?.role === "bgh";
+
+  // Hàm xử lý Đăng xuất
+  const handleLogout = () => {
+    handleClose();
+    if (setCurrentUser) setCurrentUser(null);
+    navigate("/");
+  };
 
   return (
     <>
-      <AppBar position="fixed" sx={{ background: "#1976d2" }}>
+      {/* 🔵 Thanh tiêu đề đồng bộ kích thước chuẩn phẳng với Login */}
+      {!isLoginPage && (
+      <AppBar 
+        position="fixed" 
+        elevation={0}
+        sx={{ 
+          background: "#1976d2",
+          boxShadow: "none", // Loại bỏ hoàn toàn bóng đổ
+        }}
+      >
         <Toolbar
           sx={{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            minHeight: "44px !important",
-            //px: 0, // bỏ padding trái phải
-            px: { xs: 2.5 }, 
+            minHeight: "38px !important", // Giảm chiều cao tối thiểu xuống 38px
+            py: 0.5, // Padding dọc nhỏ gọn
+            px: { xs: 2.5 },
           }}
         >
           {/* Logo + Tiêu đề */}
           <Box
-  sx={{
-    display: "flex",
-    alignItems: "center",
-    gap: 1,
-    ml: -2,
-    whiteSpace: "nowrap",
-    overflowX: "auto",
-  }}
->
-  <img
-    src="/Logo.png"
-    alt="Logo"
-    style={{ height: "40px", flexShrink: 0 }}
-  />
-  <Typography
-    variant="h6"
-    sx={{
-      color: "white",
-    }}
-  >
-    TỔ BỘ MÔN
-  </Typography>
-</Box>
-
-
-          {/* Phần user/account */}
-          <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            whiteSpace: "nowrap",   // giữ tất cả trên 1 hàng
-            overflowX: "auto",      // scroll ngang nếu quá dài
-            gap: 1,                  // khoảng cách giữa các phần tử
-          }}
-        >
-          <AccountCircle sx={{ color: "white" }} />
-          <Typography sx={{ color: "white" }}>{displayName}</Typography>
-
-          <IconButton size="large" color="inherit" onClick={handleMenu}>
-            <MenuIcon />
-          </IconButton>
-
-          <Menu
-            anchorEl={anchorEl}
-            open={open}
-            onClose={handleClose}
-            anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-            transformOrigin={{ vertical: "top", horizontal: "right" }}
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              ml: -2,
+              whiteSpace: "nowrap",
+              overflowX: "auto",
+            }}
           >
-            <MenuItem
-              onClick={() => {
-                handleClose();
-                navigate("/change-password");
+            {/* Sử dụng Logo2.png hiển thị trên thanh màu xanh */}
+            <img
+              src="/Logo2.png"
+              alt="Logo TH Bình Khánh"
+              onClick={(e) => {
+                e.stopPropagation();
+                setZoomLogo(!zoomLogo);
+              }}
+              style={{ height: "30px", width: "30px", objectFit: "contain", flexShrink: 0, cursor: "pointer" }}
+              title="Bấm để phóng to logo"
+            />
+            <Typography
+              variant="subtitle1"
+              sx={{
+                color: "white",
+                fontWeight: 600,
+                fontSize: "0.95rem",
               }}
             >
-              Đổi mật khẩu
-            </MenuItem>
-            <MenuItem
-              onClick={async () => {
-                handleClose();
-                try {
-                  await supabase.auth.signOut();
-                  setCurrentUser(null);
-                  navigate("/", { replace: true });
-                } catch (err) {
-                  console.error("❌ Lỗi đăng xuất:", err);
-                }
+              KẾ HOẠCH BÀI DẠY TRỰC TUYẾN
+            </Typography>
+          </Box>
+
+          {/* Phần user/account (Chỉ hiển thị khi KHÔNG ở trang Dashboard) */}
+          {!isDashboard && (
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                whiteSpace: "nowrap",
+                overflowX: "auto",
+                gap: 1,
               }}
             >
-              Đăng xuất
-            </MenuItem>
-          </Menu>
-        </Box>
+              <AccountCircle sx={{ color: "white", fontSize: 20 }} />
+              <Typography sx={{ color: "white", fontWeight: 500, fontSize: "0.9rem" }}>
+                {displayName}
+              </Typography>
+
+              <IconButton size="small" color="inherit" onClick={handleMenu}>
+                <MenuIcon fontSize="small" />
+              </IconButton>
+
+              <Menu
+                anchorEl={anchorEl}
+                open={open}
+                onClose={handleClose}
+                anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+                transformOrigin={{ vertical: "top", horizontal: "right" }}
+                PaperProps={{
+                  sx: {
+                    width: 180,
+                    overflow: "hidden",
+                    boxShadow: "0 12px 35px rgba(0,0,0,0.18)",
+                    p: 0,
+                  },
+                }}
+              >
+                {/* Header Menu */}
+                <Box
+                  sx={{
+                    px: 2,
+                    py: 1.5,
+                    bgcolor: "#fff",
+                    fontWeight: 600,
+                    fontSize: 14,
+                    borderBottom: "1px solid #eee",
+                    color: "#d32f2f",
+                  }}
+                >
+                  {currentUser?.username ? "TÀI KHOẢN" : "HỆ THỐNG"}
+                </Box>
+
+                {/* Mục Đổi mật khẩu */}
+                <MenuItem
+                  onClick={() => {
+                    handleClose();
+                    setOpenChangePassword(true);
+                  }}
+                  sx={{
+                    px: 2,
+                    py: 1.5,
+                    bgcolor: "#f5f7fa",
+                    transition: "0.2s",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    "&:hover": { bgcolor: "#e9eef5" },
+                  }}
+                >
+                  <LockResetIcon sx={{ fontSize: 18, color: "#1976d2" }} />
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    Đổi mật khẩu
+                  </Typography>
+                </MenuItem>
+
+                {/* Đường phân cách */}
+                <Box sx={{ height: "1px", bgcolor: "#e5e7eb", mx: 1 }} />
+
+                {/* Mục Đăng xuất */}
+                {currentUser && (
+                  <MenuItem
+                    onClick={handleLogout}
+                    sx={{
+                      px: 2,
+                      py: 1.5,
+                      bgcolor: "#fff0f0",
+                      transition: "0.2s",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      "&:hover": { bgcolor: "#ffe0e0" },
+                    }}
+                  >
+                    <LogoutIcon sx={{ fontSize: 18, color: "#d32f2f" }} />
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: "#d32f2f" }}>
+                      Đăng xuất
+                    </Typography>
+                  </MenuItem>
+                )}
+              </Menu>
+            </Box>
+          )}
         </Toolbar>
       </AppBar>
+      )}
 
-      <Box sx={{ paddingTop: "60px" }}>
+      {/* Hiệu ứng phóng to Logo2 giữa màn hình khi bấm vào ảnh trên AppBar */}
+      {zoomLogo && (
+        <Box
+          onClick={() => setZoomLogo(false)}
+          sx={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100vw",
+            height: "100vh",
+            bgcolor: "rgba(0, 0, 0, 0.75)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            cursor: "zoom-out",
+          }}
+        >
+          <Box
+            component="img"
+            src="/Logo2.png"
+            alt="Logo Zoom"
+            onClick={(e) => {
+              e.stopPropagation();
+              setZoomLogo(false);
+            }}
+            sx={{
+              width: { xs: "250px", sm: "380px" },
+              height: "auto",
+              borderRadius: "16px",
+              boxShadow: "0 20px 50px rgba(0,0,0,0.5)",
+              bgcolor: "#fff",
+              p: 2,
+              cursor: "pointer",
+              transition: "transform 0.3s ease",
+            }}
+          />
+        </Box>
+      )}
+
+      <Box
+        sx={{
+          pt: isLoginPage ? 0 : "38px",
+          width: "100%",
+          maxWidth: "none",
+          minWidth: 0,
+          minHeight: "100vh",
+          margin: 0,
+          paddingBottom: 0,
+          boxSizing: "border-box",
+          display: "block",
+          bgcolor: isLoginPage ? "#ffffff" : "#f4f6f8",
+        }}
+      >
         <Routes>
-          {/* 🔹 Trang Admin */}
+          {/* Trang Dashboard chính (Mở đầu tiên khi vào ứng dụng) */}
           <Route
-            path="/admin"
+            path="/"
             element={
-              <PrivateRoute user={currentUser}>
-                {currentUser.email === "thbinhkhanh@gmail.com" ? (
-                  <Admin user={currentUser} />
-                ) : (
-                  <Navigate to="/" replace />
-                )}
-              </PrivateRoute>
-            }
-          />
-
-          {/* 🔹 Trang BGH (Chuyên môn) */}
-          <Route
-            path="/bgh"
-            element={
-              <PrivateRoute user={currentUser}>
-                {currentUser.email === "chuyenmon@gmail.com" ? (
-                  <BGH user={currentUser} />
-                ) : (
-                  <Navigate to="/" replace />
-                )}
-              </PrivateRoute>
-            }
-          />
-
-          {/* 🔹 Trang người dùng bình thường */}
-          <Route
-            path="/upload"
-            element={
-              <PrivateRoute user={currentUser}>
-                <Users user={currentUser} />
-              </PrivateRoute>
-            }
-          />
-
-          {/* 🔹 Trang đổi mật khẩu */}
-          <Route
-            path="/change-password"
-            element={
-              <PrivateRoute user={currentUser}>
-                <ChangePassword user={currentUser} />
-              </PrivateRoute>
-            }
-          />
-
-          {/* 🔹 Điều hướng mặc định */}
-          <Route
-            path="*"
-            element={
-              <Navigate
-                to={
-                  currentUser.email === "thbinhkhanh@gmail.com"
-                    ? "/admin"
-                    : currentUser.email === "chuyenmon@gmail.com"
-                    ? "/bgh"
-                    : "/upload"
-                }
-                replace
+              <Dashboard
+                onSelectModule={(item) => {
+                  navigate(item.path);
+                }}
               />
             }
           />
-        </Routes>
 
+          <Route
+            path="/login"
+            element={
+              <Login
+                onLogin={(userData) => {
+                  if (setCurrentUser) {
+                    setCurrentUser(userData);
+                  }
+                }}
+              />
+            }
+          />
+          
+          {/* Trang Admin */}
+          <Route
+            path="/admin"
+            element={<Admin user={currentUser} />}
+          />
+
+          {/* Trang BGH (Chuyên môn) */}
+          <Route
+            path="/bgh"
+            element={<BGH user={currentUser} />}
+          />
+          <Route path="/phan-quyen" element={<PhanQuyen user={currentUser} />} />
+
+          {/* Trang người dùng / nộp bài theo nhóm */}
+          <Route
+            path="/upload"
+            element={<Users user={currentUser} />}
+          />
+
+          {/* Điều hướng mặc định khi nhập sai đường dẫn */}
+          <Route
+            path="*"
+            element={<Navigate to="/" replace />}
+          />
+        </Routes>
       </Box>
+
+      {/* 🧩 Cửa sổ Dialog đổi mật khẩu được kích hoạt từ menu */}
+      <ChangePasswordDialog
+        open={openChangePassword}
+        onClose={() => setOpenChangePassword(false)}
+      />
     </>
   );
 }

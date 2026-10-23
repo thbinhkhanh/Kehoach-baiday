@@ -1,25 +1,23 @@
-// firebase.js
+// src/firebase.js
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getStorage } from "firebase/storage";
 import { getFirestore } from "firebase/firestore";
 
-// Cấu hình Firebase mới
+// Cấu hình Firebase mới của trường
 const firebaseConfig = {
-  apiKey: "AIzaSyANBtd_rw2pGcb0jiBdSLceqE2thMzGWbQ",
-  authDomain: "kehoach-dayhoc-2025-2026.firebaseapp.com",
-  projectId: "kehoach-dayhoc-2025-2026",
-  storageBucket: "kehoach-dayhoc-2025-2026.firebasestorage.app",
-  messagingSenderId: "50688141757",
-  appId: "1:50688141757:web:b08f844664b72101008ad4",
+  apiKey: "AIzaSyBvnG3COSNGkefxLmcBoFzYKC-_RzGVc_4",
+  authDomain: "kehoach-dayhoc-bk.firebaseapp.com",
+  projectId: "kehoach-dayhoc-bk",
+  storageBucket: "kehoach-dayhoc-bk.firebasestorage.app",
+  messagingSenderId: "387550827042",
+  appId: "1:387550827042:web:ebb6f29367431c0b54307b"
 };
 
-// Initialize Firebase
+// Khởi tạo Firebase
 const app = initializeApp(firebaseConfig);
 
-// Export các dịch vụ để sử dụng trong app
+// Export các dịch vụ
 export const auth = getAuth(app);
-export const storage = getStorage(app);
 export const db = getFirestore(app);
 
 export default app;

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { supabase } from "../supabase";
 import {
   Box,
   Card,
@@ -13,521 +12,747 @@ import {
   Select,
   MenuItem,
   Button,
-  useMediaQuery, 
+  ToggleButton,
+  ToggleButtonGroup,
+  useMediaQuery,
   useTheme,
 } from "@mui/material";
+import { db } from "../firebase";
+import { collection, getDocs, doc, getDoc, query, where } from "firebase/firestore";
+import { fetchSchoolSummaryData, fetchTeacherStatsData } from "../utils/thongKe";
+import TeacherStatsView from "../components/TeacherStatsView";
+import SchoolSummaryView from "../components/SchoolSummaryView";
+import FileListCardBGH from "../components/FileListCardBGH";
+
+// Hàm chuyển đổi tên môn học sang dạng viết tắt trên tiêu đề
+const getShortSubjectName = (name) => {
+  if (!name) return "";
+  const trimmed = name.trim();
+  const lower = trimmed.toLowerCase();
+
+  if (lower.includes("tiếng anh")) return "TA";
+  if (lower.includes("tin học")) return "TH";
+  if (lower.includes("công nghệ")) return "CN";
+  if (lower.includes("giáo dục thể chất")) return "GDTC";
+  if (lower.includes("âm nhạc")) return "AN";
+  if (lower.includes("mĩ thuật") || lower.includes("mỹ thuật")) return "MT";
+  if (lower === "toán") return "Toán";
+  if (lower.includes("tiếng việt")) return "TV";
+  if (lower.includes("đạo đức")) return "ĐĐ";
+  if (lower.includes("tự nhiên và xã hội")) return "TNXH";
+  if (lower === "khoa học") return "KH";
+  if (lower.includes("lịch sử") || lower.includes("địa lí") || lower.includes("địa lý")) return "LSĐL";
+  if (lower.includes("hoạt động trải nghiệm")) return "HĐTN";
+
+  return trimmed;
+};
 
 export default function BGH({ user }) {
   const [fileList, setFileList] = useState([]);
   const [selectedFile, setSelectedFile] = useState(null);
-  const [subject, setSubject] = useState("");
-  const [className, setClassName] = useState("1");
-  const [usernames, setUsernames] = useState([]);
-  const [usernameMap, setUsernameMap] = useState({});
-  const [selectedUsername, setSelectedUsername] = useState("");
-  
+  const [loadingFiles, setLoadingFiles] = useState(false);
+  const [loadingStats, setLoadingStats] = useState(false);
 
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  // State cho chế độ Tổng hợp toàn trường
+  const [viewMode, setViewMode] = useState("single"); // "single" hoặc "summary"
+  const [loadingSchoolSummary, setLoadingSchoolSummary] = useState(false);
+  const [schoolSummaryGrouped, setSchoolSummaryGrouped] = useState({});
+
+  const [academicYear, setAcademicYear] = useState("2026-2027");
+  const [subject, setSubject] = useState("");
+  const [className, setClassName] = useState("");
+
+  const [teacherAllowedSubjects, setTeacherAllowedSubjects] = useState([]);
+  const [teacherAllowedClasses, setTeacherAllowedClasses] = useState([]);
+
+  const [allMonHoc, setAllMonHoc] = useState([]);
+  const [filterCategory, setFilterCategory] = useState("all");
+
+  const [groupedTeachers, setGroupedTeachers] = useState({
+    khoi1: [],
+    khoi2: [],
+    khoi3: [],
+    khoi4: [],
+    khoi5: [],
+    tiengAnh: [],
+    boMon: [],
+  });
+
+  const [phanQuyenMap, setPhanQuyenMap] = useState({});
+  const [selectedUsername, setSelectedUsername] = useState("");
+
   const [statsData, setStatsData] = useState([]);
-  const [showStats, setShowStats] = useState(false);
-  const [showLeftStats, setShowLeftStats] = useState(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
- 
 
-  const isBGH = user?.email === "chuyenmon@gmail.com";
-  const isAdmin = isBGH; // bây giờ hợp lệ
+  const lowerUsername = user?.username?.toLowerCase() || "";
+  const isBGH =
+    lowerUsername === "bgh" ||
+    lowerUsername.includes("chuyên môn") ||
+    user?.role === "bgh";
+  const isAdmin = isBGH;
 
-
-  // ✅ Lấy danh sách tài khoản + môn học
+  // 1. Lấy CONFIG & MONHOC
   useEffect(() => {
-    const fetchProfiles = async () => {
+    const fetchConfigAndMonHoc = async () => {
       try {
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("username, email, subject");
-        if (error) throw error;
+        const configRef = doc(db, "CONFIG", "config");
+        const configSnap = await getDoc(configRef);
+        if (configSnap.exists() && configSnap.data().namHoc) {
+          setAcademicYear(configSnap.data().namHoc);
+        }
 
-        setUsernames(data.map((u) => u.username));
-        const map = {};
-        data.forEach((u) => (map[u.username] = u));
-        setUsernameMap(map);
+        const monSnap = await getDocs(collection(db, "MONHOC"));
+        const monList = [];
+        monSnap.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (data.name) {
+            monList.push({
+              name: data.name,
+              grades: data.grades || [],
+            });
+          }
+        });
+        setAllMonHoc(monList);
       } catch (err) {
-        console.error("❌ Lỗi khi lấy danh sách tài khoản:", err);
+        console.error("❌ Lỗi khi tải CONFIG / MONHOC:", err);
       }
     };
 
-    fetchProfiles();
-  }, []);
-
-  // ✅ Khi chọn tài khoản → tự động chọn môn đầu tiên (nếu có)
-  useEffect(() => {
-    if (selectedUsername && usernameMap[selectedUsername]?.subject) {
-      const firstSubject = Array.isArray(usernameMap[selectedUsername].subject)
-        ? usernameMap[selectedUsername].subject[0]
-        : usernameMap[selectedUsername].subject;
-      setSubject(firstSubject);
+    if (isBGH) {
+      fetchConfigAndMonHoc();
     }
-  }, [selectedUsername, usernameMap]);
+  }, [isBGH]);
+
+  // 2. Phân quyền giáo viên
+  useEffect(() => {
+    const fetchPhanQuyen = async () => {
+      try {
+        const phanQuyenColName = `PHANQUYEN_${academicYear}`;
+        const querySnapshot = await getDocs(collection(db, phanQuyenColName));
+
+        const groups = {
+          khoi1: [],
+          khoi2: [],
+          khoi3: [],
+          khoi4: [],
+          khoi5: [],
+          tiengAnh: [],
+          boMon: [],
+        };
+        const map = {};
+        let firstAvailableTeacher = "";
+
+        querySnapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          const name = data.username || docSnap.id;
+          const lowerName = name.toLowerCase();
+
+          if (
+            lowerName !== "admin" &&
+            lowerName !== "bgh" &&
+            !lowerName.includes("ban giám hiệu") &&
+            !lowerName.includes("thbinhkhanh")
+          ) {
+            const upperName = name.toUpperCase();
+
+            let subs = [];
+            if (
+              Array.isArray(data.assignedSubjects) &&
+              data.assignedSubjects.length > 0
+            ) {
+              subs = data.assignedSubjects;
+            } else if (data.assignedSubject) {
+              subs = data.assignedSubject
+                .split(",")
+                .map((s) => s.trim())
+                .filter(Boolean);
+            }
+
+            let cls = [];
+            if (data.assignedClass) {
+              cls = [String(data.assignedClass)];
+            } else if (
+              Array.isArray(data.teachingClasses) &&
+              data.teachingClasses.length > 0
+            ) {
+              cls = data.teachingClasses.map(String);
+            } else {
+              cls = ["1", "2", "3", "4", "5"];
+            }
+
+            const teacherObj = {
+              username: upperName,
+              role: data.role || "GVCN",
+              assignedSubjects: subs,
+              teachingClasses: cls,
+            };
+
+            map[upperName] = teacherObj;
+
+            const role = teacherObj.role;
+            const subString = subs.join(" ").toLowerCase();
+
+            if (role === "TA" || subString.includes("tiếng anh")) {
+              groups.tiengAnh.push(upperName);
+            } else if (
+              role === "BM" ||
+              subString.includes("tin học") ||
+              subString.includes("mĩ thuật") ||
+              subString.includes("mỹ thuật") ||
+              subString.includes("âm nhạc") ||
+              subString.includes("thể dục")
+            ) {
+              groups.boMon.push(upperName);
+            } else {
+              const firstCls = String(cls[0] || "");
+              if (firstCls.includes("1")) groups.khoi1.push(upperName);
+              else if (firstCls.includes("2")) groups.khoi2.push(upperName);
+              else if (firstCls.includes("3")) groups.khoi3.push(upperName);
+              else if (firstCls.includes("4")) groups.khoi4.push(upperName);
+              else if (firstCls.includes("5")) groups.khoi5.push(upperName);
+              else groups.boMon.push(upperName);
+            }
+          }
+        });
+
+        const sortByName = (arr) => {
+          return arr.sort((a, b) => {
+            const getLastName = (fullName) =>
+              fullName?.trim().split(" ").slice(-1)[0]?.toLowerCase() || "";
+            return getLastName(a).localeCompare(getLastName(b), "vi");
+          });
+        };
+
+        Object.keys(groups).forEach((key) => {
+          sortByName(groups[key]);
+        });
+
+        setGroupedTeachers(groups);
+        setPhanQuyenMap(map);
+
+        for (const key of Object.keys(groups)) {
+          if (groups[key].length > 0) {
+            firstAvailableTeacher = groups[key][0];
+            break;
+          }
+        }
+
+        if (firstAvailableTeacher && !selectedUsername) {
+          setSelectedUsername(firstAvailableTeacher);
+        }
+      } catch (err) {
+        console.error("❌ Lỗi khi tải dữ liệu phân quyền:", err);
+      }
+    };
+
+    if (isBGH) {
+      fetchPhanQuyen();
+    }
+  }, [isBGH, academicYear]);
+
+  const getFilteredTeacherList = () => {
+    let list = [];
+    if (filterCategory === "all") {
+      list = [
+        ...groupedTeachers.khoi1,
+        ...groupedTeachers.khoi2,
+        ...groupedTeachers.khoi3,
+        ...groupedTeachers.khoi4,
+        ...groupedTeachers.khoi5,
+        ...groupedTeachers.tiengAnh,
+        ...groupedTeachers.boMon,
+      ];
+    } else if (filterCategory === "gvcn") {
+      list = [
+        ...groupedTeachers.khoi1,
+        ...groupedTeachers.khoi2,
+        ...groupedTeachers.khoi3,
+        ...groupedTeachers.khoi4,
+        ...groupedTeachers.khoi5,
+      ];
+    } else if (filterCategory === "tieng_anh") {
+      list = groupedTeachers.tiengAnh;
+    } else if (filterCategory === "bo_mon") {
+      list = groupedTeachers.boMon;
+    }
+    return Array.from(new Set(list));
+  };
+
+  const handleCategoryChange = (event, newCategory) => {
+    if (newCategory !== null) {
+      setFilterCategory(newCategory);
+      setViewMode("single");
+      let tempGroups = { ...groupedTeachers };
+      let newList = [];
+      if (newCategory === "all") {
+        newList = [
+          ...tempGroups.khoi1,
+          ...tempGroups.khoi2,
+          ...tempGroups.khoi3,
+          ...tempGroups.khoi4,
+          ...tempGroups.khoi5,
+          ...tempGroups.tiengAnh,
+          ...tempGroups.boMon,
+        ];
+      } else if (newCategory === "gvcn") {
+        newList = [
+          ...tempGroups.khoi1,
+          ...tempGroups.khoi2,
+          ...tempGroups.khoi3,
+          ...tempGroups.khoi4,
+          ...tempGroups.khoi5,
+        ];
+      } else if (newCategory === "tieng_anh") {
+        newList = tempGroups.tiengAnh;
+      } else if (newCategory === "bo_mon") {
+        newList = tempGroups.boMon;
+      }
+      const uniqueList = Array.from(new Set(newList));
+      if (uniqueList.length > 0) {
+        setSelectedUsername(uniqueList[0]);
+      }
+    }
+  };
 
   useEffect(() => {
-    const filtered = usernames
-      .filter((name) => {
-        const lower = name?.toLowerCase() || "";
-        return (
-          lower !== "bgh" &&
-          !lower.includes("ban giám hiệu") &&
-          lower !== "admin" &&
-          !lower.includes("thbinhkhanh")
-        );
-      })
-      .sort((a, b) => {
-        const getLastName = (fullName) =>
-          fullName?.trim().split(" ").slice(-1)[0]?.toLowerCase() || "";
-        return getLastName(a).localeCompare(getLastName(b), "vi");
-      });
+    if (!selectedUsername || !phanQuyenMap[selectedUsername]) return;
 
-    // ✅ Nếu chưa có selectedUsername, tự động chọn người đầu tiên
-    if (filtered.length > 0 && !selectedUsername) {
-      setSelectedUsername(filtered[0]);
+    const teacherInfo = phanQuyenMap[selectedUsername];
+    const rawClasses = teacherInfo.teachingClasses || ["1"];
+
+    setTeacherAllowedClasses(rawClasses);
+    if (rawClasses.length > 0 && !rawClasses.includes(String(className))) {
+      setClassName(String(rawClasses[0]));
     }
-  }, [usernames, selectedUsername]);
+  }, [selectedUsername, phanQuyenMap]);
 
-  // ✅ Lấy danh sách file
+  useEffect(() => {
+    if (
+      !selectedUsername ||
+      !phanQuyenMap[selectedUsername] ||
+      !className ||
+      allMonHoc.length === 0
+    )
+      return;
+
+    const teacherInfo = phanQuyenMap[selectedUsername];
+    const rawSubs = teacherInfo.assignedSubjects || [];
+    const isAllGVCN = rawSubs.some((s) => s.toLowerCase().includes("tất cả"));
+
+    const subjectsForClass = allMonHoc.filter((sub) => {
+      if (!sub.grades || sub.grades.length === 0) return true;
+      return sub.grades.map(String).includes(String(className));
+    });
+
+    let finalSubjects = [];
+
+    if (teacherInfo.role === "TA") {
+      finalSubjects = subjectsForClass
+        .filter((sub) => sub.name.toLowerCase().includes("tiếng anh"))
+        .map((sub) => sub.name);
+      if (finalSubjects.length === 0) finalSubjects = ["Tiếng Anh"];
+    } else if (isAllGVCN || rawSubs.length === 0) {
+      const specialistKeywords = ["tiếng anh", "tin học"];
+      finalSubjects = subjectsForClass
+        .filter(
+          (sub) =>
+            !specialistKeywords.some((kw) => sub.name.toLowerCase().includes(kw))
+        )
+        .map((sub) => sub.name);
+    } else {
+      finalSubjects = subjectsForClass
+        .filter((sub) =>
+          rawSubs.some((as) => as.toLowerCase() === sub.name.toLowerCase())
+        )
+        .map((sub) => sub.name);
+
+      if (finalSubjects.length === 0) {
+        finalSubjects = rawSubs;
+      }
+    }
+
+    setTeacherAllowedSubjects(finalSubjects);
+
+    if (finalSubjects.length > 0 && !finalSubjects.includes(subject)) {
+      setSubject(finalSubjects[0]);
+    } else if (finalSubjects.length === 0) {
+      setSubject("");
+    }
+  }, [selectedUsername, className, phanQuyenMap, allMonHoc]);
+
+  // Truy vấn danh sách file từ Firestore
   const fetchFileList = async () => {
-    if (!isBGH) return;
-
-    // Kiểm tra đủ thông tin trước khi fetch
-    if (!selectedUsername || !subject || !className || !usernameMap[selectedUsername]?.email) {
-      setFileList([]); // reset danh sách rỗng
+    if (!selectedUsername || !className || !subject) {
+      setFileList([]);
       return;
     }
 
+    setLoadingFiles(true);
     try {
-      const { data, error } = await supabase
-        .from("uploaded_files")
-        .select("*")
-        .eq("uploaded_by", usernameMap[selectedUsername].email)
-        .eq("subject", subject)
-        .eq("class", className)
-        .order("uploaded_at", { ascending: false });
+      const yearCol = `KEHOACH_DAYHOC_${academicYear}`;
+      const filesRef = collection(db, yearCol, selectedUsername, subject);
+      
+      const q = query(filesRef, where("khoi", "==", `Khối ${className}`));
+      const querySnapshot = await getDocs(q);
 
-      if (error) throw error;
+      const files = [];
+      querySnapshot.forEach((docSnap) => {
+        files.push({ id: docSnap.id, ...docSnap.data() });
+      });
 
-      setFileList(data || []);
+      files.sort((a, b) => {
+        const timeA = a.createdAt?.toMillis
+          ? a.createdAt.toMillis()
+          : new Date(a.createdAt || 0).getTime();
+        const timeB = b.createdAt?.toMillis
+          ? b.createdAt.toMillis()
+          : new Date(b.createdAt || 0).getTime();
+        return timeB - timeA;
+      });
+
+      setFileList(files);
+      setSelectedFile(null);
     } catch (err) {
       console.error("❌ Lỗi khi tải danh sách file:", err);
-      alert("❌ Lỗi khi tải danh sách file.");
+      setFileList([]);
+    } finally {
+      setLoadingFiles(false);
     }
   };
-  
+
   useEffect(() => {
     fetchFileList();
-  }, [subject, className, selectedUsername]);
+  }, [subject, className, selectedUsername, academicYear]);
 
-  // ✅ Giao diện chính
+  // Sắp xếp danh sách môn học theo thứ tự: Tổ bộ môn trước, GVCN sau
+  const getFilteredSubjectNames = () => {
+    const rawList = Array.from(
+      new Set([
+        ...allMonHoc.map((m) => m.name),
+        ...Object.values(phanQuyenMap).flatMap((t) => t.assignedSubjects || []),
+      ])
+    ).filter((subName) => subName && !subName.toLowerCase().includes("tất cả"));
+
+    // Lọc loại bỏ trùng lặp tên viết tắt
+    const seenShortNames = new Set();
+    const uniqueSubjects = [];
+
+    for (const subName of rawList) {
+      const shortName = getShortSubjectName(subName);
+      if (!seenShortNames.has(shortName)) {
+        seenShortNames.add(shortName);
+        uniqueSubjects.push(subName);
+      }
+    }
+
+    // Thứ tự ưu tiên cho các môn Tổ Bộ môn
+    const subjectPriority = {
+      TA: 1,
+      TH: 2,
+      CN: 3,
+      GDTC: 4,
+      AN: 5,
+      MT: 6,
+      Toán: 7,
+      TV: 8,
+      ĐĐ: 9,
+      TNXH: 10,
+      KH: 11,
+      "LSĐL": 12,
+      HĐTN: 13,
+    };
+
+    uniqueSubjects.sort((a, b) => {
+      const shortA = getShortSubjectName(a);
+      const shortB = getShortSubjectName(b);
+      const prioA = subjectPriority[shortA] || 99;
+      const prioB = subjectPriority[shortB] || 99;
+      return prioA - prioB;
+    });
+
+    return uniqueSubjects;
+  };
+
+  const filteredSubjectNames = getFilteredSubjectNames();
+
+  // 🔹 THỐNG KÊ BÀI NỘP TOÀN TRƯỜNG PHÂN THEO CÁC NHÓM/TỔ
+  const fetchSchoolSummary = async () => {
+    await fetchSchoolSummaryData({
+      isAdmin,
+      phanQuyenMap,
+      allMonHoc,
+      academicYear,
+      groupedTeachers,
+      filteredSubjectNames,
+      setLoadingSchoolSummary,
+      setSchoolSummaryGrouped,
+    });
+  };
+
+  const handleStats = async () => {
+    return await fetchTeacherStatsData({
+      isAdmin,
+      selectedUsername,
+      academicYear,
+      phanQuyenMap,
+      setLoadingStats,
+      setStatsData,
+    });
+  };
+
+  useEffect(() => {
+    if (isBGH && selectedUsername && Object.keys(phanQuyenMap).length > 0) {
+      handleStats();
+    }
+  }, [isBGH, academicYear, phanQuyenMap, selectedUsername]);
+
   if (!isBGH) {
     return (
-      <Box sx={{ p: 2 }}>
-        <Typography>⚠️ Bạn không có quyền truy cập trang BGH.</Typography>
+      <Box sx={{ p: 4, textAlign: "center" }}>
+        <Typography color="error" variant="h6">
+          ⚠️ Bạn không có quyền truy cập trang Ban Giám Hiệu.
+        </Typography>
       </Box>
     );
   }
 
-  const formatVNDate = (isoString) => {
-    const date = new Date(isoString);
-
-    // Ngày theo dd/mm/yyyy
-    const optionsDate = { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Ho_Chi_Minh" };
-    const formattedDate = date.toLocaleDateString("vi-VN", optionsDate);
-
-    // Giờ theo hh:mm:ss
-    const optionsTime = { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: "Asia/Ho_Chi_Minh" };
-    const formattedTime = date.toLocaleTimeString("vi-VN", optionsTime);
-
-    return `${formattedDate}, ${formattedTime}`;
-  };
-
-  const handleStats = async () => {
-    if (!isAdmin) return [];
-
-    try {
-      const { data: allFiles, error } = await supabase
-        .from("uploaded_files")
-        .select("*")
-        .order("uploaded_at", { ascending: false });
-      if (error) throw error;
-
-      const stats = [];
-
-      allFiles.forEach((file) => {
-        const username =
-          Object.keys(usernameMap).find((key) => usernameMap[key].email === file.uploaded_by) ||
-          "Unknown";
-        const subject = file.subject || "Unknown";
-        const className = file.class || "Unknown";
-
-        let entry = stats.find((e) => e.username === username && e.subject === subject);
-        if (!entry) {
-          entry = { username, subject, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 };
-          stats.push(entry);
-        }
-
-        entry[className] = (entry[className] || 0) + 1;
-      });
-
-      setStatsData(stats);
-      setShowStats(true);
-
-      return stats; // 🔹 quan trọng nếu bạn muốn lấy data ngoài
-    } catch (err) {
-      console.error("❌ Lỗi khi lấy thống kê:", err);
-      alert("❌ Không thể lấy thống kê. Vui lòng thử lại.");
-      return [];
-    }
-  };
-
-  useEffect(() => {
-    const init = async () => {
-      // chọn GV đầu tiên nếu chưa chọn
-      if (!selectedUsername && usernames.length > 0) {
-        const validTeachers = usernames.filter((name) => {
-          const lower = name?.toLowerCase() || "";
-          return lower !== "admin" && lower !== "bgh" && !lower.includes("ban giám hiệu");
-        });
-        if (validTeachers.length > 0) setSelectedUsername(validTeachers[0]);
-      }
-
-      // load thống kê ngay khi trang load
-      await handleStats();
+  const formatVNDate = (timestamp) => {
+    if (!timestamp) return "";
+    const date = timestamp?.toDate ? timestamp.toDate() : new Date(timestamp);
+    const optionsDate = {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      timeZone: "Asia/Ho_Chi_Minh",
     };
+    const optionsTime = {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+      timeZone: "Asia/Ho_Chi_Minh",
+    };
+    return `${date.toLocaleDateString("vi-VN", optionsDate)}, ${date.toLocaleTimeString("vi-VN", optionsTime)}`;
+  };
 
-    init();
-  }, [usernames]);
-
-  useEffect(() => {
-    if (usernames.length === 0) return; // chưa có dữ liệu thì thôi
-    // Lấy danh sách hợp lệ (bỏ Admin, BGH, Ban Giám Hiệu)
-    const validTeachers = usernames.filter((name) => {
-      const lower = name?.toLowerCase() || "";
-      return lower !== "admin" && lower !== "bgh" && !lower.includes("ban giám hiệu") && !lower.includes("ban giam hieu");
-    }).sort((a, b) => {
-      const getLastName = (fullName) =>
-        fullName?.trim().split(" ").slice(-1)[0]?.toLowerCase() || "";
-      return getLastName(a).localeCompare(getLastName(b), "vi");
-    });
-  
-    // Set mặc định GV đầu tiên
-    if (validTeachers.length > 0) {
-      setSelectedUsername(validTeachers[0]);
-    }
-  
-    // Đồng thời gọi thống kê
-    handleStats();
-  }, [usernames]);
+  const currentTeacherList = getFilteredTeacherList();
 
   return (
-  <Box
-    sx={{
-      height: "90vh",
-      width: "100vw",
-      display: "flex",
-      gap: 2,
-      p: 2,
-      alignItems: "flex-start",
-      flexDirection: { xs: "column", sm: "row" },
-    }}
-  >
-    {/* Cột bộ lọc và danh sách file */}
     <Box
       sx={{
-        width: { xs: "100%", sm: "25%" },
-        minWidth: 250,
+        height: "calc(100vh - 64px)",
+        width: "100vw",
         display: "flex",
-        flexDirection: "column",
-        gap: 2,
-        height: { xs: "auto", sm: "95%" },
+        gap: 1.5,
+        px: 1.5,
+        pb: 1.5,
+        mt:2, 
+        alignItems: "stretch",
+        flexDirection: { xs: "column", sm: "row" },
+        boxSizing: "border-box",
       }}
     >
-      {/* Bộ lọc */}
-      <Card sx={{ width: "100%", flexShrink: 0, mt: -3 }}>
-        <CardContent sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <Typography variant="h5" gutterBottom color="primary">
-            📚 Kế hoạch bài dạy
-          </Typography>
+      {/* Cột trái: Bộ lọc + Danh sách file */}
+      <Box
+        sx={{
+          width: { xs: "100%", sm: "32%" },
+          minWidth: 280,
+          display: { xs: viewMode === "summary" ? "none" : "flex", sm: "flex" },
+          flexDirection: "column",
+          gap: 1.5,
+          height: "100%",
+        }}
+      >
+        <Card sx={{ width: "100%", flexShrink: 0 }}>
+          <CardContent sx={{ display: "flex", flexDirection: "column", gap: 1.5, pt: 1.5, pb: "16px !important" }}>
+            <Typography variant="h6" color="primary" sx={{ mb: 0, fontWeight: "bold" }}>
+              📚 QUẢN LÍ KẾ HOẠCH BÀI DẠY
+            </Typography>
 
-          {/* Tài khoản */}
-          <FormControl fullWidth size="small">
-            <InputLabel>👤 Giáo viên</InputLabel>
-            <Select
-              value={selectedUsername}
-              label="Tài khoản"
-              onChange={(e) => setSelectedUsername(e.target.value)}
-            >
-              {usernames
-                .filter((name) => {
-                  const lower = name?.toLowerCase() || "";
-                  return (
-                    lower !== "bgh" &&
-                    !lower.includes("ban giám hiệu") &&
-                    lower !== "admin" &&
-                    !lower.includes("thbinhkhanh")
-                  );
-                })
-                .sort((a, b) => {
-                  const getLastName = (fullName) =>
-                    fullName?.trim().split(" ").slice(-1)[0]?.toLowerCase() || "";
-                  return getLastName(a).localeCompare(getLastName(b), "vi");
-                })
-                .map((name) => (
-                  <MenuItem key={name} value={name}>
-                    {name}
-                  </MenuItem>
-                ))}
-            </Select>
-          </FormControl>
-
-          {/* Môn học + Lớp */}
-          <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-            <FormControl size="small" sx={{ flex: 1, minWidth: 100 }}>
-              <InputLabel>Môn học</InputLabel>
-              <Select
-                value={subject}
-                label="Môn học"
-                onChange={(e) => setSubject(e.target.value)}
-              >
-                <MenuItem value="Âm nhạc">Âm nhạc</MenuItem>
-                  <MenuItem value="Công nghệ">Công nghệ</MenuItem>
-                  <MenuItem value="Đạo đức">Đạo đức</MenuItem>
-                  <MenuItem value="Giáo dục thể chất">GD thể chất</MenuItem>
-                  <MenuItem value="Mĩ thuật">Mĩ thuật</MenuItem>
-                  <MenuItem value="Tiếng Anh">Tiếng Anh</MenuItem>
-                  <MenuItem value="Tin học">Tin học</MenuItem>
-              </Select>
-            </FormControl>
-
-            <FormControl size="small" sx={{ flex: 1, minWidth: 80 }}>
-              <InputLabel>Lớp</InputLabel>
-              <Select
-                value={className}
-                label="Lớp"
-                onChange={(e) => setClassName(e.target.value)}
-              >
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <MenuItem key={i} value={i}>
-                    Lớp {i}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Box>
-
-          {/* Nút Thống kê */}
-          <Box sx={{ display: "flex", gap: 2, mt: 1 }}>
+            {/* Nút Tổng hợp toàn trường */}
             <Button
-              variant="outlined"
+              variant={viewMode === "summary" ? "contained" : "outlined"}
               color="primary"
-              sx={{ flex: 1, minWidth: 100 }}
-              onClick={async () => {
-                setSelectedFile(null);
-                setShowResetConfirm(false);
-                setShowLeftStats((prev) => !prev);
-                if (!showLeftStats) {
-                  await handleStats();
+              fullWidth
+              onClick={() => {
+                setViewMode("summary");
+                if (Object.keys(schoolSummaryGrouped).length === 0) {
+                  fetchSchoolSummary();
                 }
               }}
+              sx={{ fontWeight: "bold", py: 0.8 }}
             >
-              {isMobile ? (showLeftStats ? "Ẩn Thống kê" : "📊 Thống kê") : "📊 Thống kê"}
+              📊 Tổng hợp toàn trường
             </Button>
-          </Box>
-        </CardContent>
-      </Card>
 
-      {/* Card thống kê bên trái (chỉ hiển thị trên mobile) */}
-      {showLeftStats && statsData.length > 0 && (
-        <Card
-          sx={{
-            mb: 2,
-            p: 2,
-            borderRadius: 3,
-            boxShadow: 3,
-            display: { xs: "block", sm: "none" },
-          }}
-        >
-          <Typography variant="h6" gutterBottom color="primary">
-            📊 Thống kê số bài
-          </Typography>
-          {statsData.map((row, idx) => (
-            <Card key={idx} sx={{ p: 1, borderRadius: 2, mb: 1 }}>
-              <Typography variant="subtitle2" fontWeight="bold" color="#1976d2">
-                {row.username} — {row.subject}
+            <Box>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                fontWeight="bold"
+                gutterBottom
+                display="block"
+                sx={{ mb: 0.5 }}
+              >
+                🔍 LỌC NHÓM GIÁO VIÊN:
               </Typography>
-              <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 1 }}>
-                {["1", "2", "3", "4", "5"]
-                  .filter((cls) => row[cls] > 0)
-                  .map((cls) => (
-                    <Box
-                      key={cls}
-                      sx={{
-                        px: 1,
-                        py: 0.5,
-                        borderRadius: 1,
-                        bgcolor: "#e3f2fd",
-                        color: "#0d47a1",
-                        fontWeight: "bold",
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                      }}
-                    >
-                      <Typography variant="body2">Lớp {cls}</Typography>
-                      <Typography variant="subtitle1" color="#d32f2f">
-                        {row[cls]}
-                      </Typography>
-                    </Box>
-                  ))}
-              </Box>
-            </Card>
-          ))}
-        </Card>
-      )}
+              <ToggleButtonGroup
+                value={filterCategory}
+                exclusive
+                onChange={handleCategoryChange}
+                size="small"
+                fullWidth
+                sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}
+              >
+                <ToggleButton value="gvcn" sx={{ flex: 1, fontSize: "0.75rem", py: 0.4 }}>
+                  GVCN (1-5)
+                </ToggleButton>
+                <ToggleButton value="tieng_anh" sx={{ flex: 1, fontSize: "0.75rem", py: 0.4 }}>
+                  Tiếng Anh
+                </ToggleButton>
+                <ToggleButton value="bo_mon" sx={{ flex: 1, fontSize: "0.75rem", py: 0.4 }}>
+                  Bộ môn
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
 
-      {/* Danh sách file */}
-      <Card sx={{ flex: 1, display: "flex", flexDirection: "column" }}>
-        <CardContent sx={{ p: 1 }}>
-          <Typography variant="h6" gutterBottom>
-            📂 Danh sách file
-          </Typography>
-        </CardContent>
-        <List sx={{ flex: 1, overflowY: "auto", p: 0 }}>
-          {fileList.length === 0 ? (
-            <ListItem>
-              <ListItemText primary="Chưa có file nào." />
-            </ListItem>
-          ) : (
-            fileList.map((file, index) => {
-              const isSelected = selectedFile?.url === file.url;
-              return (
-                <ListItem
-                  key={index}
-                  onClick={() => {
-                    if (window.innerWidth < 600) {
-                      window.open(
-                        `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(
-                          file.url
-                        )}`,
-                        "_blank"
-                      );
-                    } else {
-                      setSelectedFile(file);
-                    }
-                  }}
-                  sx={{
-                    mb: 1,
-                    border: "1px solid #ddd",
-                    borderRadius: 1,
-                    transition: "background-color 0.2s",
-                    cursor: "pointer",
-                    bgcolor: isSelected
-                      ? "rgba(25,118,210,0.1)"
-                      : "background.paper",
-                    "&:hover": {
-                      bgcolor: isSelected
-                        ? "rgba(25,118,210,0.15)"
-                        : "#f9f9f9",
-                    },
-                  }}
+            <FormControl fullWidth size="small">
+              <InputLabel>👤 Chọn Giáo viên</InputLabel>
+              <Select
+                value={selectedUsername}
+                label="👤 Chọn Giáo viên"
+                onChange={(e) => {
+                  setSelectedUsername(e.target.value);
+                  setViewMode("single");
+                }}
+              >
+                {currentTeacherList.length === 0 ? (
+                  <MenuItem disabled value="">
+                    <em>Không có giáo viên trong nhóm này</em>
+                  </MenuItem>
+                ) : (
+                  currentTeacherList.map((name) => (
+                    <MenuItem key={name} value={name}>
+                      {name}
+                    </MenuItem>
+                  ))
+                )}
+              </Select>
+            </FormControl>
+
+            <Box sx={{ display: "flex", gap: 1.5 }}>
+              <FormControl size="small" sx={{ flex: 1 }}>
+                <InputLabel>Môn học</InputLabel>
+                <Select
+                  value={subject}
+                  label="Môn học"
+                  onChange={(e) => setSubject(e.target.value)}
                 >
-                  <ListItemText
-                    primary={file.name}
-                    secondary={`Tải lên: ${formatVNDate(file.uploaded_at)}`}
-                  />
-                </ListItem>
-              );
-            })
+                  {teacherAllowedSubjects.length === 0 ? (
+                    <MenuItem disabled value="">
+                      <em>Không có môn phù hợp</em>
+                    </MenuItem>
+                  ) : (
+                    teacherAllowedSubjects.map((subName) => (
+                      <MenuItem key={subName} value={subName}>
+                        {subName}
+                      </MenuItem>
+                    ))
+                  )}
+                </Select>
+              </FormControl>
+
+              <FormControl size="small" sx={{ flex: 1 }}>
+                <InputLabel>Lớp</InputLabel>
+                <Select
+                  value={className}
+                  label="Lớp"
+                  onChange={(e) => setClassName(e.target.value)}
+                >
+                  {teacherAllowedClasses.length === 0 ? (
+                    <MenuItem disabled value="">
+                      <em>Không có lớp</em>
+                    </MenuItem>
+                  ) : (
+                    teacherAllowedClasses.map((clsNum) => (
+                      <MenuItem key={clsNum} value={clsNum}>
+                        Lớp {clsNum}
+                      </MenuItem>
+                    ))
+                  )}
+                </Select>
+              </FormControl>
+            </Box>
+          </CardContent>
+        </Card>
+
+        {/* Danh sách file */}
+        <FileListCardBGH
+          fileList={fileList}
+          selectedFile={selectedFile}
+          setSelectedFile={setSelectedFile}
+          loadingFiles={loadingFiles}
+          setViewMode={setViewMode}
+          formatVNDate={formatVNDate}
+        />
+      </Box>
+
+      {/* Cột phải: Bảng tổng hợp toàn trường theo nhóm / Xem trước file / Thống kê cá nhân */}
+      <Card
+        sx={{
+          flex: 1,
+          height: "100%",
+          display: { xs: viewMode === "summary" ? "flex" : "none", sm: "flex" },
+          flexDirection: "column",
+          overflow: "hidden",
+        }}
+      >
+        <CardContent sx={{ height: "100%", p: 0, boxSizing: "border-box", display: "flex", flexDirection: "column" }}>
+          {viewMode === "summary" ? (
+            /* --- BẢNG TỔNG HỢP TOÀN TRƯỜNG PHÂN THEO KHỐI/TỔ --- */
+            <SchoolSummaryView
+              academicYear={academicYear}
+              loadingSchoolSummary={loadingSchoolSummary}
+              schoolSummaryGrouped={schoolSummaryGrouped}
+              filteredSubjectNames={filteredSubjectNames}
+              fetchSchoolSummary={fetchSchoolSummary}
+              setViewMode={setViewMode}
+              getShortSubjectName={getShortSubjectName}
+              setSelectedUsername={setSelectedUsername}
+              setSelectedFile={setSelectedFile}
+            />
+          ) : selectedFile?.fileId ? (
+            <>
+              <Box sx={{ py: 0.5, px: 1.5, bgcolor: "#f8f9fa", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0, borderBottom: "1px solid #ddd" }}>
+                <Typography variant="subtitle2" fontWeight="bold">
+                  👁️ Xem trước: {selectedFile.fileName || selectedFile.name}
+                </Typography>
+                <Button size="small" variant="outlined" onClick={() => setSelectedFile(null)}>
+                  Đóng xem trước (Hiện Thống kê)
+                </Button>
+              </Box>
+              <Box sx={{ flex: 1, p: 1 }}>
+                <iframe
+                  src={`https://drive.google.com/file/d/${selectedFile.fileId}/preview`}
+                  style={{ width: "100%", height: "100%", border: "none" }}
+                  title="File Preview"
+                />
+              </Box>
+            </>
+          ) : (
+            /* --- GIAO DIỆN THỐNG KÊ CÁ NHÂN (PERSONAL STATS UI) --- */
+            <TeacherStatsView
+              selectedUsername={selectedUsername}
+              statsData={statsData}
+              teacherAllowedSubjects={teacherAllowedSubjects}
+              teacherAllowedClasses={teacherAllowedClasses}
+              loadingStats={loadingStats}
+              academicYear={academicYear}
+            />
           )}
-        </List>
+        </CardContent>
       </Card>
     </Box>
-
-    {/* Khung xem file / thống kê bên phải (desktop) */}
-    {(!selectedFile || fileList.length === 0) && statsData.length > 0 && (
-      <Card
-        sx={{
-          width: { xs: "100%", sm: "70%" },
-          minWidth: 0,
-          height: "200%",
-          mt: { xs: 2, sm: -15 },
-          display: { xs: "none", sm: "block" },
-        }}
-      >
-        <CardContent sx={{ height: "100%", p: 2, overflowY: "auto", mt: 0 }}>
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 3, mt: 12 }}>
-            <Typography variant="h6" gutterBottom color="primary">
-              📊 Thống kê số bài
-            </Typography>
-            {statsData.map((row, idx) => (
-              <Card key={idx} sx={{ p: 2, borderRadius: 3, boxShadow: 3 }}>
-                <Typography variant="subtitle1" fontWeight="bold" color="#1976d2">
-                  {row.username} — {row.subject}
-                </Typography>
-                <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 1 }}>
-                  {["1", "2", "3", "4", "5"]
-                    .filter((cls) => row[cls] > 0)
-                    .map((cls) => (
-                      <Box
-                        key={cls}
-                        sx={{
-                          px: 2,
-                          py: 1,
-                          borderRadius: 2,
-                          bgcolor: "#e3f2fd",
-                          color: "#0d47a1",
-                          fontWeight: "bold",
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                        }}
-                      >
-                        <Typography variant="body2">Lớp {cls}</Typography>
-                        <Typography variant="h6" color="#d32f2f">
-                          {row[cls]}
-                        </Typography>
-                      </Box>
-                    ))}
-                </Box>
-              </Card>
-            ))}
-          </Box>
-        </CardContent>
-      </Card>
-    )}
-
-    {/* Nếu đã chọn file thì hiển thị iframe */}
-    {selectedFile && (
-      <Card
-        sx={{
-          width: { xs: "100%", sm: "70%" },
-          minWidth: 0,
-          height: "120%",
-          mt: { xs: 2, sm: -19 },
-          display: { xs: "none", sm: "block" },
-        }}
-      >
-        <CardContent sx={{ height: "100%", p: 2, overflowY: "auto", mt: 2 }}>
-          <iframe
-            src={`https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(
-              selectedFile.url
-            )}`}
-            style={{ width: "100%", height: "100%", border: "none" }}
-            title="File Preview"
-          />
-        </CardContent>
-      </Card>
-    )}
-  </Box>
-);
-
-
-
+  );
 }

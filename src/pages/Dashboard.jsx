@@ -1,0 +1,271 @@
+import React from "react";
+import { Box, Typography } from "@mui/material";
+import {
+  Translate,
+  AssignmentTurnedIn,
+  AdminPanelSettings,
+  Layers,
+  School,
+} from "@mui/icons-material";
+
+// 🌟 DASHBOARD CARD COMPONENT (ĐÃ THU NHỎ KÍCH THƯỚC)
+function DashboardCard({ item, onClick }) {
+  return (
+    <Box
+      onClick={onClick}
+      className="dashboard-card"
+      sx={{
+        position: "relative",
+        overflow: "hidden",
+        bgcolor: "#fff",
+        borderRadius: "18px",
+        p: { xs: 1.5, sm: 2 },
+        minHeight: { xs: 150, sm: 165 },
+        cursor: "pointer",
+        border: "1px solid #e5e7eb",
+        transition: "all .25s ease",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+
+        "&:hover": {
+          transform: "translateY(-4px)",
+          boxShadow: "0 10px 25px rgba(0,0,0,0.08)",
+          borderColor: item.color,
+        },
+
+        "&::before": {
+          content: '""',
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: 4,
+          background: item.color,
+        },
+      }}
+    >
+      {/* ICON */}
+      <Box
+        sx={{
+          width: { xs: 38, sm: 44 },
+          height: { xs: 38, sm: 44 },
+          flexShrink: 0,
+          borderRadius: "12px",
+          bgcolor: `${item.color}15`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+
+          "& svg": {
+            fontSize: { xs: 20, sm: 24 },
+          },
+        }}
+      >
+        {item.icon}
+      </Box>
+
+      {/* TITLE & DESCRIPTION */}
+      <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+        <Typography
+          sx={{
+            mt: 1.2,
+            fontWeight: 700,
+            fontSize: { xs: 13, sm: 14.5 },
+            color: "#0f172a",
+            lineHeight: 1.3,
+            display: "-webkit-box",
+            WebkitLineClamp: 1,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+          }}
+        >
+          {item.label}
+        </Typography>
+
+        <Typography
+          sx={{
+            mt: 0.5,
+            fontSize: { xs: 11.5, sm: 12.5 },
+            color: "#64748b",
+            lineHeight: 1.4,
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+          }}
+        >
+          {item.description}
+        </Typography>
+      </Box>
+
+      {/* ARROW */}
+      <Box
+        sx={{
+          mt: 1,
+          display: "flex",
+          justifyContent: "flex-end",
+        }}
+      >
+        <Box
+          className="dashboard-arrow"
+          sx={{
+            width: 28,
+            height: 28,
+            borderRadius: "8px",
+            bgcolor: "#f1f5f9",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#64748b",
+            fontSize: "0.85rem",
+            transition: ".2s",
+
+            ".dashboard-card:hover &": {
+              bgcolor: item.color,
+              color: "#fff",
+            },
+          }}
+        >
+          →
+        </Box>
+      </Box>
+    </Box>
+  );
+}
+
+// 🌟 MAIN DASHBOARD
+export default function Dashboard({ onSelectModule }) {
+  const cards = [
+    {
+      id: "khoi-1",
+      label: "Khối Lớp 1",
+      description: "Quản lý và tải lên Kế hoạch bài dạy (Giáo án) Khối Lớp 1",
+      icon: <School sx={{ color: "#2563eb" }} />,
+      color: "#2563eb",
+      path: "/login?group=khoi-1",
+    },
+    {
+      id: "khoi-2",
+      label: "Khối Lớp 2",
+      description: "Quản lý và tải lên Kế hoạch bài dạy (Giáo án) Khối Lớp 2",
+      icon: <School sx={{ color: "#0284c7" }} />,
+      color: "#0284c7",
+      path: "/login?group=khoi-2",
+    },
+    {
+      id: "khoi-3",
+      label: "Khối Lớp 3",
+      description: "Quản lý và tải lên Kế hoạch bài dạy (Giáo án) Khối Lớp 3",
+      icon: <School sx={{ color: "#0d9488" }} />,
+      color: "#0d9488",
+      path: "/login?group=khoi-3",
+    },
+    {
+      id: "khoi-4",
+      label: "Khối Lớp 4",
+      description: "Quản lý và tải lên Kế hoạch bài dạy (Giáo án) Khối Lớp 4",
+      icon: <School sx={{ color: "#16a34a" }} />,
+      color: "#16a34a",
+      path: "/login?group=khoi-4",
+    },
+    {
+      id: "khoi-5",
+      label: "Khối Lớp 5",
+      description: "Quản lý và tải lên Kế hoạch bài dạy (Giáo án) Khối Lớp 5",
+      icon: <School sx={{ color: "#ca8a04" }} />,
+      color: "#ca8a04",
+      path: "/login?group=khoi-5",
+    },
+    {
+      id: "to-bo-mon",
+      label: "Tổ Bộ Môn",
+      description: "Quản lý Kế hoạch bài dạy các môn Tin học, Mỹ thuật, Âm nhạc...",
+      icon: <Layers sx={{ color: "#9333ea" }} />,
+      color: "#9333ea",
+      path: "/login?group=to-bo-mon",
+    },
+    {
+      id: "tieng-anh",
+      label: "Tổ Tiếng Anh",
+      description: "Quản lý và nộp Kế hoạch bài dạy bộ môn Tiếng Anh",
+      icon: <Translate sx={{ color: "#e11d48" }} />,
+      color: "#e11d48",
+      path: "/login?group=tieng-anh",
+    },
+    {
+      id: "duyet-ke-hoach",
+      label: "Duyệt Kế Hoạch (BGH)",
+      description: "Ban Giám hiệu kiểm tra, duyệt và thống kê kế hoạch bài dạy",
+      icon: <AssignmentTurnedIn sx={{ color: "#d97706" }} />,
+      color: "#d97706",
+      path: "/login?group=bgh",
+    },
+    {
+      id: "quan-tri",
+      label: "Quản Trị Hệ Thống",
+      description: "Quản lý danh sách giáo viên, phân quyền dạy học và cấu hình",
+      icon: <AdminPanelSettings sx={{ color: "#475569" }} />,
+      color: "#475569",
+      path: "/login?group=admin",
+    },
+  ];
+
+  return (
+    <Box
+      sx={{
+        minHeight: "100vh",
+        bgcolor: "#f4f6f8",
+        p: { xs: 1.5, md: 2.5 },
+        fontFamily:
+          '"Segoe UI", "Arial", "Helvetica", "Noto Sans", sans-serif',
+      }}
+    >
+      <Box
+        sx={{
+          maxWidth: 1200,
+          mx: "auto",
+          width: "100%",
+        }}
+      >
+        {/* TITLE */}
+        <Typography
+          variant="h6"
+          fontWeight={700}
+          sx={{
+            color: "#1e3a8a",
+            mb: 2,
+            fontSize: { xs: "1.1rem", sm: "1.25rem" },
+            fontFamily:
+              '"Segoe UI", "Arial", "Helvetica", "Noto Sans", sans-serif',
+          }}
+        >
+          DANH MỤC CHỨC NĂNG
+        </Typography>
+
+        {/* GRID */}
+        <Box
+          sx={{
+            display: "grid",
+            gap: 2,
+            gridTemplateColumns: {
+              xs: "repeat(1, minmax(0, 1fr))",
+              sm: "repeat(2, minmax(0, 1fr))",
+              md: "repeat(3, minmax(0, 1fr))",
+              lg: "repeat(5, minmax(0, 1fr))",
+            },
+          }}
+        >
+          {cards.map((item) => (
+            <Box key={item.id} sx={{ minWidth: 0 }}>
+              <DashboardCard
+                item={item}
+                onClick={() => onSelectModule(item)}
+              />
+            </Box>
+          ))}
+        </Box>
+      </Box>
+    </Box>
+  );
+}
