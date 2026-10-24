@@ -658,7 +658,7 @@ export default function Users({ user }) {
             </Box>
 
             {uploading && (
-              <Box sx={{ width: "80%", mx: "auto", mt: 2 }}>
+              <Box sx={{ width: "70%", mx: "auto", mt: 2 }}>
                 <LinearProgress variant="determinate" value={uploadProgress} sx={{ height: 6, borderRadius: 3 }} />
                 <Typography variant="body2" align="center" sx={{ mt: 1, color: "text.secondary", fontWeight: 500 }}>
                   {uploadMode === "delete" 
