@@ -8,7 +8,7 @@ import {
   School,
 } from "@mui/icons-material";
 
-// 🌟 DASHBOARD CARD COMPONENT (ĐÃ THU NHỎ KÍCH THƯỚC)
+// 🌟 DASHBOARD CARD COMPONENT (GIỮ NGUYÊN KÍCH THƯỚC THEO YÊU CẦU)
 function DashboardCard({ item, onClick }) {
   return (
     <Box
@@ -20,7 +20,7 @@ function DashboardCard({ item, onClick }) {
         bgcolor: "#fff",
         borderRadius: "18px",
         p: { xs: 1.5, sm: 2 },
-        minHeight: { xs: 150, sm: 165 },
+        minHeight: { xs: 150, sm: 165 }, // Giữ nguyên kích thước ban đầu
         cursor: "pointer",
         border: "1px solid #e5e7eb",
         transition: "all .25s ease",
@@ -157,15 +157,15 @@ export default function Dashboard({ onSelectModule }) {
       id: "khoi-3",
       label: "Khối Lớp 3",
       description: "Quản lý và tải lên KHBD Lớp 3",
-      icon: <School sx={{ color: "#ea580c" }} />, // Đã đổi sang màu Cam (#ea580c)
-      color: "#ea580c",                          // Đã đổi sang màu Cam (#ea580c)
+      icon: <School sx={{ color: "#ea580c" }} />,
+      color: "#ea580c",
       path: "/login?group=khoi-3",
     },
     {
       id: "khoi-4",
       label: "Khối Lớp 4",
       description: "Quản lý và tải lên KHBD Lớp 4",
-      icon: <School sx={{ color: "#16a34a" }} />, // Giữ nguyên màu Xanh lá (#16a34a)
+      icon: <School sx={{ color: "#16a34a" }} />,
       color: "#16a34a",
       path: "/login?group=khoi-4",
     },
@@ -214,9 +214,16 @@ export default function Dashboard({ onSelectModule }) {
   return (
     <Box
       sx={{
-        minHeight: "100vh",
+        // 🌟 Trừ đi 56px đến 60px chiều cao của thanh Header xanh ở trên
+        // giúp toàn bộ giao diện vừa khít 1 màn hình máy tính mà không gây ra cuộn trang
+        height: "calc(100vh - 40px)",
+        overflow: "hidden", // Khóa cuộn dọc trên máy tính
         bgcolor: "#f4f6f8",
-        p: { xs: 1.5, md: 2.5 },
+        p: { xs: 1.5, md: 2 },
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        boxSizing: "border-box",
         fontFamily:
           '"Segoe UI", "Arial", "Helvetica", "Noto Sans", sans-serif',
       }}
@@ -234,8 +241,8 @@ export default function Dashboard({ onSelectModule }) {
           fontWeight={700}
           sx={{
             color: "#1e3a8a",
-            mb: 2,
-            fontSize: { xs: "1.1rem", sm: "1.25rem" },
+            mb: { xs: 1, sm: 1.5 },
+            fontSize: { xs: "1.05rem", sm: "1.2rem" },
             fontFamily:
               '"Segoe UI", "Arial", "Helvetica", "Noto Sans", sans-serif',
           }}
@@ -265,6 +272,39 @@ export default function Dashboard({ onSelectModule }) {
             </Box>
           ))}
         </Box>
+      </Box>
+
+      {/* COPYRIGHT & VERSION FOOTER */}
+      <Box
+        sx={{
+          maxWidth: 1200,
+          mx: "auto",
+          width: "100%",
+          pt: 1.5,
+          borderTop: "1px solid #e2e8f0",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: 1,
+        }}
+      >
+        <Typography
+          sx={{
+            fontSize: { xs: "11px", sm: "12.5px" },
+            color: "#64748b",
+          }}
+        >
+          © Bản quyền thuộc về: <strong>thbinhkhanh@gmail.com</strong>
+        </Typography>
+        <Typography
+          sx={{
+            fontSize: { xs: "11px", sm: "12.5px" },
+            color: "#94a3b8",
+          }}
+        >
+          Phiên bản: v1.0.0
+        </Typography>
       </Box>
     </Box>
   );
