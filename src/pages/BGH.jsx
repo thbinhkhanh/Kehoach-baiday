@@ -4,9 +4,6 @@ import {
   Card,
   CardContent,
   Typography,
-  List,
-  ListItem,
-  ListItemText,
   FormControl,
   InputLabel,
   Select,
@@ -16,6 +13,9 @@ import {
   ToggleButtonGroup,
   useMediaQuery,
   useTheme,
+  Dialog,
+  DialogContent,
+  IconButton,
 } from "@mui/material";
 import { db } from "../firebase";
 import { collection, getDocs, doc, getDoc, query, where } from "firebase/firestore";
@@ -23,7 +23,6 @@ import { fetchSchoolSummaryData, fetchTeacherStatsData } from "../utils/thongKe"
 import TeacherStatsView from "../components/TeacherStatsView";
 import SchoolSummaryView from "../components/SchoolSummaryView";
 import FileListCardBGH from "../components/FileListCardBGH";
-import { IconButton } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 
 // Hàm chuyển đổi tên môn học sang dạng viết tắt trên tiêu đề
@@ -59,6 +58,9 @@ export default function BGH({ user }) {
   const [viewMode, setViewMode] = useState("single"); // "single" hoặc "summary"
   const [loadingSchoolSummary, setLoadingSchoolSummary] = useState(false);
   const [schoolSummaryGrouped, setSchoolSummaryGrouped] = useState({});
+
+  // State bật/tắt chế độ toàn màn hình cho phần hiển thị bên phải
+  const [isFullScreen, setIsFullScreen] = useState(false);
 
   const [academicYear, setAcademicYear] = useState("2026-2027");
   const [subject, setSubject] = useState("");
@@ -128,130 +130,130 @@ export default function BGH({ user }) {
 
   // 2. Phân quyền giáo viên
   useEffect(() => {
-    const fetchPhanQuyen = async () => {
-      try {
-        const phanQuyenColName = `PHANQUYEN_${academicYear}`;
-        const querySnapshot = await getDocs(collection(db, phanQuyenColName));
-
-        const groups = {
-          khoi1: [],
-          khoi2: [],
-          khoi3: [],
-          khoi4: [],
-          khoi5: [],
-          tiengAnh: [],
-          boMon: [],
-        };
-        const map = {};
-        let firstAvailableTeacher = "";
-
-        querySnapshot.forEach((docSnap) => {
-          const data = docSnap.data();
-          const name = data.username || docSnap.id;
-          const lowerName = name.toLowerCase();
-
-          if (
-            lowerName !== "admin" &&
-            lowerName !== "bgh" &&
-            !lowerName.includes("ban giám hiệu") &&
-            !lowerName.includes("thbinhkhanh")
-          ) {
-            const upperName = name.toUpperCase();
-
-            let subs = [];
+      const fetchPhanQuyen = async () => {
+        try {
+          const phanQuyenColName = `PHANQUYEN_${academicYear}`;
+          const querySnapshot = await getDocs(collection(db, phanQuyenColName));
+  
+          const groups = {
+            khoi1: [],
+            khoi2: [],
+            khoi3: [],
+            khoi4: [],
+            khoi5: [],
+            tiengAnh: [],
+            boMon: [],
+          };
+          const map = {};
+          let firstAvailableTeacher = "";
+  
+          querySnapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            const name = data.username || docSnap.id;
+            const lowerName = name.toLowerCase();
+  
             if (
-              Array.isArray(data.assignedSubjects) &&
-              data.assignedSubjects.length > 0
+              lowerName !== "admin" &&
+              lowerName !== "bgh" &&
+              !lowerName.includes("ban giám hiệu") &&
+              !lowerName.includes("thbinhkhanh")
             ) {
-              subs = data.assignedSubjects;
-            } else if (data.assignedSubject) {
-              subs = data.assignedSubject
-                .split(",")
-                .map((s) => s.trim())
-                .filter(Boolean);
+              const upperName = name.toUpperCase();
+  
+              let subs = [];
+              if (
+                Array.isArray(data.assignedSubjects) &&
+                data.assignedSubjects.length > 0
+              ) {
+                subs = data.assignedSubjects;
+              } else if (data.assignedSubject) {
+                subs = data.assignedSubject
+                  .split(",")
+                  .map((s) => s.trim())
+                  .filter(Boolean);
+              }
+  
+              let cls = [];
+              if (data.assignedClass) {
+                cls = [String(data.assignedClass)];
+              } else if (
+                Array.isArray(data.teachingClasses) &&
+                data.teachingClasses.length > 0
+              ) {
+                cls = data.teachingClasses.map(String);
+              } else {
+                cls = ["1", "2", "3", "4", "5"];
+              }
+  
+              const teacherObj = {
+                username: upperName,
+                role: data.role || "GVCN",
+                assignedSubjects: subs,
+                teachingClasses: cls,
+              };
+  
+              map[upperName] = teacherObj;
+  
+              const role = teacherObj.role;
+              const subString = subs.join(" ").toLowerCase();
+  
+              if (role === "TA" || subString.includes("tiếng anh")) {
+                groups.tiengAnh.push(upperName);
+              } else if (
+                role === "BM" ||
+                subString.includes("tin học") ||
+                subString.includes("mĩ thuật") ||
+                subString.includes("mỹ thuật") ||
+                subString.includes("âm nhạc") ||
+                subString.includes("thể dục")
+              ) {
+                groups.boMon.push(upperName);
+              } else {
+                const firstCls = String(cls[0] || "");
+                if (firstCls.includes("1")) groups.khoi1.push(upperName);
+                else if (firstCls.includes("2")) groups.khoi2.push(upperName);
+                else if (firstCls.includes("3")) groups.khoi3.push(upperName);
+                else if (firstCls.includes("4")) groups.khoi4.push(upperName);
+                else if (firstCls.includes("5")) groups.khoi5.push(upperName);
+                else groups.boMon.push(upperName);
+              }
             }
-
-            let cls = [];
-            if (data.assignedClass) {
-              cls = [String(data.assignedClass)];
-            } else if (
-              Array.isArray(data.teachingClasses) &&
-              data.teachingClasses.length > 0
-            ) {
-              cls = data.teachingClasses.map(String);
-            } else {
-              cls = ["1", "2", "3", "4", "5"];
-            }
-
-            const teacherObj = {
-              username: upperName,
-              role: data.role || "GVCN",
-              assignedSubjects: subs,
-              teachingClasses: cls,
-            };
-
-            map[upperName] = teacherObj;
-
-            const role = teacherObj.role;
-            const subString = subs.join(" ").toLowerCase();
-
-            if (role === "TA" || subString.includes("tiếng anh")) {
-              groups.tiengAnh.push(upperName);
-            } else if (
-              role === "BM" ||
-              subString.includes("tin học") ||
-              subString.includes("mĩ thuật") ||
-              subString.includes("mỹ thuật") ||
-              subString.includes("âm nhạc") ||
-              subString.includes("thể dục")
-            ) {
-              groups.boMon.push(upperName);
-            } else {
-              const firstCls = String(cls[0] || "");
-              if (firstCls.includes("1")) groups.khoi1.push(upperName);
-              else if (firstCls.includes("2")) groups.khoi2.push(upperName);
-              else if (firstCls.includes("3")) groups.khoi3.push(upperName);
-              else if (firstCls.includes("4")) groups.khoi4.push(upperName);
-              else if (firstCls.includes("5")) groups.khoi5.push(upperName);
-              else groups.boMon.push(upperName);
-            }
-          }
-        });
-
-        const sortByName = (arr) => {
-          return arr.sort((a, b) => {
-            const getLastName = (fullName) =>
-              fullName?.trim().split(" ").slice(-1)[0]?.toLowerCase() || "";
-            return getLastName(a).localeCompare(getLastName(b), "vi");
           });
-        };
-
-        Object.keys(groups).forEach((key) => {
-          sortByName(groups[key]);
-        });
-
-        setGroupedTeachers(groups);
-        setPhanQuyenMap(map);
-
-        for (const key of Object.keys(groups)) {
-          if (groups[key].length > 0) {
-            firstAvailableTeacher = groups[key][0];
-            break;
+  
+          const sortByName = (arr) => {
+            return arr.sort((a, b) => {
+              const getLastName = (fullName) =>
+                fullName?.trim().split(" ").slice(-1)[0]?.toLowerCase() || "";
+              return getLastName(a).localeCompare(getLastName(b), "vi");
+            });
+          };
+  
+          Object.keys(groups).forEach((key) => {
+            sortByName(groups[key]);
+          });
+  
+          setGroupedTeachers(groups);
+          setPhanQuyenMap(map);
+  
+          for (const key of Object.keys(groups)) {
+            if (groups[key].length > 0) {
+              firstAvailableTeacher = groups[key][0];
+              break;
+            }
           }
+  
+          if (firstAvailableTeacher && !selectedUsername) {
+            setSelectedUsername(firstAvailableTeacher);
+          }
+        } catch (err) {
+          console.error("❌ Lỗi khi tải dữ liệu phân quyền:", err);
         }
-
-        if (firstAvailableTeacher && !selectedUsername) {
-          setSelectedUsername(firstAvailableTeacher);
-        }
-      } catch (err) {
-        console.error("❌ Lỗi khi tải dữ liệu phân quyền:", err);
+      };
+  
+      if (isBGH) {
+        fetchPhanQuyen();
       }
-    };
-
-    if (isBGH) {
-      fetchPhanQuyen();
-    }
-  }, [isBGH, academicYear]);
+    }, [isBGH, academicYear]);
 
   const getFilteredTeacherList = () => {
     let list = [];
@@ -498,6 +500,7 @@ export default function BGH({ user }) {
       selectedUsername,
       academicYear,
       phanQuyenMap,
+      allMonHoc, // 👈 Bổ sung thêm dòng này
       setLoadingStats,
       setStatsData,
     });
@@ -549,302 +552,331 @@ export default function BGH({ user }) {
         gap: 1.5,
         px: 1.5,
         pb: 1.5,
-        mt:2, 
+        mt: 2, 
         alignItems: "stretch",
         flexDirection: { xs: "column", sm: "row" },
         boxSizing: "border-box",
       }}
     >
-      {/* Cột trái: Bộ lọc + Danh sách file */}
-      <Box
-        sx={{
-          width: { xs: "100%", sm: "32%" },
-          minWidth: 280,
-          // 📱 Trên điện thoại: Ẩn cột trái nếu đang ở chế độ Tổng hợp cá nhân hoặc Tổng hợp toàn trường
-          display: { xs: viewMode === "single" ? "flex" : "none", sm: "flex" },
-          flexDirection: "column",
-          gap: 1.5,
-          height: "100%",
+      {/* Cột trái: Bộ lọc + Danh sách file (Ẩn đi nếu bật chế độ toàn màn hình) */}
+      {!isFullScreen && (
+        <Box
+          sx={{
+            width: { xs: "100%", sm: "32%" },
+            minWidth: 280,
+            display: { xs: viewMode === "single" ? "flex" : "none", sm: "flex" },
+            flexDirection: "column",
+            gap: 1.5,
+            height: "100%",
+          }}
+        >
+          <Card sx={{ width: "100%", flexShrink: 0 }}>
+            <CardContent sx={{ display: "flex", flexDirection: "column", gap: 1.5, pt: 1.5, pb: "16px !important" }}>
+              <Typography variant="h6" color="primary" sx={{ mb: 0, fontWeight: "bold" }}>
+                📚 QUẢN LÍ KẾ HOẠCH BÀI DẠY
+              </Typography>
+
+              {/* 2 nút Tổng hợp cá nhân và Tổng hợp toàn trường */}
+              <Box sx={{ display: "flex", gap: 1.5, width: "100%", flexWrap: "nowrap" }}>
+                {/* Nút Tổng hợp cá nhân */}
+                <Button
+                  variant={viewMode === "personal" ? "contained" : "outlined"}
+                  color="primary"
+                  fullWidth
+                  onClick={() => setViewMode("personal")}
+                  sx={{
+                    flex: 1,
+                    height: 46,
+                    borderRadius: "12px",
+                    textTransform: "none",
+                    fontWeight: 700,
+                    fontSize: "13.5px",
+                    whiteSpace: "nowrap",
+                    ...(viewMode === "personal"
+                      ? {
+                          bgcolor: "#1976d2",
+                          boxShadow: "0 8px 20px rgba(25, 118, 210, 0.3)",
+                          "&:hover": { bgcolor: "#115293" },
+                        }
+                      : {
+                          borderColor: "#cbd5e1",
+                          color: "#475569",
+                          "&:hover": { borderColor: "#94a3b8", bgcolor: "#f1f5f9" },
+                        }),
+                  }}
+                >
+                  👤 Cá nhân
+                </Button>
+
+                {/* Nút Tổng hợp toàn trường */}
+                <Button
+                  variant={viewMode === "summary" ? "contained" : "outlined"}
+                  color="primary"
+                  fullWidth
+                  onClick={() => {
+                    setViewMode("summary");
+                    if (Object.keys(schoolSummaryGrouped).length === 0) {
+                      fetchSchoolSummary();
+                    }
+                  }}
+                  sx={{
+                    flex: 1,
+                    height: 46,
+                    borderRadius: "12px",
+                    textTransform: "none",
+                    fontWeight: 700,
+                    fontSize: "13.5px",
+                    whiteSpace: "nowrap",
+                    ...(viewMode === "summary"
+                      ? {
+                          bgcolor: "#1976d2",
+                          boxShadow: "0 8px 20px rgba(25, 118, 210, 0.3)",
+                          "&:hover": { bgcolor: "#115293" },
+                        }
+                      : {
+                          borderColor: "#cbd5e1",
+                          color: "#475569",
+                          "&:hover": { borderColor: "#94a3b8", bgcolor: "#f1f5f9" },
+                        }),
+                  }}
+                >
+                  📊 Toàn trường
+                </Button>
+              </Box>
+
+              <Box>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  fontWeight="bold"
+                  gutterBottom
+                  display="block"
+                  sx={{ mb: 0.5 }}
+                >
+                  🔍 LỌC NHÓM GIÁO VIÊN:
+                </Typography>
+                <ToggleButtonGroup
+                  value={filterCategory}
+                  exclusive
+                  onChange={handleCategoryChange}
+                  size="small"
+                  fullWidth
+                  sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}
+                >
+                  <ToggleButton value="gvcn" sx={{ flex: 1, fontSize: "0.75rem", py: 0.4 }}>
+                    GVCN (1-5)
+                  </ToggleButton>
+                  <ToggleButton value="tieng_anh" sx={{ flex: 1, fontSize: "0.75rem", py: 0.4 }}>
+                    Tiếng Anh
+                  </ToggleButton>
+                  <ToggleButton value="bo_mon" sx={{ flex: 1, fontSize: "0.75rem", py: 0.4 }}>
+                    Bộ môn
+                  </ToggleButton>
+                </ToggleButtonGroup>
+              </Box>
+
+              <FormControl fullWidth size="small">
+                <InputLabel>👤 Chọn Giáo viên</InputLabel>
+                <Select
+                  value={selectedUsername}
+                  label="👤 Chọn Giáo viên"
+                  onChange={(e) => {
+                    setSelectedUsername(e.target.value);
+                    setViewMode("single");
+                  }}
+                >
+                  {currentTeacherList.length === 0 ? (
+                    <MenuItem disabled value="">
+                      <em>Không có giáo viên trong nhóm này</em>
+                    </MenuItem>
+                  ) : (
+                    currentTeacherList.map((name) => (
+                      <MenuItem key={name} value={name}>
+                        {name}
+                      </MenuItem>
+                    ))
+                  )}
+                </Select>
+              </FormControl>
+
+              <Box sx={{ display: "flex", gap: 1.5 }}>
+                <FormControl size="small" sx={{ flex: 1 }}>
+                  <InputLabel>Môn học</InputLabel>
+                  <Select
+                    value={subject}
+                    label="Môn học"
+                    onChange={(e) => setSubject(e.target.value)}
+                  >
+                    {teacherAllowedSubjects.length === 0 ? (
+                      <MenuItem disabled value="">
+                        <em>Không có môn phù hợp</em>
+                      </MenuItem>
+                    ) : (
+                      teacherAllowedSubjects.map((subName) => (
+                        <MenuItem key={subName} value={subName}>
+                          {subName}
+                        </MenuItem>
+                      ))
+                    )}
+                  </Select>
+                </FormControl>
+
+                <FormControl size="small" sx={{ flex: 1 }}>
+                  <InputLabel>Lớp</InputLabel>
+                  <Select
+                    value={className}
+                    label="Lớp"
+                    onChange={(e) => setClassName(e.target.value)}
+                  >
+                    {teacherAllowedClasses.length === 0 ? (
+                      <MenuItem disabled value="">
+                        <em>Không có lớp</em>
+                      </MenuItem>
+                    ) : (
+                      teacherAllowedClasses.map((clsNum) => (
+                        <MenuItem key={clsNum} value={clsNum}>
+                          Lớp {clsNum}
+                        </MenuItem>
+                      ))
+                    )}
+                  </Select>
+                </FormControl>
+              </Box>
+            </CardContent>
+          </Card>
+
+          {/* Danh sách file */}
+          <FileListCardBGH
+            fileList={fileList}
+            selectedFile={selectedFile}
+            setSelectedFile={setSelectedFile}
+            loadingFiles={loadingFiles}
+            setViewMode={setViewMode}
+            formatVNDate={formatVNDate}
+          />
+        </Box>
+      )}
+
+      {/* 📱 DIALOG HIỂN THỊ BẢNG NỔI TRÊN ĐIỆN THOẠI KHI BẤM NÚT CÁ NHÂN HOẶC TOÀN TRƯỜNG */}
+      <Dialog
+        open={isMobile && (viewMode === "summary" || viewMode === "personal")}
+        onClose={() => setViewMode("single")}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: "16px",
+            maxHeight: "85vh",
+            display: "flex",
+            flexDirection: "column",
+          },
         }}
       >
-        <Card sx={{ width: "100%", flexShrink: 0 }}>
-          <CardContent sx={{ display: "flex", flexDirection: "column", gap: 1.5, pt: 1.5, pb: "16px !important" }}>
-            <Typography variant="h6" color="primary" sx={{ mb: 0, fontWeight: "bold" }}>
-              📚 QUẢN LÍ KẾ HOẠCH BÀI DẠY
-            </Typography>
+        <Box sx={{ p: 2, display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #eee" }}>
+          <Typography variant="h6" fontWeight="bold" color="primary">
+            {viewMode === "summary" 
+              ? `📊 Bảng tổng hợp toàn trường` 
+              : `📊 Thống kê kế hoạch bài dạy`}
+          </Typography>
+          <IconButton onClick={() => setViewMode("single")}>
+            <CloseIcon />
+          </IconButton>
+        </Box>
+        <DialogContent sx={{ p: 1, overflowY: "auto" }}>
+          {viewMode === "summary" ? (
+            <SchoolSummaryView
+              academicYear={academicYear}
+              loadingSchoolSummary={loadingSchoolSummary}
+              schoolSummaryGrouped={schoolSummaryGrouped}
+              filteredSubjectNames={filteredSubjectNames}
+              fetchSchoolSummary={fetchSchoolSummary}
+              setViewMode={setViewMode}
+              getShortSubjectName={getShortSubjectName}
+              setSelectedUsername={setSelectedUsername}
+              setSelectedFile={setSelectedFile}
+              isFullScreen={isFullScreen}
+              setIsFullScreen={setIsFullScreen}
+            />
+          ) : (
+            <TeacherStatsView
+              selectedUsername={selectedUsername}
+              statsData={statsData}
+              teacherAllowedSubjects={teacherAllowedSubjects}
+              teacherAllowedClasses={teacherAllowedClasses}
+              loadingStats={loadingStats}
+              academicYear={academicYear}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
-            {/* Nút Tổng hợp toàn trường */}
-            <Box sx={{ display: "flex", gap: 1.5, width: "100%", flexWrap: "nowrap" }}>
-              {/* Nút Tổng hợp cá nhân */}
-              <Button
-                variant={viewMode === "personal" ? "contained" : "outlined"}
-                color="primary"
-                fullWidth
-                onClick={() => setViewMode("personal")}
-                sx={{
-                  flex: 1,
-                  height: 46,
-                  borderRadius: "12px",
-                  textTransform: "none",
-                  fontWeight: 700,
-                  fontSize: "13.5px",
-                  whiteSpace: "nowrap",
-                  ...(viewMode === "personal"
-                    ? {
-                        bgcolor: "#1976d2",
-                        boxShadow: "0 8px 20px rgba(25, 118, 210, 0.3)",
-                        "&:hover": { bgcolor: "#115293" },
-                      }
-                    : {
-                        borderColor: "#cbd5e1",
-                        color: "#475569",
-                        "&:hover": { borderColor: "#94a3b8", bgcolor: "#f1f5f9" },
-                      }),
-                }}
-              >
-                👤 Tổng hợp cá nhân
-              </Button>
-
-              {/* Nút Tổng hợp toàn trường */}
-              <Button
-                variant={viewMode === "summary" ? "contained" : "outlined"}
-                color="primary"
-                fullWidth
-                onClick={() => {
-                  setViewMode("summary");
-                  if (Object.keys(schoolSummaryGrouped).length === 0) {
-                    fetchSchoolSummary();
-                  }
-                }}
-                sx={{
-                  flex: 1,
-                  height: 46,
-                  borderRadius: "12px",
-                  textTransform: "none",
-                  fontWeight: 700,
-                  fontSize: "13.5px",
-                  whiteSpace: "nowrap",
-                  ...(viewMode === "summary"
-                    ? {
-                        bgcolor: "#1976d2",
-                        boxShadow: "0 8px 20px rgba(25, 118, 210, 0.3)",
-                        "&:hover": { bgcolor: "#115293" },
-                      }
-                    : {
-                        borderColor: "#cbd5e1",
-                        color: "#475569",
-                        "&:hover": { borderColor: "#94a3b8", bgcolor: "#f1f5f9" },
-                      }),
-                }}
-              >
-                📊 Tổng hợp toàn trường
-              </Button>
-            </Box>
-
-            <Box>
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                fontWeight="bold"
-                gutterBottom
-                display="block"
-                sx={{ mb: 0.5 }}
-              >
-                🔍 LỌC NHÓM GIÁO VIÊN:
-              </Typography>
-              <ToggleButtonGroup
-                value={filterCategory}
-                exclusive
-                onChange={handleCategoryChange}
-                size="small"
-                fullWidth
-                sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}
-              >
-                <ToggleButton value="gvcn" sx={{ flex: 1, fontSize: "0.75rem", py: 0.4 }}>
-                  GVCN (1-5)
-                </ToggleButton>
-                <ToggleButton value="tieng_anh" sx={{ flex: 1, fontSize: "0.75rem", py: 0.4 }}>
-                  Tiếng Anh
-                </ToggleButton>
-                <ToggleButton value="bo_mon" sx={{ flex: 1, fontSize: "0.75rem", py: 0.4 }}>
-                  Bộ môn
-                </ToggleButton>
-              </ToggleButtonGroup>
-            </Box>
-
-            <FormControl fullWidth size="small">
-              <InputLabel>👤 Chọn Giáo viên</InputLabel>
-              <Select
-                value={selectedUsername}
-                label="👤 Chọn Giáo viên"
-                onChange={(e) => {
-                  setSelectedUsername(e.target.value);
-                  setViewMode("single");
-                }}
-              >
-                {currentTeacherList.length === 0 ? (
-                  <MenuItem disabled value="">
-                    <em>Không có giáo viên trong nhóm này</em>
-                  </MenuItem>
-                ) : (
-                  currentTeacherList.map((name) => (
-                    <MenuItem key={name} value={name}>
-                      {name}
-                    </MenuItem>
-                  ))
-                )}
-              </Select>
-            </FormControl>
-
-            <Box sx={{ display: "flex", gap: 1.5 }}>
-              <FormControl size="small" sx={{ flex: 1 }}>
-                <InputLabel>Môn học</InputLabel>
-                <Select
-                  value={subject}
-                  label="Môn học"
-                  onChange={(e) => setSubject(e.target.value)}
-                >
-                  {teacherAllowedSubjects.length === 0 ? (
-                    <MenuItem disabled value="">
-                      <em>Không có môn phù hợp</em>
-                    </MenuItem>
-                  ) : (
-                    teacherAllowedSubjects.map((subName) => (
-                      <MenuItem key={subName} value={subName}>
-                        {subName}
-                      </MenuItem>
-                    ))
-                  )}
-                </Select>
-              </FormControl>
-
-              <FormControl size="small" sx={{ flex: 1 }}>
-                <InputLabel>Lớp</InputLabel>
-                <Select
-                  value={className}
-                  label="Lớp"
-                  onChange={(e) => setClassName(e.target.value)}
-                >
-                  {teacherAllowedClasses.length === 0 ? (
-                    <MenuItem disabled value="">
-                      <em>Không có lớp</em>
-                    </MenuItem>
-                  ) : (
-                    teacherAllowedClasses.map((clsNum) => (
-                      <MenuItem key={clsNum} value={clsNum}>
-                        Lớp {clsNum}
-                      </MenuItem>
-                    ))
-                  )}
-                </Select>
-              </FormControl>
-            </Box>
-          </CardContent>
-        </Card>
-
-        {/* Danh sách file */}
-        <FileListCardBGH
-          fileList={fileList}
-          selectedFile={selectedFile}
-          setSelectedFile={setSelectedFile}
-          loadingFiles={loadingFiles}
-          setViewMode={setViewMode}
-          formatVNDate={formatVNDate}
-        />
-      </Box>
-
-      {/* Cột phải: Bảng tổng hợp toàn trường theo nhóm / Xem trước file / Thống kê cá nhân */}
-      {/* Cột phải: Bảng tổng hợp toàn trường / Thống kê cá nhân / Xem trước file */}
-      {/* Cột phải: Bảng tổng hợp / Thống kê cá nhân / Xem trước file */}
+      {/* Cột phải hiển thị trên máy tính (Desktop) hoặc khi xem trước file trên điện thoại */}
       <Card
         sx={{
           flex: 1,
           height: "100%",
           display: {
-            xs: viewMode === "summary" || viewMode === "personal" || selectedFile?.fileId ? "flex" : "none",
+            xs: selectedFile?.fileId ? "flex" : "none",
             sm: "flex",
           },
           flexDirection: "column",
           overflow: "hidden",
+          ...(isFullScreen && {
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100vw",
+            height: "100vh",
+            zIndex: 1300,
+            m: 0,
+            borderRadius: 0,
+          }),
         }}
       >
         <CardContent sx={{ height: "100%", p: 0, boxSizing: "border-box", display: "flex", flexDirection: "column", position: "relative" }}>
-         
-         {/* 📱 NÚT THOÁT (X) TRÊN ĐIỆN THOẠI KHI XEM THỐNG KÊ CÁ NHÂN HOẶC TỔNG HỢP TOÀN TRƯỜNG */}
-         {isMobile && (viewMode === "summary" || viewMode === "personal") && (
-          <Box 
-            sx={{ 
-              p: 1, 
-              px: 2,
-              bgcolor: "#f1f5f9", 
-              borderBottom: "1px solid #e2e8f0", 
-              display: "flex", 
-              justifyContent: "space-between", 
-              alignItems: "center",
-              flexShrink: 0 
-            }}
-          >
-            <Typography variant="subtitle1" fontWeight="bold" color="primary" sx={{ fontSize: "0.95rem" }}>
-              {viewMode === "summary" 
-                ? `📊 BẢNG TỔNG HỢP TOÀN TRƯỜNG(${academicYear})` 
-                : "👤 BẢNG TỔNG HỢP CÁ NHÂN"}
-            </Typography>
-            
-            <IconButton 
-              size="small" 
-              onClick={() => setViewMode("single")}
-              sx={{ 
-                bgcolor: "#e2e8f0", 
-                color: "#475569",
-                "&:hover": { bgcolor: "#cbd5e1" } 
-              }}
-            >
-              <CloseIcon fontSize="small" />
-            </IconButton>
-          </Box>
-        )}
-
-         {viewMode === "summary" ? (
-           <SchoolSummaryView
-             academicYear={academicYear}
-             loadingSchoolSummary={loadingSchoolSummary}
-             schoolSummaryGrouped={schoolSummaryGrouped}
-             filteredSubjectNames={filteredSubjectNames}
-             fetchSchoolSummary={fetchSchoolSummary}
-             setViewMode={setViewMode}
-             getShortSubjectName={getShortSubjectName}
-             setSelectedUsername={setSelectedUsername}
-             setSelectedFile={setSelectedFile}
-           />
-         ) : viewMode === "personal" || !selectedFile?.fileId ? (
-           <TeacherStatsView
-             selectedUsername={selectedUsername}
-             statsData={statsData}
-             teacherAllowedSubjects={teacherAllowedSubjects}
-             teacherAllowedClasses={teacherAllowedClasses}
-             loadingStats={loadingStats}
-             academicYear={academicYear}
-           />
-         ) : (
-           <>
-             <Box sx={{ py: 0.5, px: 1.5, bgcolor: "#f8f9fa", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0, borderBottom: "1px solid #ddd" }}>
-               <Typography variant="subtitle2" fontWeight="bold">
-                 👁️ Xem trước: {selectedFile.fileName || selectedFile.name}
-               </Typography>
-               <Button size="small" variant="outlined" onClick={() => setSelectedFile(null)}>
-                 Đóng xem trước
-               </Button>
-             </Box>
-             <Box sx={{ flex: 1, p: 1 }}>
-               <iframe
-                 src={`https://drive.google.com/file/d/${selectedFile.fileId}/preview`}
-                 style={{ width: "100%", height: "100%", border: "none" }}
-                 title="File Preview"
-               />
-             </Box>
-           </>
-         )}
-       </CardContent>
+          {viewMode === "summary" ? (
+            <SchoolSummaryView
+              academicYear={academicYear}
+              loadingSchoolSummary={loadingSchoolSummary}
+              schoolSummaryGrouped={schoolSummaryGrouped}
+              filteredSubjectNames={filteredSubjectNames}
+              fetchSchoolSummary={fetchSchoolSummary}
+              setViewMode={setViewMode}
+              getShortSubjectName={getShortSubjectName}
+              setSelectedUsername={setSelectedUsername}
+              setSelectedFile={setSelectedFile}
+              isFullScreen={isFullScreen}
+              setIsFullScreen={setIsFullScreen}
+            />
+          ) : viewMode === "personal" || !selectedFile?.fileId ? (
+            <TeacherStatsView
+              selectedUsername={selectedUsername}
+              statsData={statsData}
+              teacherAllowedSubjects={teacherAllowedSubjects}
+              teacherAllowedClasses={teacherAllowedClasses}
+              loadingStats={loadingStats}
+              academicYear={academicYear}
+            />
+          ) : (
+            <>
+              <Box sx={{ py: 0.5, px: 1.5, bgcolor: "#f8f9fa", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0, borderBottom: "1px solid #ddd" }}>
+                <Typography variant="subtitle2" fontWeight="bold">
+                  👁️ Xem trước: {selectedFile.fileName || selectedFile.name}
+                </Typography>
+                <Button size="small" variant="outlined" onClick={() => setSelectedFile(null)}>
+                  Đóng xem trước
+                </Button>
+              </Box>
+              <Box sx={{ flex: 1, p: 1 }}>
+                <iframe
+                  src={`https://drive.google.com/file/d/${selectedFile.fileId}/preview`}
+                  style={{ width: "100%", height: "100%", border: "none" }}
+                  title="File Preview"
+                />
+              </Box>
+            </>
+          )}
+        </CardContent>
       </Card>
     </Box>
   );

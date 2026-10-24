@@ -157,15 +157,15 @@ export default function Dashboard({ onSelectModule }) {
       id: "khoi-3",
       label: "Khối Lớp 3",
       description: "Quản lý và tải lên KHBD Lớp 3",
-      icon: <School sx={{ color: "#0d9488" }} />,
-      color: "#0d9488",
+      icon: <School sx={{ color: "#ea580c" }} />, // Đã đổi sang màu Cam (#ea580c)
+      color: "#ea580c",                          // Đã đổi sang màu Cam (#ea580c)
       path: "/login?group=khoi-3",
     },
     {
       id: "khoi-4",
       label: "Khối Lớp 4",
       description: "Quản lý và tải lên KHBD Lớp 4",
-      icon: <School sx={{ color: "#16a34a" }} />,
+      icon: <School sx={{ color: "#16a34a" }} />, // Giữ nguyên màu Xanh lá (#16a34a)
       color: "#16a34a",
       path: "/login?group=khoi-4",
     },

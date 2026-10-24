@@ -361,11 +361,23 @@ export default function Users({ user }) {
     e.target.value = null;
     if (rawFiles.length === 0) return;
 
-    const files = rawFiles.map((file) => {
-      let cleaned = file.name.replace(/^\d+_[_-]?/, "");
+    /*const files = rawFiles.map((file) => {
+      let cleaned = file.name.replace(/^\d+_[_-]?/, ""); // ✂️ Cắt bỏ dãy số ở đây nè!
       const lastDotIndex = cleaned.lastIndexOf(".");
       let nameWithoutExt = lastDotIndex !== -1 ? cleaned.substring(0, lastDotIndex) : cleaned;
       let ext = lastDotIndex !== -1 ? cleaned.substring(lastDotIndex) : "";
+
+      nameWithoutExt = nameWithoutExt.toUpperCase().replace(/_/g, " ");
+      const finalName = nameWithoutExt + ext.toLowerCase();
+
+      return new File([file], finalName, { type: file.type });
+    });*/
+
+    const files = rawFiles.map((file) => {
+      // Bỏ dòng cắt dãy số, sử dụng trực tiếp tên gốc của file
+      const lastDotIndex = file.name.lastIndexOf(".");
+      let nameWithoutExt = lastDotIndex !== -1 ? file.name.substring(0, lastDotIndex) : file.name;
+      let ext = lastDotIndex !== -1 ? file.name.substring(lastDotIndex) : "";
 
       nameWithoutExt = nameWithoutExt.toUpperCase().replace(/_/g, " ");
       const finalName = nameWithoutExt + ext.toLowerCase();

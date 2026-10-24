@@ -1,5 +1,10 @@
 import React from "react";
-import { Box, Card, Typography, CircularProgress } from "@mui/material";
+import {
+  Box,
+  Card,
+  Typography,
+  CircularProgress,
+} from "@mui/material";
 
 export default function TeacherStatsView({
   selectedUsername,
@@ -9,50 +14,41 @@ export default function TeacherStatsView({
   loadingStats,
   academicYear,
 }) {
-  // 🌟 Tự động quét và loại bỏ các key lỗi (như chứa chữ "username" hoặc không hợp lệ)
-  const columnKeysSet = new Set();
-  statsData.forEach((row) => {
-    Object.keys(row).forEach((key) => {
-      const lowerKey = String(key).toLowerCase();
-      if (
-        key !== "subject" &&
-        key !== "total" &&
-        key !== "id" &&
-        !lowerKey.includes("username") &&
-        !lowerKey.includes("giao_vien")
-      ) {
-        columnKeysSet.add(key);
-      }
-    });
-  });
-
-  // Nếu statsData chưa có key, fallback về teacherAllowedClasses hoặc mặc định 1-5
-  if (columnKeysSet.size === 0) {
-    teacherAllowedClasses.forEach((c) => {
-      if (c && !String(c).toLowerCase().includes("username")) {
-        columnKeysSet.add(c);
-      }
-    });
-  }
-  if (columnKeysSet.size === 0) {
-    ["1", "2", "3", "4", "5"].forEach((c) => columnKeysSet.add(c));
-  }
-
-  // Sắp xếp thứ tự các cột hiển thị
-  const dynamicColumns = Array.from(columnKeysSet).sort((a, b) =>
-    String(a).localeCompare(String(b), "vi", { numeric: true })
+  // Lọc chỉ lấy các lớp hợp lệ (loại bỏ chữ "username" nếu có)
+  const allowedClassesFiltered = (teacherAllowedClasses || []).filter(
+    (c) => !String(c).toLowerCase().includes("username")
   );
 
-  // Tính tổng số bài nộp của một hàng
+  // Xác định các cột lớp hiển thị (dynamicColumns):
+  // Ưu tiên lấy các lớp từ allowedClassesFiltered của giáo viên. 
+  // Nếu statsData có các cột khác mà giáo viên đó có nộp bài, ta có thể gộp thêm hoặc chỉ bám sát vào danh sách lớp được phân công.
+  // Ở đây chúng ta lọc trực tiếp từ allowedClassesFiltered để chỉ hiện đúng lớp giáo viên dạy.
+  let dynamicColumns = allowedClassesFiltered;
+
+  // Phòng hờ nếu allowedClassesFiltered trống nhưng statsData có sẵn các keys lớp học
+  if (dynamicColumns.length === 0 && statsData.length > 0) {
+    const keysSet = new Set();
+    statsData.forEach((row) => {
+      Object.keys(row).forEach((key) => {
+        if (key !== "subject" && key !== "total" && key !== "id") {
+          keysSet.add(key);
+        }
+      });
+    });
+    dynamicColumns = Array.from(keysSet);
+  }
+
+  // Hàm tính tổng số bài theo dòng môn học
   const getRowTotal = (row) => {
-    return dynamicColumns.reduce((sum, col) => {
-      const val = row[col] || 0;
-      return sum + (typeof val === "number" ? val : Number(val) || 0);
-    }, 0);
+    let total = 0;
+    dynamicColumns.forEach((col) => {
+      total += Number(row[col] || 0);
+    });
+    return total;
   };
 
-  // Tổng toàn bộ bài nộp
-  const grandTotal = statsData.reduce((acc, row) => acc + getRowTotal(row), 0);
+  // Tính tổng toàn bộ bài nộp của giáo viên
+  const grandTotal = statsData.reduce((sum, row) => sum + getRowTotal(row), 0);
 
   return (
     <Box sx={{ p: 2.5, overflowY: "auto", flex: 1, bgcolor: "#fafafa" }}>
@@ -102,7 +98,7 @@ export default function TeacherStatsView({
               <span>🏫</span>
               <Typography variant="body2" sx={{ color: "#94a3b8" }}>Lớp:</Typography>
               <Typography variant="body1" fontWeight="bold" sx={{ color: "#4ade80" }}>
-                {teacherAllowedClasses.filter(c => !String(c).toLowerCase().includes("username")).join(", ") || dynamicColumns.join(", ") || "Không có"}
+                {dynamicColumns.join(", ") || "Không có"}
               </Typography>
             </Box>
           </Box>
@@ -116,7 +112,7 @@ export default function TeacherStatsView({
       ) : (
         <Card sx={{ p: 2.5, borderRadius: 2.5, boxShadow: 1, bgcolor: "white" }}>
           <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 2, color: "#1e293b", fontSize: "1rem" }}>
-            📊 Chi tiết bài nộp theo môn và khối/lớp
+            📊 Chi tiết bài nộp
           </Typography>
           
           {statsData.length === 0 ? (
@@ -128,15 +124,38 @@ export default function TeacherStatsView({
               <Box component="table" sx={{ width: "100%", borderCollapse: "collapse", textAlign: "center" }}>
                 <thead>
                   <Box component="tr" sx={{ bgcolor: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
-                    <Box component="th" sx={{ p: 1.8, textAlign: "left", color: "#475569", fontWeight: 700, fontSize: "0.95rem" }}>
+                    <Box 
+                      component="th" 
+                      sx={{ 
+                        p: { xs: 1, sm: 1.8 }, 
+                        textAlign: "left", 
+                        color: "#475569", 
+                        fontWeight: 700, 
+                        fontSize: "0.95rem",
+                        minWidth: { xs: "140px", sm: "180px" },
+                        whiteSpace: "nowrap"
+                      }}
+                    >
                       Môn học
                     </Box>
                     {dynamicColumns.map((col) => (
-                      <Box component="th" key={col} sx={{ p: 1.8, color: "#475569", fontWeight: 700, fontSize: "0.95rem", minWidth: "120px" }}>
+                      <Box 
+                        component="th" 
+                        key={col} 
+                        sx={{ 
+                          p: { xs: 0.5, sm: 1.8 }, 
+                          color: "#475569", 
+                          fontWeight: 700, 
+                          fontSize: "0.95rem", 
+                          width: { xs: "38px", sm: "50px" }, 
+                          minWidth: { xs: "38px", sm: "50px" }, 
+                          whiteSpace: "nowrap" 
+                        }}
+                      >
                         {dynamicColumns.length === 1 ? "Số bài nộp" : (String(col).toLowerCase().includes("khối") ? col : `Lớp ${col}`)}
                       </Box>
                     ))}
-                    <Box component="th" sx={{ p: 1.8, color: "#dc2626", fontWeight: 700, fontSize: "0.95rem", width: "14%" }}>
+                    <Box component="th" sx={{ p: { xs: 1, sm: 1.8 }, color: "#dc2626", fontWeight: 700, fontSize: "0.95rem", width: "14%", whiteSpace: "nowrap" }}>
                       Tổng
                     </Box>
                   </Box>
@@ -158,7 +177,7 @@ export default function TeacherStatsView({
                         <Box 
                           component="td" 
                           sx={{ 
-                            p: 1.8, 
+                            p: { xs: 1, sm: 1.8 }, 
                             textAlign: "left", 
                             fontWeight: "700", 
                             color: "#1e293b", 
@@ -171,7 +190,7 @@ export default function TeacherStatsView({
                           📖 {row.subject}
                         </Box>
 
-                        {/* Các cột Lớp động */}
+                        {/* Các cột Lớp động (chỉ hiện đúng các lớp được phân công) */}
                         {dynamicColumns.map((col) => {
                           const count = row[col] || 0;
                           return (
@@ -179,10 +198,11 @@ export default function TeacherStatsView({
                               component="td" 
                               key={col} 
                               sx={{ 
-                                p: 1.8, 
+                                p: { xs: 0.5, sm: 1.8 }, 
                                 color: count > 0 ? "#15803d" : "#94a3b8", 
                                 fontWeight: count > 0 ? "800" : "500",
-                                fontSize: "1rem"
+                                fontSize: "1rem",
+                                textAlign: "center"
                               }}
                             >
                               {count > 0 ? count : "—"}
@@ -194,11 +214,12 @@ export default function TeacherStatsView({
                         <Box 
                           component="td" 
                           sx={{ 
-                            p: 1.8, 
+                            p: { xs: 1, sm: 1.8 }, 
                             fontWeight: "800", 
                             color: "#dc2626", 
                             bgcolor: "#eff6ff", 
-                            fontSize: "1rem" 
+                            fontSize: "1rem",
+                            textAlign: "center"
                           }}
                         >
                           {rowTotal}

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
-import { AppBar, Toolbar, Typography, Box, Menu, MenuItem, IconButton } from "@mui/material";
+import { AppBar, Toolbar, Typography, Box, Menu, MenuItem, IconButton, Button, Stack } from "@mui/material";
 import AccountCircle from "@mui/icons-material/AccountCircle";
 import Users from "./pages/Users";
 import Admin from "./pages/Admin";
@@ -14,6 +14,11 @@ import LockResetIcon from "@mui/icons-material/LockReset";
 import LogoutIcon from "@mui/icons-material/Logout";
 import Login from "./pages/Login";
 
+// 🌟 Bổ sung các icon phóng to / thu nhỏ còn thiếu
+import ZoomInRoundedIcon from "@mui/icons-material/ZoomInRounded";
+import ZoomOutRoundedIcon from "@mui/icons-material/ZoomOutRounded";
+import RestartAltRoundedIcon from "@mui/icons-material/RestartAltRounded";
+
 function AppContent() {
   const { currentUser, setCurrentUser } = useProfile();
   const navigate = useNavigate();
@@ -21,6 +26,7 @@ function AppContent() {
   const [anchorEl, setAnchorEl] = useState(null);
   const [openChangePassword, setOpenChangePassword] = useState(false); 
   const [zoomLogo, setZoomLogo] = useState(false);
+  const [logoScale, setLogoScale] = useState(1);
 
   const open = Boolean(anchorEl);
   const handleMenu = (e) => setAnchorEl(e.currentTarget);
@@ -97,7 +103,7 @@ function AppContent() {
                 fontSize: "0.95rem",
               }}
             >
-              TH BÌNH KHÁNH • KHBD
+              TH BÌNH KHÁNH - KHBD
             </Typography>
           </Box>
 
@@ -229,7 +235,7 @@ function AppContent() {
       {/* Hiệu ứng phóng to Logo2 giữa màn hình khi bấm vào ảnh trên AppBar */}
       {zoomLogo && (
         <Box
-          onClick={() => setZoomLogo(false)}
+          onClick={() => { setZoomLogo(false); setLogoScale(1); }}
           sx={{
             position: "fixed",
             top: 0,
@@ -238,6 +244,7 @@ function AppContent() {
             height: "100vh",
             bgcolor: "rgba(0, 0, 0, 0.75)",
             display: "flex",
+            flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
             zIndex: 9999,
@@ -245,24 +252,84 @@ function AppContent() {
           }}
         >
           <Box
-            component="img"
-            src="/Logo2.png"
-            alt="Logo Zoom"
-            onClick={(e) => {
-              e.stopPropagation();
-              setZoomLogo(false);
-            }}
+            onClick={(e) => e.stopPropagation()}
             sx={{
-              width: { xs: "250px", sm: "380px" },
-              height: "auto",
-              borderRadius: "16px",
-              boxShadow: "0 20px 50px rgba(0,0,0,0.5)",
               bgcolor: "#fff",
-              p: 2,
-              cursor: "pointer",
-              transition: "transform 0.3s ease",
+              p: 4,
+              borderRadius: "24px",
+              boxShadow: "0 20px 50px rgba(0,0,0,0.3)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 3,
+              cursor: "default",
+              maxWidth: "90vw",
             }}
-          />
+          >
+            <Box
+              component="img"
+              src="/Logo2.png"
+              alt="Logo Zoom"
+              sx={{
+                transform: `scale(${logoScale})`,
+                transition: "transform 0.2s ease",
+                maxWidth: { xs: "240px", sm: "320px" },
+                maxHeight: "240px",
+                objectFit: "contain",
+                my: 2,
+              }}
+            />
+            <Stack direction="row" spacing={1.5} justifyContent="center">
+              <Button
+                variant="outlined"
+                size="medium"
+                startIcon={<ZoomOutRoundedIcon />}
+                onClick={() => setLogoScale((prev) => Math.max(0.6, prev - 0.25))}
+                sx={{ 
+                  textTransform: "none", 
+                  borderRadius: "10px", 
+                  borderColor: "#94a3b8",
+                  color: "#334155",
+                  px: 2,
+                  "&:hover": { borderColor: "#64748b", bgcolor: "#f1f5f9" }
+                }}
+              >
+                Thu nhỏ
+              </Button>
+              <Button
+                variant="outlined"
+                size="medium"
+                startIcon={<RestartAltRoundedIcon />}
+                onClick={() => setLogoScale(1)}
+                sx={{ 
+                  textTransform: "none", 
+                  borderRadius: "10px", 
+                  borderColor: "#94a3b8",
+                  color: "#334155",
+                  px: 2,
+                  "&:hover": { borderColor: "#64748b", bgcolor: "#f1f5f9" }
+                }}
+              >
+                Mặc định
+              </Button>
+              <Button
+                variant="contained"
+                size="medium"
+                startIcon={<ZoomInRoundedIcon />}
+                onClick={() => setLogoScale((prev) => Math.min(2.5, prev + 0.25))}
+                sx={{ 
+                  textTransform: "none", 
+                  borderRadius: "10px", 
+                  bgcolor: "#1976d2",
+                  px: 2,
+                  boxShadow: "0 4px 12px rgba(25, 118, 210, 0.3)",
+                  "&:hover": { bgcolor: "#115293" }
+                }}
+              >
+                Phóng lớn
+              </Button>
+            </Stack>
+          </Box>
         </Box>
       )}
 

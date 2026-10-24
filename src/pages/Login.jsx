@@ -14,6 +14,7 @@ import {
   Toolbar,
   IconButton,
   InputAdornment,
+  Dialog,
 } from "@mui/material";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { db } from "../firebase";
@@ -24,6 +25,9 @@ import VisibilityRoundedIcon from "@mui/icons-material/VisibilityRounded";
 import VisibilityOffRoundedIcon from "@mui/icons-material/VisibilityOffRounded";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
+import ZoomInRoundedIcon from "@mui/icons-material/ZoomInRounded";
+import ZoomOutRoundedIcon from "@mui/icons-material/ZoomOutRounded";
+import RestartAltRoundedIcon from "@mui/icons-material/RestartAltRounded";
 
 export default function Login({ onLogin }) {
   const [selectedGroup, setSelectedGroup] = useState("");
@@ -34,6 +38,10 @@ export default function Login({ onLogin }) {
   const [filteredUsernames, setFilteredUsernames] = useState([]);
   const [usernameMap, setUsernameMap] = useState({});
   const [error, setError] = useState("");
+
+  // State quản lý phóng lớn / thu nhỏ logo tại trang Login
+  const [zoomLogo, setZoomLogo] = useState(false);
+  const [logoScale, setLogoScale] = useState(1);
   
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -257,7 +265,6 @@ export default function Login({ onLogin }) {
           }}
         >
           <Box
-            onClick={() => navigate("/")}
             sx={{
               display: "flex",
               alignItems: "center",
@@ -265,13 +272,18 @@ export default function Login({ onLogin }) {
               ml: -2,
               whiteSpace: "nowrap",
               overflowX: "auto",
-              cursor: "pointer",
+              cursor: "default", // Đã bỏ con trỏ hình bàn tay ở vùng tiêu đề này
             }}
           >
             <img
               src="/Logo2.png"
               alt="Logo"
-              style={{ height: "30px", flexShrink: 0 }} // Thu nhỏ logo từ 40px xuống 30px
+              onClick={(e) => {
+                e.stopPropagation();
+                setZoomLogo(true);
+              }}
+              style={{ height: "30px", flexShrink: 0, cursor: "pointer" }} // Giữ con trỏ bàn tay riêng cho Logo
+              title="Bấm để phóng lớn logo"
             />
             <Typography
               variant="subtitle1" // Đổi từ h6 sang subtitle1 để chữ gọn và thấp hơn
@@ -286,6 +298,87 @@ export default function Login({ onLogin }) {
           </Box>
         </Toolbar>
       </AppBar>
+
+      {/* 🔍 Hiệu ứng phóng to / thu nhỏ Logo khi bấm vào logo trên AppBar */}
+      {zoomLogo && (
+        <Box
+          onClick={() => { setZoomLogo(false); setLogoScale(1); }}
+          sx={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100vw",
+            height: "100vh",
+            bgcolor: "rgba(0, 0, 0, 0.75)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            cursor: "zoom-out",
+          }}
+        >
+          <Box
+            onClick={(e) => e.stopPropagation()}
+            sx={{
+              bgcolor: "#fff",
+              p: 3,
+              borderRadius: "16px",
+              boxShadow: "0 20px 50px rgba(0,0,0,0.5)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 2,
+              cursor: "default",
+              maxWidth: "90vw",
+            }}
+          >
+            <Box
+              component="img"
+              src="/Logo2.png"
+              alt="Logo Zoom"
+              sx={{
+                transform: `scale(${logoScale})`,
+                transition: "transform 0.2s ease",
+                maxWidth: { xs: "220px", sm: "320px" },
+                maxHeight: "220px",
+                objectFit: "contain",
+                my: 2,
+              }}
+            />
+            <Stack direction="row" spacing={1.5} justifyContent="center">
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<ZoomOutRoundedIcon />}
+                onClick={() => setLogoScale((prev) => Math.max(0.6, prev - 0.25))}
+                sx={{ textTransform: "none", borderRadius: "8px" }}
+              >
+                Thu nhỏ
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                color="inherit"
+                startIcon={<RestartAltRoundedIcon />}
+                onClick={() => setLogoScale(1)}
+                sx={{ textTransform: "none", borderRadius: "8px" }}
+              >
+                Mặc định
+              </Button>
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<ZoomInRoundedIcon />}
+                onClick={() => setLogoScale((prev) => Math.min(2.5, prev + 0.25))}
+                sx={{ textTransform: "none", borderRadius: "8px" }}
+              >
+                Phóng lớn
+              </Button>
+            </Stack>
+          </Box>
+        </Box>
+      )}
 
       {/* 🧩 Form đăng nhập */}
       <Box

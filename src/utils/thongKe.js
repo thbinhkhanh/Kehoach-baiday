@@ -1,4 +1,3 @@
-// src/utils/thongKe.js
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
 
@@ -91,6 +90,7 @@ export const fetchTeacherStatsData = async ({
   selectedUsername,
   academicYear,
   phanQuyenMap,
+  allMonHoc = [],
   setLoadingStats,
   setStatsData,
 }) => {
@@ -103,7 +103,24 @@ export const fetchTeacherStatsData = async ({
 
     const teacherInfo = phanQuyenMap[selectedUsername];
     if (teacherInfo) {
-      const assignedSubs = teacherInfo.assignedSubjects || [];
+      const rawSubs = teacherInfo.assignedSubjects || [];
+      const isAllGVCN = rawSubs.some((s) => s.toLowerCase().includes("tất cả")) || rawSubs.length === 0;
+
+      let assignedSubs = [];
+
+      if (isAllGVCN && teacherInfo.role === "GVCN") {
+        const firstCls = String(teacherInfo.teachingClasses?.[0] || "1");
+        const subjectsForClass = allMonHoc.filter((sub) => {
+          if (!sub.grades || sub.grades.length === 0) return true;
+          return sub.grades.map(String).includes(firstCls);
+        });
+        const specialistKeywords = ["tiếng anh", "tin học", "mĩ thuật", "mỹ thuật", "âm nhạc", "thể dục", "giáo dục thể chất"];
+        assignedSubs = subjectsForClass
+          .filter((sub) => !specialistKeywords.some((kw) => sub.name.toLowerCase().includes(kw)))
+          .map((sub) => sub.name);
+      } else {
+        assignedSubs = rawSubs;
+      }
 
       for (const sub of assignedSubs) {
         try {
