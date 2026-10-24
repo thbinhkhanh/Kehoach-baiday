@@ -81,7 +81,7 @@ export default function ExcelImportCard({
                 lineHeight: 1.7,
               }}
             >
-              Tự động nhận diện giáo viên, lớp chủ nhiệm và môn giảng dạy từ file Excel của trường.
+              Tự động nhận diện phân công giảng dạy từ Excel.
             </Typography>
           </Box>
         </Stack>

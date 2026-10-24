@@ -16,7 +16,9 @@ import {
   Dialog,
   DialogContent,
   IconButton,
+  ListSubheader,
 } from "@mui/material";
+
 import { db } from "../firebase";
 import { collection, getDocs, doc, getDoc, query, where } from "firebase/firestore";
 import { fetchSchoolSummaryData, fetchTeacherStatsData } from "../utils/thongKe";
@@ -24,6 +26,14 @@ import TeacherStatsView from "../components/TeacherStatsView";
 import SchoolSummaryView from "../components/SchoolSummaryView";
 import FileListCardBGH from "../components/FileListCardBGH";
 import CloseIcon from "@mui/icons-material/Close";
+
+import {
+  SchoolRounded,
+  ClassRounded,
+  MenuBookRounded,
+  BookmarkRounded,
+  StarRounded,
+} from "@mui/icons-material";
 
 // Hàm chuyển đổi tên môn học sang dạng viết tắt trên tiêu đề
 const getShortSubjectName = (name) => {
@@ -70,7 +80,8 @@ export default function BGH({ user }) {
   const [teacherAllowedClasses, setTeacherAllowedClasses] = useState([]);
 
   const [allMonHoc, setAllMonHoc] = useState([]);
-  const [filterCategory, setFilterCategory] = useState("all");
+  const [lopMonHocMap, setLopMonHocMap] = useState({}); 
+  const [filterCategory, setFilterCategory] = useState("gvcn");
 
   const [groupedTeachers, setGroupedTeachers] = useState({
     khoi1: [],
@@ -97,6 +108,7 @@ export default function BGH({ user }) {
   const isAdmin = isBGH;
 
   // 1. Lấy CONFIG & MONHOC
+  // 1. Lấy CONFIG, MONHOC & LOP_MONHOC
   useEffect(() => {
     const fetchConfigAndMonHoc = async () => {
       try {
@@ -118,8 +130,17 @@ export default function BGH({ user }) {
           }
         });
         setAllMonHoc(monList);
+
+        // 🟢 THÊM: Lấy dữ liệu phân bổ môn học theo lớp từ LOP_MONHOC
+        const lopMonHocSnap = await getDocs(collection(db, "LOP_MONHOC"));
+        const lopMap = {};
+        lopMonHocSnap.forEach((d) => {
+          lopMap[d.id] = d.data().subjects || [];
+        });
+        setLopMonHocMap(lopMap);
+
       } catch (err) {
-        console.error("❌ Lỗi khi tải CONFIG / MONHOC:", err);
+        console.error("❌ Lỗi khi tải CONFIG / MONHOC / LOP_MONHOC:", err);
       }
     };
 
@@ -129,12 +150,13 @@ export default function BGH({ user }) {
   }, [isBGH]);
 
   // 2. Phân quyền giáo viên
+  // 2. Phân quyền giáo viên
   useEffect(() => {
       const fetchPhanQuyen = async () => {
         try {
           const phanQuyenColName = `PHANQUYEN_${academicYear}`;
           const querySnapshot = await getDocs(collection(db, phanQuyenColName));
-  
+ 
           const groups = {
             khoi1: [],
             khoi2: [],
@@ -146,12 +168,12 @@ export default function BGH({ user }) {
           };
           const map = {};
           let firstAvailableTeacher = "";
-  
+ 
           querySnapshot.forEach((docSnap) => {
             const data = docSnap.data();
             const name = data.username || docSnap.id;
             const lowerName = name.toLowerCase();
-  
+ 
             if (
               lowerName !== "admin" &&
               lowerName !== "bgh" &&
@@ -159,7 +181,7 @@ export default function BGH({ user }) {
               !lowerName.includes("thbinhkhanh")
             ) {
               const upperName = name.toUpperCase();
-  
+ 
               let subs = [];
               if (
                 Array.isArray(data.assignedSubjects) &&
@@ -172,7 +194,7 @@ export default function BGH({ user }) {
                   .map((s) => s.trim())
                   .filter(Boolean);
               }
-  
+ 
               let cls = [];
               if (data.assignedClass) {
                 cls = [String(data.assignedClass)];
@@ -184,19 +206,20 @@ export default function BGH({ user }) {
               } else {
                 cls = ["1", "2", "3", "4", "5"];
               }
-  
+ 
               const teacherObj = {
                 username: upperName,
                 role: data.role || "GVCN",
                 assignedSubjects: subs,
                 teachingClasses: cls,
+                grade: data.grade || "", // Đọc thêm trường grade từ Firestore
               };
-  
+ 
               map[upperName] = teacherObj;
-  
+ 
               const role = teacherObj.role;
               const subString = subs.join(" ").toLowerCase();
-  
+ 
               if (role === "TA" || subString.includes("tiếng anh")) {
                 groups.tiengAnh.push(upperName);
               } else if (
@@ -209,17 +232,21 @@ export default function BGH({ user }) {
               ) {
                 groups.boMon.push(upperName);
               } else {
-                const firstCls = String(cls[0] || "");
-                if (firstCls.includes("1")) groups.khoi1.push(upperName);
-                else if (firstCls.includes("2")) groups.khoi2.push(upperName);
-                else if (firstCls.includes("3")) groups.khoi3.push(upperName);
-                else if (firstCls.includes("4")) groups.khoi4.push(upperName);
-                else if (firstCls.includes("5")) groups.khoi5.push(upperName);
-                else groups.boMon.push(upperName);
+                // Xác định chính xác khối dựa vào field grade hoặc ký tự đầu tiên của lớp (VD: "5.4" -> "5")
+                const gradeVal = teacherObj.grade || String(cls[0] || "").charAt(0);
+ 
+                if (gradeVal === "1") groups.khoi1.push(upperName);
+                else if (gradeVal === "2") groups.khoi2.push(upperName);
+                else if (gradeVal === "3") groups.khoi3.push(upperName);
+                else if (gradeVal === "4") groups.khoi4.push(upperName);
+                else if (gradeVal === "5") groups.khoi5.push(upperName);
+                else {
+                  groups.boMon.push(upperName);
+                }
               }
             }
           });
-  
+ 
           const sortByName = (arr) => {
             return arr.sort((a, b) => {
               const getLastName = (fullName) =>
@@ -227,21 +254,21 @@ export default function BGH({ user }) {
               return getLastName(a).localeCompare(getLastName(b), "vi");
             });
           };
-  
+ 
           Object.keys(groups).forEach((key) => {
             sortByName(groups[key]);
           });
-  
+ 
           setGroupedTeachers(groups);
           setPhanQuyenMap(map);
-  
+ 
           for (const key of Object.keys(groups)) {
             if (groups[key].length > 0) {
               firstAvailableTeacher = groups[key][0];
               break;
             }
           }
-  
+ 
           if (firstAvailableTeacher && !selectedUsername) {
             setSelectedUsername(firstAvailableTeacher);
           }
@@ -249,7 +276,7 @@ export default function BGH({ user }) {
           console.error("❌ Lỗi khi tải dữ liệu phân quyền:", err);
         }
       };
-  
+ 
       if (isBGH) {
         fetchPhanQuyen();
       }
@@ -331,6 +358,7 @@ export default function BGH({ user }) {
     }
   }, [selectedUsername, phanQuyenMap]);
 
+  // Lọc danh sách môn học phù hợp với giáo viên và lớp được chọn (đồng bộ logic với Users.jsx)
   useEffect(() => {
     if (
       !selectedUsername ||
@@ -342,38 +370,83 @@ export default function BGH({ user }) {
 
     const teacherInfo = phanQuyenMap[selectedUsername];
     const rawSubs = teacherInfo.assignedSubjects || [];
-    const isAllGVCN = rawSubs.some((s) => s.toLowerCase().includes("tất cả"));
+    const teacherRole = teacherInfo.role || "GVCN";
 
-    const subjectsForClass = allMonHoc.filter((sub) => {
-      if (!sub.grades || sub.grades.length === 0) return true;
-      return sub.grades.map(String).includes(String(className));
-    });
+    // Lấy khối từ mã lớp đầy đủ, ví dụ 5.4 -> 5
+    const gradeFromClass = String(className).split(".")[0].trim();
 
     let finalSubjects = [];
 
-    if (teacherInfo.role === "TA") {
-      finalSubjects = subjectsForClass
-        .filter((sub) => sub.name.toLowerCase().includes("tiếng anh"))
-        .map((sub) => sub.name);
+    if (teacherRole === "TA") {
+      const taSub = allMonHoc.find((s) => s.name.toLowerCase().includes("tiếng anh"));
+      if (taSub) {
+        if (!taSub.grades || taSub.grades.length === 0 || taSub.grades.includes(String(className))) {
+          finalSubjects = [taSub.name];
+        }
+      }
       if (finalSubjects.length === 0) finalSubjects = ["Tiếng Anh"];
-    } else if (isAllGVCN || rawSubs.length === 0) {
-      const specialistKeywords = ["tiếng anh", "tin học"];
-      finalSubjects = subjectsForClass
-        .filter(
-          (sub) =>
-            !specialistKeywords.some((kw) => sub.name.toLowerCase().includes(kw))
-        )
-        .map((sub) => sub.name);
-    } else {
-      finalSubjects = subjectsForClass
-        .filter((sub) =>
-          rawSubs.some((as) => as.toLowerCase() === sub.name.toLowerCase())
-        )
+    } else if (teacherRole === "BM") {
+      const filtered = allMonHoc
+        .filter((sub) => {
+          const matchesAssigned = rawSubs.some(
+            (as) => as.toLowerCase().trim() === sub.name.toLowerCase().trim()
+          );
+          if (!matchesAssigned) return false;
+          if (!sub.grades || sub.grades.length === 0) return true;
+          return sub.grades.includes(String(className));
+        })
         .map((sub) => sub.name);
 
-      if (finalSubjects.length === 0) {
-        finalSubjects = rawSubs;
+      finalSubjects = filtered.length > 0 ? filtered : rawSubs;
+    } else if (teacherRole === "GVCN") {
+      const gradeFromClass = String(className).split(".")[0];
+      const subjectsForClass = lopMonHocMap[String(className)] || lopMonHocMap[gradeFromClass];
+
+      if (Array.isArray(subjectsForClass) && subjectsForClass.length > 0) {
+        const hasSpecificAssigned =
+          rawSubs.length > 0 &&
+          !rawSubs.some((sub) => sub.toLowerCase().includes("tất cả"));
+
+        if (hasSpecificAssigned) {
+          finalSubjects = subjectsForClass.filter((subName) =>
+            rawSubs.some((as) => as.toLowerCase() === subName.toLowerCase())
+          );
+        } else {
+          const specialistKeywords = ["tiếng anh", "tin học"];
+          finalSubjects = subjectsForClass.filter(
+            (subName) =>
+              !specialistKeywords.some((kw) => subName.toLowerCase().includes(kw))
+          );
+        }
+      } else {
+        const hasSpecificAssigned =
+          rawSubs.length > 0 &&
+          !rawSubs.some((sub) => sub.toLowerCase().includes("tất cả"));
+
+        finalSubjects = allMonHoc
+          .filter((sub) => {
+            const subLower = sub.name.toLowerCase();
+            if (hasSpecificAssigned) {
+              const matchesAssigned = rawSubs.some((as) => as.toLowerCase() === subLower);
+              if (!matchesAssigned) return false;
+            } else {
+              const strictSpecialistKeywords = ["tiếng anh", "tin học"];
+              const isStrictSpecialist = strictSpecialistKeywords.some((kw) =>
+                subLower.includes(kw)
+              );
+              if (isStrictSpecialist) return false;
+            }
+
+            if (!sub.grades || sub.grades.length === 0) return true;
+            return (
+              sub.grades.map(String).includes(gradeFromClass) ||
+              sub.grades.map(String).includes(String(className))
+            );
+          })
+          .map((sub) => sub.name);
       }
+    } else {
+      finalSubjects = allMonHoc.map((sub) => sub.name);
     }
 
     setTeacherAllowedSubjects(finalSubjects);
@@ -383,7 +456,7 @@ export default function BGH({ user }) {
     } else if (finalSubjects.length === 0) {
       setSubject("");
     }
-  }, [selectedUsername, className, phanQuyenMap, allMonHoc]);
+  }, [selectedUsername, className, phanQuyenMap, allMonHoc, lopMonHocMap]);
 
   // Truy vấn danh sách file từ Firestore
   const fetchFileList = async () => {
@@ -396,8 +469,14 @@ export default function BGH({ user }) {
     try {
       const yearCol = `KEHOACH_DAYHOC_${academicYear}`;
       const filesRef = collection(db, yearCol, selectedUsername, subject);
-      
-      const q = query(filesRef, where("khoi", "==", `Khối ${className}`));
+
+      // Mã lớp 5.4 -> khối 5; lớp 3.5 -> khối 3
+      const grade = String(className).split(".")[0].trim();
+
+      const q = query(
+        filesRef,
+        where("khoi", "==", `Khối ${grade}`)
+      );
       const querySnapshot = await getDocs(q);
 
       const files = [];
@@ -543,6 +622,56 @@ export default function BGH({ user }) {
 
   const currentTeacherList = getFilteredTeacherList();
 
+  
+  const handleSelectTeacherFromSummary = (teacherName) => {
+    if (!teacherName) return;
+
+    // Tìm đúng tên giáo viên trong danh sách phân quyền
+    const normalizedName = String(teacherName).trim().toUpperCase();
+
+    const matchedName =
+      Object.keys(phanQuyenMap).find(
+        (name) => name.trim().toUpperCase() === normalizedName
+      ) || normalizedName;
+
+    // Xác định nhóm của giáo viên
+    let category = "gvcn";
+
+    if (
+      groupedTeachers.tiengAnh.some(
+        (name) => name.trim().toUpperCase() === normalizedName
+      )
+    ) {
+      category = "tieng_anh";
+    } else if (
+      groupedTeachers.boMon.some(
+        (name) => name.trim().toUpperCase() === normalizedName
+      )
+    ) {
+      category = "bo_mon";
+    } else {
+      const teacherInfo = phanQuyenMap[matchedName];
+      const role = String(teacherInfo?.role || "").toUpperCase();
+      const subjects = (teacherInfo?.assignedSubjects || [])
+        .join(" ")
+        .toLowerCase();
+
+      if (role === "TA" || subjects.includes("tiếng anh")) {
+        category = "tieng_anh";
+      } else if (role === "BM") {
+        category = "bo_mon";
+      }
+    }
+
+    // Mở đúng nhóm và giữ nguyên giáo viên vừa bấm
+    setFilterCategory(category);
+    setSelectedUsername(matchedName);
+    setSelectedFile(null);
+    setIsFullScreen(false);
+    setViewMode("single");
+  };
+
+
   return (
     <Box
       sx={{
@@ -676,28 +805,96 @@ export default function BGH({ user }) {
               </Box>
 
               <FormControl fullWidth size="small">
-                <InputLabel>👤 Chọn Giáo viên</InputLabel>
-                <Select
-                  value={selectedUsername}
-                  label="👤 Chọn Giáo viên"
-                  onChange={(e) => {
-                    setSelectedUsername(e.target.value);
-                    setViewMode("single");
-                  }}
+  <InputLabel>👤 Chọn Giáo viên</InputLabel>
+  <Select
+    value={selectedUsername || ""}
+    label="👤 Chọn Giáo viên"
+    onChange={(e) => {
+      setSelectedUsername(e.target.value);
+      setViewMode("single");
+    }}
+    MenuProps={{
+      PaperProps: {
+        sx: { maxHeight: 420 },
+      },
+    }}
+  >
+    {filterCategory === "gvcn" ? (
+      [
+        {
+          key: "khoi1",
+          title: "Khối Lớp 1",
+          teachers: groupedTeachers.khoi1,
+          icon: <ClassRounded fontSize="small" />,
+        },
+        {
+          key: "khoi2",
+          title: "Khối Lớp 2",
+          teachers: groupedTeachers.khoi2,
+          icon: <MenuBookRounded fontSize="small" />,
+        },
+        {
+          key: "khoi3",
+          title: "Khối Lớp 3",
+          teachers: groupedTeachers.khoi3,
+          icon: <BookmarkRounded fontSize="small" />,
+        },
+        {
+          key: "khoi4",
+          title: "Khối Lớp 4",
+          teachers: groupedTeachers.khoi4,
+          icon: <StarRounded fontSize="small" />,
+        },
+        {
+          key: "khoi5",
+          title: "Khối Lớp 5",
+          teachers: groupedTeachers.khoi5,
+          icon: <SchoolRounded fontSize="small" />,
+        },
+      ].flatMap((group) =>
+        group.teachers.length > 0
+          ? [
+              <ListSubheader
+                key={`header-${group.key}`}
+                disableSticky
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  bgcolor: "#f1f5f9",
+                  color: "#1e40af",
+                  fontWeight: 700,
+                  lineHeight: "40px",
+                }}
+              >
+                {group.icon}
+                {group.title}
+              </ListSubheader>,
+              ...group.teachers.map((name) => (
+                <MenuItem
+                  key={`${group.key}-${name}`}
+                  value={name}
+                  sx={{ pl: 4 }}
                 >
-                  {currentTeacherList.length === 0 ? (
-                    <MenuItem disabled value="">
-                      <em>Không có giáo viên trong nhóm này</em>
-                    </MenuItem>
-                  ) : (
-                    currentTeacherList.map((name) => (
-                      <MenuItem key={name} value={name}>
-                        {name}
-                      </MenuItem>
-                    ))
-                  )}
-                </Select>
-              </FormControl>
+                  {name}
+                </MenuItem>
+              )),
+            ]
+          : []
+      )
+    ) : currentTeacherList.length > 0 ? (
+      currentTeacherList.map((name) => (
+        <MenuItem key={name} value={name}>
+          {name}
+        </MenuItem>
+      ))
+    ) : (
+      <MenuItem disabled value="">
+        <em>Không có giáo viên trong nhóm này</em>
+      </MenuItem>
+    )}
+  </Select>
+</FormControl>
 
               <Box sx={{ display: "flex", gap: 1.5 }}>
                 <FormControl size="small" sx={{ flex: 1 }}>
@@ -733,11 +930,14 @@ export default function BGH({ user }) {
                         <em>Không có lớp</em>
                       </MenuItem>
                     ) : (
-                      teacherAllowedClasses.map((clsNum) => (
-                        <MenuItem key={clsNum} value={clsNum}>
-                          Lớp {clsNum}
-                        </MenuItem>
-                      ))
+                      teacherAllowedClasses.map((clsNum) => {
+                        const isGVCN = phanQuyenMap[selectedUsername]?.role === "GVCN";
+                        return (
+                          <MenuItem key={clsNum} value={clsNum}>
+                            {isGVCN ? clsNum : `Lớp ${clsNum}`}
+                          </MenuItem>
+                        );
+                      })
                     )}
                   </Select>
                 </FormControl>
@@ -776,7 +976,7 @@ export default function BGH({ user }) {
           <Typography variant="h6" fontWeight="bold" color="primary">
             {viewMode === "summary" 
               ? `📊 Bảng tổng hợp toàn trường` 
-              : `📊 Thống kê kế hoạch bài dạy`}
+              : `📊 Thống kê KHBD`}
           </Typography>
           <IconButton onClick={() => setViewMode("single")}>
             <CloseIcon />
@@ -792,7 +992,7 @@ export default function BGH({ user }) {
               fetchSchoolSummary={fetchSchoolSummary}
               setViewMode={setViewMode}
               getShortSubjectName={getShortSubjectName}
-              setSelectedUsername={setSelectedUsername}
+              setSelectedUsername={handleSelectTeacherFromSummary}
               setSelectedFile={setSelectedFile}
               isFullScreen={isFullScreen}
               setIsFullScreen={setIsFullScreen}
@@ -843,7 +1043,7 @@ export default function BGH({ user }) {
               fetchSchoolSummary={fetchSchoolSummary}
               setViewMode={setViewMode}
               getShortSubjectName={getShortSubjectName}
-              setSelectedUsername={setSelectedUsername}
+              setSelectedUsername={handleSelectTeacherFromSummary}
               setSelectedFile={setSelectedFile}
               isFullScreen={isFullScreen}
               setIsFullScreen={setIsFullScreen}

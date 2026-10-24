@@ -95,74 +95,180 @@ export const fetchTeacherStatsData = async ({
   setStatsData,
 }) => {
   if (!isAdmin || !selectedUsername) return [];
-  
-  setLoadingStats(true);
+
+  setLoadingStats?.(true);
+
   try {
     const yearCol = `KEHOACH_DAYHOC_${academicYear}`;
     const stats = [];
+    const teacherInfo = phanQuyenMap?.[selectedUsername];
 
-    const teacherInfo = phanQuyenMap[selectedUsername];
-    if (teacherInfo) {
-      const rawSubs = teacherInfo.assignedSubjects || [];
-      const isAllGVCN = rawSubs.some((s) => s.toLowerCase().includes("tất cả")) || rawSubs.length === 0;
+    if (!teacherInfo) {
+      setStatsData?.([]);
+      return [];
+    }
 
-      let assignedSubs = [];
+    const rawSubs = teacherInfo.assignedSubjects || [];
+    const isGVCN = teacherInfo.role === "GVCN";
 
-      if (isAllGVCN && teacherInfo.role === "GVCN") {
-        const firstCls = String(teacherInfo.teachingClasses?.[0] || "1");
-        const subjectsForClass = allMonHoc.filter((sub) => {
-          if (!sub.grades || sub.grades.length === 0) return true;
-          return sub.grades.map(String).includes(firstCls);
-        });
-        const specialistKeywords = ["tiếng anh", "tin học", "mĩ thuật", "mỹ thuật", "âm nhạc", "thể dục", "giáo dục thể chất"];
-        assignedSubs = subjectsForClass
-          .filter((sub) => !specialistKeywords.some((kw) => sub.name.toLowerCase().includes(kw)))
-          .map((sub) => sub.name);
-      } else {
-        assignedSubs = rawSubs;
-      }
+    const isAllGVCN =
+      rawSubs.length === 0 ||
+      rawSubs.some((s) =>
+        String(s).toLowerCase().includes("tất cả")
+      );
 
-      for (const sub of assignedSubs) {
-        try {
-          const subColRef = collection(db, yearCol, selectedUsername, sub);
-          const subSnap = await getDocs(subColRef);
+    let assignedSubs = [];
 
-          if (!subSnap.empty) {
-            let entry = {
-              username: selectedUsername,
-              subject: sub,
-              "1": 0,
-              "2": 0,
-              "3": 0,
-              "4": 0,
-              "5": 0,
-            };
+    if (isGVCN && isAllGVCN) {
+      // GVCN: lấy các môn học thuộc khối được phân công,
+      // loại các môn do giáo viên chuyên trách phụ trách.
+      const classCode = String(
+        teacherInfo.teachingClasses?.[0] ||
+        teacherInfo.assignedClass ||
+        ""
+      );
 
-            subSnap.forEach((docSnap) => {
-              const data = docSnap.data();
-              const khoiStr = String(data.khoi || "");
+      const grade = classCode.split(".")[0];
 
-              ["1", "2", "3", "4", "5"].forEach((cls) => {
-                if (khoiStr.includes(cls)) {
-                  entry[cls] += 1;
-                }
-              });
-            });
+      const specialistKeywords = [
+        "tiếng anh",
+        "tin học",
+        "mĩ thuật",
+        "mỹ thuật",
+        "âm nhạc",
+        "thể dục",
+        "giáo dục thể chất",
+      ];
 
-            stats.push(entry);
-          }
-        } catch (e) {
-          // Bỏ qua nếu subcollection chưa tồn tại
+      assignedSubs = allMonHoc
+        .filter((sub) => {
+          const grades = (sub.grades || []).map((g) =>
+            String(g).trim()
+          );
+
+          const matchesGrade =
+            grades.length === 0 || grades.includes(grade);
+
+          const isSpecialist = specialistKeywords.some((kw) =>
+            String(sub.name || "").toLowerCase().includes(kw)
+          );
+
+          return matchesGrade && !isSpecialist;
+        })
+        .map((sub) => sub.name)
+        .filter(Boolean);
+        } else {
+          assignedSubs = rawSubs.filter(
+            (s) => !String(s).toLowerCase().includes("tất cả")
+          );
         }
+
+        // Giữ nguyên mã lớp đầy đủ, ví dụ 5.4, để khớp cột thống kê.
+        const classCode = String(
+          teacherInfo.teachingClasses?.[0] ||
+          teacherInfo.assignedClass ||
+          ""
+        );
+
+        for (const subject of [...new Set(assignedSubs)]) {
+      try {
+        const subjectRef = collection(
+          db,
+          yearCol,
+          selectedUsername,
+          subject
+        );
+
+        const subjectSnap = await getDocs(subjectRef);
+
+        if (subjectSnap.empty) continue;
+
+        const entry = {
+          username: selectedUsername,
+          subject,
+        };
+
+        subjectSnap.forEach((docSnap) => {
+          const data = docSnap.data();
+          const docId = docSnap.id;
+
+          // GVCN: đếm tất cả bài của lớp chủ nhiệm
+          if (isGVCN && classCode) {
+            const isKhoiDocument = /^Khoi_\d+_/i.test(docId);
+
+            if (
+              isKhoiDocument ||
+              data?.fileURL ||
+              data?.fileUrl ||
+              data?.url ||
+              data?.fileName ||
+              data?.tenFile
+            ) {
+              entry[classCode] = (entry[classCode] || 0) + 1;
+            }
+
+            return;
+          }
+
+          // Giáo viên bộ môn: tách số lượng theo từng khối
+          const match = docId.match(/^Khoi_(\d+)_/i);
+
+          let grade = match?.[1];
+
+          // Nếu ID không theo mẫu Khoi_<số>_<mã>,
+          // thử lấy khối từ dữ liệu tài liệu.
+          if (!grade) {
+            const khoiValue = String(
+              data?.khoi || data?.className || ""
+            ).trim();
+
+            const metadataMatch = khoiValue.match(
+              /^(?:khối|khoi|lớp|lop)\s*(\d+)/i
+            );
+
+            if (metadataMatch) {
+              grade = metadataMatch[1];
+            }
+          }
+
+          const hasFile =
+            /^Khoi_\d+_/i.test(docId) ||
+            data?.fileURL ||
+            data?.fileUrl ||
+            data?.url ||
+            data?.fileName ||
+            data?.tenFile;
+
+          if (grade && hasFile) {
+            entry[grade] = (entry[grade] || 0) + 1;
+          }
+        });
+
+        // Chỉ thêm môn có dữ liệu thống kê
+        const hasStats = isGVCN
+          ? Number(entry[classCode] || 0) > 0
+          : ["1", "2", "3", "4", "5"].some(
+              (grade) => Number(entry[grade] || 0) > 0
+            );
+
+        if (hasStats) {
+          stats.push(entry);
+        }
+      } catch (error) {
+        console.error(
+          `Lỗi thống kê môn ${subject} của ${selectedUsername}:`,
+          error
+        );
       }
     }
 
-    setStatsData(stats);
+    setStatsData?.(stats);
     return stats;
-  } catch (err) {
-    console.error("❌ Lỗi khi thống kê bài nộp:", err);
+  } catch (error) {
+    console.error("Lỗi thống kê cá nhân:", error);
+    setStatsData?.([]);
     return [];
   } finally {
-    setLoadingStats(false);
+    setLoadingStats?.(false);
   }
 };

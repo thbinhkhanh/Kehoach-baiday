@@ -197,65 +197,109 @@ export default function Users({ user }) {
   const getAvailableSubjects = () => {
     if (!className || allMonHoc.length === 0) return [];
 
+    // Lớp 5.4 -> khối 5; lớp 4 -> khối 4
+    const selectedGrade = String(className).split(".")[0];
+
+    const gradeMatches = (grades) => {
+      if (!Array.isArray(grades) || grades.length === 0) return true;
+
+      return grades.some(
+        (grade) => String(grade).trim().split(".")[0] === selectedGrade
+      );
+    };
+
+    const isAssignedSubject = (name) =>
+      teacherAssignedSubjects.some(
+        (assigned) =>
+          String(assigned).trim().toLowerCase() ===
+          String(name).trim().toLowerCase()
+      );
+
+    const hasAllSubjectsPermission =
+      teacherAssignedSubjects.length === 0 ||
+      teacherAssignedSubjects.some((s) =>
+        String(s).toLowerCase().includes("tất cả")
+      );
+
+    // Giáo viên Tiếng Anh
     if (teacherRole === "TA") {
-      const taSub = allMonHoc.find(s => s.name.toLowerCase().includes("tiếng anh"));
-      if (taSub) {
-        if (!taSub.grades || taSub.grades.length === 0 || taSub.grades.includes(String(className))) {
-          return [taSub.name];
-        }
-      }
-      return ["Tiếng Anh"];
+      const taSubject = allMonHoc.find((s) =>
+        s.name.toLowerCase().includes("tiếng anh")
+      );
+
+      return taSubject && gradeMatches(taSubject.grades)
+        ? [taSubject.name]
+        : [];
     }
 
+    // Giáo viên bộ môn: chỉ hiện môn đã được phân quyền
     if (teacherRole === "BM") {
-      const filtered = allMonHoc.filter(sub => {
-        const matchesAssigned = teacherAssignedSubjects.some(
-          as => as.toLowerCase().trim() === sub.name.toLowerCase().trim()
-        );
-        if (!matchesAssigned) return false;
-        if (!sub.grades || sub.grades.length === 0) return true;
-        return sub.grades.includes(String(className));
-      }).map(sub => sub.name);
-
-      return filtered.length > 0 ? filtered : teacherAssignedSubjects;
+      return allMonHoc
+        .filter(
+          (sub) =>
+            isAssignedSubject(sub.name) && gradeMatches(sub.grades)
+        )
+        .map((sub) => sub.name);
     }
 
+    // Giáo viên chủ nhiệm
     if (teacherRole === "GVCN") {
-      const subjectsForClass = lopMonHocMap[String(className)];
-      
-      if (Array.isArray(subjectsForClass) && subjectsForClass.length > 0) {
-        const hasSpecificAssigned = teacherAssignedSubjects.length > 0 && 
-          !teacherAssignedSubjects.some(sub => sub.toLowerCase().includes("tất cả"));
+      // Ưu tiên danh sách môn trong LOP_MONHOC theo mã lớp,
+      // nếu không có thì thử theo khối.
+      const subjectsForClass =
+        lopMonHocMap[String(className)] ||
+        lopMonHocMap[selectedGrade] ||
+        [];
 
-        if (hasSpecificAssigned) {
-          return subjectsForClass.filter(subName => 
-            teacherAssignedSubjects.some(as => as.toLowerCase() === subName.toLowerCase())
-          );
-        }
-        return subjectsForClass;
+      let subjects = [];
+
+      if (subjectsForClass.length > 0) {
+        subjects = allMonHoc
+          .filter((sub) =>
+            subjectsForClass.some(
+              (name) =>
+                String(name).trim().toLowerCase() ===
+                String(sub.name).trim().toLowerCase()
+            )
+          )
+          .map((sub) => sub.name);
+      } else {
+        const specialistKeywords = [
+          "tiếng anh",
+          "tin học",
+          "mĩ thuật",
+          "mỹ thuật",
+          "âm nhạc",
+          "thể dục",
+          "giáo dục thể chất",
+        ];
+
+        subjects = allMonHoc
+          .filter((sub) => {
+            if (!gradeMatches(sub.grades)) return false;
+
+            if (!hasAllSubjectsPermission) {
+              return isAssignedSubject(sub.name);
+            }
+
+            return !specialistKeywords.some((keyword) =>
+              sub.name.toLowerCase().includes(keyword)
+            );
+          })
+          .map((sub) => sub.name);
       }
 
-      const hasSpecificAssigned = teacherAssignedSubjects.length > 0 && 
-        !teacherAssignedSubjects.some(sub => sub.toLowerCase().includes("tất cả"));
+      // Nếu có danh sách môn cụ thể trong phân quyền, tiếp tục giới hạn.
+      if (!hasAllSubjectsPermission) {
+        subjects = subjects.filter(isAssignedSubject);
+      }
 
-      return allMonHoc.filter(sub => {
-        const subLower = sub.name.toLowerCase();
-
-        if (hasSpecificAssigned) {
-          const matchesAssigned = teacherAssignedSubjects.some(as => as.toLowerCase() === subLower);
-          if (!matchesAssigned) return false;
-        } else {
-          const strictSpecialistKeywords = ["tiếng anh", "tin học"]; 
-          const isStrictSpecialist = strictSpecialistKeywords.some(kw => subLower.includes(kw));
-          if (isStrictSpecialist) return false;
-        }
-
-        if (!sub.grades || sub.grades.length === 0) return true;
-        return sub.grades.includes(String(className));
-      }).map(sub => sub.name);
+      return [...new Set(subjects)];
     }
 
-    return allMonHoc.map(sub => sub.name);
+    return allMonHoc
+      .filter((sub) => gradeMatches(sub.grades))
+      .map((sub) => sub.name);
   };
 
   const assignedSubjectsList = getAvailableSubjects();
@@ -269,91 +313,232 @@ export default function Users({ user }) {
   }, [className, teacherRole, lopMonHocMap, allMonHoc]);
 
   // ✅ Lấy danh sách file từ Firestore theo cấu trúc subcollection môn học
+  
   const fetchFileList = async () => {
-    if (!teacherName || !className || !subject) {
+    if (!teacherName || !className || !subject || !academicYear) {
       setFileList([]);
       return;
     }
 
     try {
       const yearCol = `KEHOACH_DAYHOC_${academicYear}`;
-      const filesRef = collection(db, yearCol, teacherName, subject);
-      const q = query(filesRef, where("khoi", "==", `Khối ${className}`));
 
-      const querySnapshot = await getDocs(q);
+      const filesRef = collection(
+        db,
+        yearCol,
+        teacherName,
+        subject
+      );
+
+      const querySnapshot = await getDocs(filesRef);
+      const selectedGrade = String(className).split(".")[0];
       const files = [];
+
       querySnapshot.forEach((docSnap) => {
-        files.push({ id: docSnap.id, ...docSnap.data() });
+        const data = docSnap.data();
+        const docId = docSnap.id;
+
+        // Ưu tiên lấy khối từ ID: Khoi_4_..., Khoi_5_...
+        const idMatch = docId.match(/^Khoi_(\d+)_/i);
+
+        // Dự phòng cho tài liệu lưu theo cấu trúc cũ
+        const khoiValue = String(
+          data.khoi || data.className || ""
+        ).trim();
+
+        const khoiMatch = khoiValue.match(
+          /^(?:khối|khoi|lớp|lop)\s*(\d+)/i
+        );
+
+        const documentGrade = idMatch?.[1] || khoiMatch?.[1];
+
+        const matchesClass =
+          documentGrade === selectedGrade ||
+          khoiValue === `Khối ${className}` ||
+          khoiValue === String(className);
+
+        if (matchesClass) {
+          files.push({
+            id: docSnap.id,
+            ...data,
+          });
+        }
       });
 
       files.sort((a, b) => {
-        const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : new Date(a.createdAt || 0).getTime();
-        const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : new Date(b.createdAt || 0).getTime();
+        const timeA = a.createdAt?.toMillis
+          ? a.createdAt.toMillis()
+          : new Date(a.createdAt || 0).getTime();
+
+        const timeB = b.createdAt?.toMillis
+          ? b.createdAt.toMillis()
+          : new Date(b.createdAt || 0).getTime();
+
         return timeB - timeA;
       });
 
       setFileList(files);
     } catch (err) {
-      console.error("❌ Lỗi khi tải danh sách file:", err);
+      console.error("Lỗi khi tải danh sách file:", err);
+      setFileList([]);
     }
   };
 
+
   // ✅ Thống kê cá nhân của giáo viên
   const fetchTeacherStats = async () => {
-    if (!teacherName) return;
+    if (!teacherName || !academicYear) return;
+
     setLoadingStats(true);
+
     try {
       const yearCol = `KEHOACH_DAYHOC_${academicYear}`;
       const stats = [];
 
-      let subjectsToQuery = teacherAssignedSubjects;
-      if (!subjectsToQuery || subjectsToQuery.length === 0 || teacherRole === "GVCN") {
-        subjectsToQuery = allMonHoc.length > 0 
-          ? allMonHoc.map(m => m.name) 
-          : ["Toán", "Tiếng Việt", "Khoa học", "Lịch sử và Địa lí", "Đạo đức", "Công nghệ", "Hoạt động trải nghiệm", "Mĩ thuật", "Âm nhạc", "Tin học", "Giáo dục thể chất", "Tiếng Anh"];
+      const isGVCN = teacherRole === "GVCN";
+
+      const classCode = String(
+        className ||
+        assignedClassesList[0] ||
+        "1"
+      );
+
+      const selectedGrade = classCode.split(".")[0];
+
+      let subjectsToQuery = [];
+
+      if (isGVCN) {
+        // Thống kê theo danh sách môn được phép hiển thị của GVCN.
+        // Nếu danh sách chưa có, lấy các môn thuộc khối chủ nhiệm.
+        subjectsToQuery = assignedSubjectsList.length > 0
+          ? assignedSubjectsList
+          : allMonHoc
+              .filter((sub) => {
+                const grades = (sub.grades || []).map((g) =>
+                  String(g).split(".")[0]
+                );
+
+                return (
+                  grades.length === 0 ||
+                  grades.includes(selectedGrade)
+                );
+              })
+              .map((sub) => sub.name);
+      } else if (teacherRole === "TA") {
+        subjectsToQuery = assignedSubjectsList;
+      } else if (teacherRole === "BM") {
+        // Giữ đúng các môn được phân quyền, không lấy tất cả môn.
+        subjectsToQuery = teacherAssignedSubjects.filter(
+          (s) => !String(s).toLowerCase().includes("tất cả")
+        );
+
+        if (subjectsToQuery.length === 0) {
+          subjectsToQuery = assignedSubjectsList;
+        }
+      } else {
+        subjectsToQuery = assignedSubjectsList;
       }
 
-      for (const sub of subjectsToQuery) {
+      subjectsToQuery = [...new Set(subjectsToQuery.filter(Boolean))];
+
+      for (const subjectName of subjectsToQuery) {
         try {
-          const subColRef = collection(db, yearCol, teacherName, sub);
-          const subSnap = await getDocs(subColRef);
+          const subjectRef = collection(
+            db,
+            yearCol,
+            teacherName,
+            subjectName
+          );
 
-          if (!subSnap.empty) {
-            let entry = {
-              subject: sub,
-            };
+          const subjectSnap = await getDocs(subjectRef);
 
-            subSnap.forEach((docSnap) => {
-              const data = docSnap.data();
-              let khoiKey = data.khoi || data.className || "Chung";
-              
-              if (String(khoiKey).toLowerCase().includes("khối")) {
-                khoiKey = String(khoiKey).replace(/khối/gi, "").trim();
-              }
+          const entry = {
+            subject: subjectName,
+            username: teacherName,
+          };
 
-              entry[khoiKey] = (entry[khoiKey] || 0) + 1;
-            });
+          subjectSnap.forEach((docSnap) => {
+            const data = docSnap.data();
+            const docId = docSnap.id;
 
-            stats.push(entry);
-          }
-        } catch (e) {
-          // Bỏ qua nếu subcollection không tồn tại
+            // Ví dụ ID: Khoi_4_DKgac1qsvC7YxRLA2BXz
+            const idMatch = docId.match(/^Khoi_(\d+)_/i);
+
+            let grade = idMatch?.[1];
+
+            // Dự phòng với tài liệu không có ID dạng Khoi_<khối>_<mã>.
+            if (!grade) {
+              const khoiValue = String(
+                data.khoi || data.className || ""
+              ).trim();
+
+              const valueMatch = khoiValue.match(
+                /^(?:khối|khoi|lớp|lop)\s*(\d+)/i
+              );
+
+              grade = valueMatch?.[1];
+            }
+
+            const hasFile =
+              /^Khoi_\d+_/i.test(docId) ||
+              Boolean(
+                data.fileURL ||
+                data.fileUrl ||
+                data.url ||
+                data.fileName ||
+                data.tenFile
+              );
+
+            if (!hasFile) return;
+
+            if (isGVCN) {
+              // GVCN: đưa số lượng vào cột mã lớp chủ nhiệm.
+              entry[classCode] = (entry[classCode] || 0) + 1;
+            } else if (grade) {
+              // Giáo viên bộ môn: cộng riêng theo khối 1–5.
+              entry[grade] = (entry[grade] || 0) + 1;
+            }
+          });
+
+          // Giữ cả môn chưa có file để danh sách môn theo phân quyền
+          // không bị mất chỉ vì chưa có tài liệu được tải lên.
+          stats.push(entry);
+        } catch (error) {
+          console.error(
+            `Lỗi thống kê môn "${subjectName}":`,
+            error
+          );
         }
       }
 
       setStatsData(stats);
-    } catch (err) {
-      console.error("❌ Lỗi khi thống kê cá nhân:", err);
+    } catch (error) {
+      console.error("Lỗi khi thống kê cá nhân:", error);
+      setStatsData([]);
     } finally {
       setLoadingStats(false);
     }
   };
 
   useEffect(() => {
-    if (teacherName && academicYear) {
+    if (
+      teacherName &&
+      academicYear &&
+      teacherRole &&
+      assignedClassesList.length > 0
+    ) {
       fetchTeacherStats();
     }
-  }, [teacherName, academicYear]);
+  }, [
+    teacherName,
+    academicYear,
+    teacherRole,
+    teacherAssignedSubjects,
+    assignedClassesList,
+    allMonHoc,
+    lopMonHocMap,
+    //className,
+  ]);
 
   // ✅ Xử lý tải file lên
   const handleUpload = async (e) => {
@@ -574,7 +759,7 @@ export default function Users({ user }) {
                 <Select value={className} label="Lớp" onChange={(e) => setClassName(e.target.value)}>
                   {assignedClassesList.map((clsNum) => (
                     <MenuItem key={clsNum} value={clsNum}>
-                      Lớp {clsNum}
+                      {clsNum}
                     </MenuItem>
                   ))}
                 </Select>
@@ -739,7 +924,7 @@ export default function Users({ user }) {
       >
         <Box sx={{ p: 2, display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #eee" }}>
           <Typography variant="h6" fontWeight="bold" color="primary">
-            📊 Thống kê kế hoạch bài dạy
+            📊 Thống kê KHBD
           </Typography>
           <IconButton onClick={() => setMobileStatsOpen(false)}>
             <CloseIcon />

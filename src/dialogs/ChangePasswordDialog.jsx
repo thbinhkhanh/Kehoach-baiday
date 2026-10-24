@@ -20,10 +20,10 @@ import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 
 // 🌟 Import Firebase Firestore đúng với cấu trúc của trang Login
 import { db } from "../firebase";
-import { doc, updateDoc } from "firebase/firestore";
+import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
 import { useProfile } from "../contexts/ProfileContext";
 
-// 🌟 Hàm chuẩn hóa ID đồng nhất tuyệt đối với hệ thống mới (VD: "Đặng Thị Thùy Giang" -> "DANG_THI_THUY_GIANG")
+// 🌟 Hàm chuẩn hóa ID dự phòng
 const normalizeTeacherId = (name) =>
   String(name || "")
     .trim()
@@ -91,12 +91,33 @@ export default function ChangePasswordDialog({ open, onClose }) {
       setStatus("Đang cập nhật...");
       setSeverity("info");
 
-      // 🌟 Lấy tên tài khoản hiện tại và chuyển thành chuẩn Document ID (VD: DANG_THI_THUY_GIANG)
       const rawName = currentUser.username || currentUser.uid || "";
-      const docId = normalizeTeacherId(rawName);
 
-      // 🌟 Cập nhật mật khẩu vào trường 'pass' trong Firestore tại collection DANHSACH_GV với Document ID chuẩn
-      const docRef = doc(db, "DANHSACH_GV", docId);
+      // 🌟 Truy xuất collection DANHSACH_GV giống hệt cách trang Login đang làm để tìm đúng Document ID
+      const querySnapshot = await getDocs(collection(db, "DANHSACH_GV"));
+      let targetDocId = null;
+
+      querySnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        const docId = docSnap.id;
+        const name = data.username || docId;
+
+        if (
+          docId.toLowerCase() === rawName.toLowerCase() ||
+          name.toLowerCase() === rawName.toLowerCase() ||
+          normalizeTeacherId(name) === normalizeTeacherId(rawName)
+        ) {
+          targetDocId = docId;
+        }
+      });
+
+      // Nếu không tìm thấy qua duyệt danh sách, dùng fallback chuẩn hóa hoặc tài khoản đặc biệt (bgh, admin)
+      if (!targetDocId) {
+        targetDocId = rawName.toLowerCase() === "bgh" ? "bgh" : rawName.toLowerCase() === "admin" ? "admin" : normalizeTeacherId(rawName);
+      }
+
+      // 🌟 Cập nhật mật khẩu vào trường 'pass' trong Firestore tại collection DANHSACH_GV với Document ID chính xác
+      const docRef = doc(db, "DANHSACH_GV", targetDocId);
       await updateDoc(docRef, { 
         pass: newPw,
         updatedAt: new Date().toISOString()
@@ -355,11 +376,11 @@ export default function ChangePasswordDialog({ open, onClose }) {
                 fontWeight: 700,
                 fontSize: "14.5px",
                 bgcolor: "#1976d2",
-                boxShadow: "0 8px 20px rgba(25, 118, 210, 0.3)",
+                boxShadow: "0 10px 20px rgba(25, 118, 210, 0.3)",
                 "&:hover": { bgcolor: "#115293" },
               }}
             >
-              {saving ? "Đang lưu..." : "Xác nhận"}
+              Xác nhận
             </Button>
           )}
         </Stack>

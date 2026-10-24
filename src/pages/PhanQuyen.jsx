@@ -348,52 +348,53 @@ export default function PhanQuyen({ user, onClose }) {
 };
 
   const handleSave = async () => {
-    if (!selectedTeacher) return;
+  if (!selectedTeacher) return;
 
-    setSaving(true);
-    setMessage(null);
+  setSaving(true);
+  setMessage(null);
 
-    try {
-      const subjectString =
-        assignedRole === "GVCN"
-          ? "Tất cả môn GVCN"
-          : assignedRole === "TA"
-          ? "Tiếng Anh"
-          : assignedSubjects.join(", ");
+  try {
+    // Nếu là GVCN, gán subject chính là giá trị của assignedClass (VD: "5.2")
+    const subjectString =
+      assignedRole === "GVCN"
+        ? assignedClass 
+        : assignedRole === "TA"
+        ? "Tiếng Anh"
+        : assignedSubjects.join(", ");
 
-      const payload = {
-        username: selectedTeacher,
-        role: assignedRole,
-        assignedClass: assignedRole === "GVCN" ? assignedClass : "",
-        assignedSubject: subjectString,
-        assignedSubjects: assignedRole === "GVCN" ? ["Tất cả môn GVCN"] : assignedSubjects,
-        teachingClasses: assignedRole === "GVCN" ? [assignedClass] : teachingClasses,
-        academicYear: academicYear,
-        updatedAt: new Date(),
-      };
+    const payload = {
+      username: selectedTeacher,
+      role: assignedRole,
+      assignedClass: assignedRole === "GVCN" ? assignedClass : "",
+      assignedSubject: subjectString, // Sẽ lưu chuỗi lớp, ví dụ: "5.2"
+      assignedSubjects: assignedRole === "GVCN" ? [assignedClass] : assignedSubjects, // Sẽ lưu mảng: ["5.2"]
+      teachingClasses: assignedRole === "GVCN" ? [assignedClass] : teachingClasses,
+      academicYear: academicYear,
+      updatedAt: new Date(),
+    };
 
-      const phanQuyenColName = `PHANQUYEN_${academicYear}`;
-      await setDoc(doc(db, phanQuyenColName, selectedTeacher), payload, { merge: true });
+    const phanQuyenColName = `PHANQUYEN_${academicYear}`;
+    await setDoc(doc(db, phanQuyenColName, selectedTeacher), payload, { merge: true });
 
-      setAssignmentsMap((prev) => ({
-        ...prev,
-        [selectedTeacher]: payload,
-      }));
+    setAssignmentsMap((prev) => ({
+      ...prev,
+      [selectedTeacher]: payload,
+    }));
 
-      setMessage({
-        type: "success",
-        text: `Cập nhật thành công`,
-      });
-    } catch (err) {
-      console.error("Lỗi khi lưu phân quyền:", err);
-      setMessage({
-        type: "error",
-        text: "Không thể lưu dữ liệu phân quyền. Vui lòng thử lại.",
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
+    setMessage({
+      type: "success",
+      text: `Cập nhật thành công`,
+    });
+  } catch (err) {
+    console.error("Lỗi khi lưu phân quyền:", err);
+    setMessage({
+      type: "error",
+      text: "Không thể lưu dữ liệu phân quyền. Vui lòng thử lại.",
+    });
+  } finally {
+    setSaving(false);
+  }
+};
 
   const handleExcelImport = async (event) => {
     await handleExcelImportService(event, {
