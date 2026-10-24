@@ -30,8 +30,9 @@ function AppContent() {
   const isDashboard = location.pathname === "/";
   const isLoginPage = location.pathname === "/login";
 
-  // Tên hiển thị cạnh icon user
+  // Tên hiển thị đầy đủ và tên rút gọn (lấy chữ cuối cho mobile)
   const displayName = currentUser?.username || "Chưa đăng nhập";
+  const shortName = currentUser?.username ? currentUser.username.trim().split(/\s+/).pop() : "Chưa đăng nhập";
 
   const lowerName = currentUser?.username?.toLowerCase() || "";
   const isAdmin = lowerName === "admin" || currentUser?.role === "admin";
@@ -96,7 +97,7 @@ function AppContent() {
                 fontSize: "0.95rem",
               }}
             >
-              KẾ HOẠCH BÀI DẠY TRỰC TUYẾN
+              TH BÌNH KHÁNH • KHBD
             </Typography>
           </Box>
 
@@ -112,7 +113,28 @@ function AppContent() {
               }}
             >
               <AccountCircle sx={{ color: "white", fontSize: 20 }} />
-              <Typography sx={{ color: "white", fontWeight: 500, fontSize: "0.9rem" }}>
+              
+              {/* Trên điện thoại (xs): Chỉ hiển thị chữ cuối */}
+              <Typography 
+                sx={{ 
+                  color: "white", 
+                  fontWeight: 500, 
+                  fontSize: "0.9rem",
+                  display: { xs: "inline", sm: "none" } 
+                }}
+              >
+                {shortName}
+              </Typography>
+
+              {/* Trên máy tính/màn hình lớn (từ sm trở lên): Hiển thị đầy đủ tên */}
+              <Typography 
+                sx={{ 
+                  color: "white", 
+                  fontWeight: 500, 
+                  fontSize: "0.9rem",
+                  display: { xs: "none", sm: "inline" } 
+                }}
+              >
                 {displayName}
               </Typography>
 

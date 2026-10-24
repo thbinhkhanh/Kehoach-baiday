@@ -140,7 +140,7 @@ export default function Dashboard({ onSelectModule }) {
     {
       id: "khoi-1",
       label: "Khối Lớp 1",
-      description: "Quản lý và tải lên Kế hoạch bài dạy (Giáo án) Khối Lớp 1",
+      description: "Quản lý và tải lên KHBD Lớp 1",
       icon: <School sx={{ color: "#2563eb" }} />,
       color: "#2563eb",
       path: "/login?group=khoi-1",
@@ -148,7 +148,7 @@ export default function Dashboard({ onSelectModule }) {
     {
       id: "khoi-2",
       label: "Khối Lớp 2",
-      description: "Quản lý và tải lên Kế hoạch bài dạy (Giáo án) Khối Lớp 2",
+      description: "Quản lý và tải lên KHBD Lớp 2",
       icon: <School sx={{ color: "#0284c7" }} />,
       color: "#0284c7",
       path: "/login?group=khoi-2",
@@ -156,7 +156,7 @@ export default function Dashboard({ onSelectModule }) {
     {
       id: "khoi-3",
       label: "Khối Lớp 3",
-      description: "Quản lý và tải lên Kế hoạch bài dạy (Giáo án) Khối Lớp 3",
+      description: "Quản lý và tải lên KHBD Lớp 3",
       icon: <School sx={{ color: "#0d9488" }} />,
       color: "#0d9488",
       path: "/login?group=khoi-3",
@@ -164,7 +164,7 @@ export default function Dashboard({ onSelectModule }) {
     {
       id: "khoi-4",
       label: "Khối Lớp 4",
-      description: "Quản lý và tải lên Kế hoạch bài dạy (Giáo án) Khối Lớp 4",
+      description: "Quản lý và tải lên KHBD Lớp 4",
       icon: <School sx={{ color: "#16a34a" }} />,
       color: "#16a34a",
       path: "/login?group=khoi-4",
@@ -172,7 +172,7 @@ export default function Dashboard({ onSelectModule }) {
     {
       id: "khoi-5",
       label: "Khối Lớp 5",
-      description: "Quản lý và tải lên Kế hoạch bài dạy (Giáo án) Khối Lớp 5",
+      description: "Quản lý và tải lên KHBD Lớp 5",
       icon: <School sx={{ color: "#ca8a04" }} />,
       color: "#ca8a04",
       path: "/login?group=khoi-5",
@@ -180,7 +180,7 @@ export default function Dashboard({ onSelectModule }) {
     {
       id: "to-bo-mon",
       label: "Tổ Bộ Môn",
-      description: "Quản lý Kế hoạch bài dạy các môn Tin học, Mỹ thuật, Âm nhạc...",
+      description: "Quản lý và tải lên KHBD Tổ Bộ môn",
       icon: <Layers sx={{ color: "#9333ea" }} />,
       color: "#9333ea",
       path: "/login?group=to-bo-mon",
@@ -188,7 +188,7 @@ export default function Dashboard({ onSelectModule }) {
     {
       id: "tieng-anh",
       label: "Tổ Tiếng Anh",
-      description: "Quản lý và nộp Kế hoạch bài dạy bộ môn Tiếng Anh",
+      description: "Quản lý và tải lên KHBD Tổ Tiếng Anh",
       icon: <Translate sx={{ color: "#e11d48" }} />,
       color: "#e11d48",
       path: "/login?group=tieng-anh",
@@ -196,7 +196,7 @@ export default function Dashboard({ onSelectModule }) {
     {
       id: "duyet-ke-hoach",
       label: "Duyệt Kế Hoạch (BGH)",
-      description: "Ban Giám hiệu kiểm tra, duyệt và thống kê kế hoạch bài dạy",
+      description: "Ban Giám hiệu kiểm tra, duyệt và thống kê KHBD",
       icon: <AssignmentTurnedIn sx={{ color: "#d97706" }} />,
       color: "#d97706",
       path: "/login?group=bgh",
@@ -240,7 +240,7 @@ export default function Dashboard({ onSelectModule }) {
               '"Segoe UI", "Arial", "Helvetica", "Noto Sans", sans-serif',
           }}
         >
-          DANH MỤC CHỨC NĂNG
+          TÁC VỤ CHUYÊN MÔN
         </Typography>
 
         {/* GRID */}

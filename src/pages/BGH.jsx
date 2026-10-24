@@ -23,6 +23,8 @@ import { fetchSchoolSummaryData, fetchTeacherStatsData } from "../utils/thongKe"
 import TeacherStatsView from "../components/TeacherStatsView";
 import SchoolSummaryView from "../components/SchoolSummaryView";
 import FileListCardBGH from "../components/FileListCardBGH";
+import { IconButton } from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close";
 
 // Hàm chuyển đổi tên môn học sang dạng viết tắt trên tiêu đề
 const getShortSubjectName = (name) => {
@@ -558,7 +560,8 @@ export default function BGH({ user }) {
         sx={{
           width: { xs: "100%", sm: "32%" },
           minWidth: 280,
-          display: { xs: viewMode === "summary" ? "none" : "flex", sm: "flex" },
+          // 📱 Trên điện thoại: Ẩn cột trái nếu đang ở chế độ Tổng hợp cá nhân hoặc Tổng hợp toàn trường
+          display: { xs: viewMode === "single" ? "flex" : "none", sm: "flex" },
           flexDirection: "column",
           gap: 1.5,
           height: "100%",
@@ -571,20 +574,72 @@ export default function BGH({ user }) {
             </Typography>
 
             {/* Nút Tổng hợp toàn trường */}
-            <Button
-              variant={viewMode === "summary" ? "contained" : "outlined"}
-              color="primary"
-              fullWidth
-              onClick={() => {
-                setViewMode("summary");
-                if (Object.keys(schoolSummaryGrouped).length === 0) {
-                  fetchSchoolSummary();
-                }
-              }}
-              sx={{ fontWeight: "bold", py: 0.8 }}
-            >
-              📊 Tổng hợp toàn trường
-            </Button>
+            <Box sx={{ display: "flex", gap: 1.5, width: "100%", flexWrap: "nowrap" }}>
+              {/* Nút Tổng hợp cá nhân */}
+              <Button
+                variant={viewMode === "personal" ? "contained" : "outlined"}
+                color="primary"
+                fullWidth
+                onClick={() => setViewMode("personal")}
+                sx={{
+                  flex: 1,
+                  height: 46,
+                  borderRadius: "12px",
+                  textTransform: "none",
+                  fontWeight: 700,
+                  fontSize: "13.5px",
+                  whiteSpace: "nowrap",
+                  ...(viewMode === "personal"
+                    ? {
+                        bgcolor: "#1976d2",
+                        boxShadow: "0 8px 20px rgba(25, 118, 210, 0.3)",
+                        "&:hover": { bgcolor: "#115293" },
+                      }
+                    : {
+                        borderColor: "#cbd5e1",
+                        color: "#475569",
+                        "&:hover": { borderColor: "#94a3b8", bgcolor: "#f1f5f9" },
+                      }),
+                }}
+              >
+                👤 Tổng hợp cá nhân
+              </Button>
+
+              {/* Nút Tổng hợp toàn trường */}
+              <Button
+                variant={viewMode === "summary" ? "contained" : "outlined"}
+                color="primary"
+                fullWidth
+                onClick={() => {
+                  setViewMode("summary");
+                  if (Object.keys(schoolSummaryGrouped).length === 0) {
+                    fetchSchoolSummary();
+                  }
+                }}
+                sx={{
+                  flex: 1,
+                  height: 46,
+                  borderRadius: "12px",
+                  textTransform: "none",
+                  fontWeight: 700,
+                  fontSize: "13.5px",
+                  whiteSpace: "nowrap",
+                  ...(viewMode === "summary"
+                    ? {
+                        bgcolor: "#1976d2",
+                        boxShadow: "0 8px 20px rgba(25, 118, 210, 0.3)",
+                        "&:hover": { bgcolor: "#115293" },
+                      }
+                    : {
+                        borderColor: "#cbd5e1",
+                        color: "#475569",
+                        "&:hover": { borderColor: "#94a3b8", bgcolor: "#f1f5f9" },
+                      }),
+                }}
+              >
+                📊 Tổng hợp toàn trường
+              </Button>
+            </Box>
 
             <Box>
               <Typography
@@ -699,59 +754,97 @@ export default function BGH({ user }) {
       </Box>
 
       {/* Cột phải: Bảng tổng hợp toàn trường theo nhóm / Xem trước file / Thống kê cá nhân */}
+      {/* Cột phải: Bảng tổng hợp toàn trường / Thống kê cá nhân / Xem trước file */}
+      {/* Cột phải: Bảng tổng hợp / Thống kê cá nhân / Xem trước file */}
       <Card
         sx={{
           flex: 1,
           height: "100%",
-          display: { xs: viewMode === "summary" ? "flex" : "none", sm: "flex" },
+          display: {
+            xs: viewMode === "summary" || viewMode === "personal" || selectedFile?.fileId ? "flex" : "none",
+            sm: "flex",
+          },
           flexDirection: "column",
           overflow: "hidden",
         }}
       >
-        <CardContent sx={{ height: "100%", p: 0, boxSizing: "border-box", display: "flex", flexDirection: "column" }}>
-          {viewMode === "summary" ? (
-            /* --- BẢNG TỔNG HỢP TOÀN TRƯỜNG PHÂN THEO KHỐI/TỔ --- */
-            <SchoolSummaryView
-              academicYear={academicYear}
-              loadingSchoolSummary={loadingSchoolSummary}
-              schoolSummaryGrouped={schoolSummaryGrouped}
-              filteredSubjectNames={filteredSubjectNames}
-              fetchSchoolSummary={fetchSchoolSummary}
-              setViewMode={setViewMode}
-              getShortSubjectName={getShortSubjectName}
-              setSelectedUsername={setSelectedUsername}
-              setSelectedFile={setSelectedFile}
-            />
-          ) : selectedFile?.fileId ? (
-            <>
-              <Box sx={{ py: 0.5, px: 1.5, bgcolor: "#f8f9fa", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0, borderBottom: "1px solid #ddd" }}>
-                <Typography variant="subtitle2" fontWeight="bold">
-                  👁️ Xem trước: {selectedFile.fileName || selectedFile.name}
-                </Typography>
-                <Button size="small" variant="outlined" onClick={() => setSelectedFile(null)}>
-                  Đóng xem trước (Hiện Thống kê)
-                </Button>
-              </Box>
-              <Box sx={{ flex: 1, p: 1 }}>
-                <iframe
-                  src={`https://drive.google.com/file/d/${selectedFile.fileId}/preview`}
-                  style={{ width: "100%", height: "100%", border: "none" }}
-                  title="File Preview"
-                />
-              </Box>
-            </>
-          ) : (
-            /* --- GIAO DIỆN THỐNG KÊ CÁ NHÂN (PERSONAL STATS UI) --- */
-            <TeacherStatsView
-              selectedUsername={selectedUsername}
-              statsData={statsData}
-              teacherAllowedSubjects={teacherAllowedSubjects}
-              teacherAllowedClasses={teacherAllowedClasses}
-              loadingStats={loadingStats}
-              academicYear={academicYear}
-            />
-          )}
-        </CardContent>
+        <CardContent sx={{ height: "100%", p: 0, boxSizing: "border-box", display: "flex", flexDirection: "column", position: "relative" }}>
+         
+         {/* 📱 NÚT THOÁT (X) TRÊN ĐIỆN THOẠI KHI XEM THỐNG KÊ CÁ NHÂN HOẶC TỔNG HỢP TOÀN TRƯỜNG */}
+         {isMobile && (viewMode === "summary" || viewMode === "personal") && (
+          <Box 
+            sx={{ 
+              p: 1, 
+              px: 2,
+              bgcolor: "#f1f5f9", 
+              borderBottom: "1px solid #e2e8f0", 
+              display: "flex", 
+              justifyContent: "space-between", 
+              alignItems: "center",
+              flexShrink: 0 
+            }}
+          >
+            <Typography variant="subtitle1" fontWeight="bold" color="primary" sx={{ fontSize: "0.95rem" }}>
+              {viewMode === "summary" 
+                ? `📊 BẢNG TỔNG HỢP TOÀN TRƯỜNG(${academicYear})` 
+                : "👤 BẢNG TỔNG HỢP CÁ NHÂN"}
+            </Typography>
+            
+            <IconButton 
+              size="small" 
+              onClick={() => setViewMode("single")}
+              sx={{ 
+                bgcolor: "#e2e8f0", 
+                color: "#475569",
+                "&:hover": { bgcolor: "#cbd5e1" } 
+              }}
+            >
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        )}
+
+         {viewMode === "summary" ? (
+           <SchoolSummaryView
+             academicYear={academicYear}
+             loadingSchoolSummary={loadingSchoolSummary}
+             schoolSummaryGrouped={schoolSummaryGrouped}
+             filteredSubjectNames={filteredSubjectNames}
+             fetchSchoolSummary={fetchSchoolSummary}
+             setViewMode={setViewMode}
+             getShortSubjectName={getShortSubjectName}
+             setSelectedUsername={setSelectedUsername}
+             setSelectedFile={setSelectedFile}
+           />
+         ) : viewMode === "personal" || !selectedFile?.fileId ? (
+           <TeacherStatsView
+             selectedUsername={selectedUsername}
+             statsData={statsData}
+             teacherAllowedSubjects={teacherAllowedSubjects}
+             teacherAllowedClasses={teacherAllowedClasses}
+             loadingStats={loadingStats}
+             academicYear={academicYear}
+           />
+         ) : (
+           <>
+             <Box sx={{ py: 0.5, px: 1.5, bgcolor: "#f8f9fa", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0, borderBottom: "1px solid #ddd" }}>
+               <Typography variant="subtitle2" fontWeight="bold">
+                 👁️ Xem trước: {selectedFile.fileName || selectedFile.name}
+               </Typography>
+               <Button size="small" variant="outlined" onClick={() => setSelectedFile(null)}>
+                 Đóng xem trước
+               </Button>
+             </Box>
+             <Box sx={{ flex: 1, p: 1 }}>
+               <iframe
+                 src={`https://drive.google.com/file/d/${selectedFile.fileId}/preview`}
+                 style={{ width: "100%", height: "100%", border: "none" }}
+                 title="File Preview"
+               />
+             </Box>
+           </>
+         )}
+       </CardContent>
       </Card>
     </Box>
   );

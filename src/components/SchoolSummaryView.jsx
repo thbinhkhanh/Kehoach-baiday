@@ -26,11 +26,11 @@ export default function SchoolSummaryView({
 }) {
   return (
     <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      <Box sx={{ py: 1.2, px: 2, bgcolor: "#ffffff", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0, borderBottom: "1px solid #e2e8f0" }}>
+      <Box sx={{ display: { xs: "none", sm: "flex" }, py: 1.2, px: 2, bgcolor: "#ffffff", justifyContent: "space-between", alignItems: "center", flexShrink: 0, borderBottom: "1px solid #e2e8f0" }}>
         <Typography variant="subtitle1" fontWeight="bold" sx={{ color: "#1e293b", fontSize: "1rem" }}>
-          📊 BẢNG TỔNG HỢP ({academicYear})
+          📊 BẢNG TỔNG HỢP TOÀN TRƯỜNG  ({academicYear})
         </Typography>
-        <Box sx={{ display: "flex", gap: 1 }}>
+        <Box sx={{ display: { xs: "none", sm: "flex" }, gap: 1 }}>
           <Button size="small" variant="outlined" onClick={() => fetchSchoolSummary()} disabled={loadingSchoolSummary} sx={{ borderColor: "#cbd5e1", color: "#475569" }}>
             🔄 Làm mới
           </Button>

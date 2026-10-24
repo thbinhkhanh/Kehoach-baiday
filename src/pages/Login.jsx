@@ -269,7 +269,7 @@ export default function Login({ onLogin }) {
             }}
           >
             <img
-              src="/Logo.png"
+              src="/Logo2.png"
               alt="Logo"
               style={{ height: "30px", flexShrink: 0 }} // Thu nhỏ logo từ 40px xuống 30px
             />
@@ -281,7 +281,7 @@ export default function Login({ onLogin }) {
                 fontSize: "0.95rem", // Tinh chỉnh kích thước chữ vừa vặn
               }}
             >
-              KẾ HOẠCH BÀI DẠY TRỰC TUYẾN
+              TH BÌNH KHÁNH - KHBD
             </Typography>
           </Box>
         </Toolbar>

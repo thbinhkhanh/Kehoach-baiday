@@ -74,7 +74,10 @@ export default function TeacherStatsView({
             fontWeight="bold" 
             sx={{ display: "flex", alignItems: "center", gap: 1, fontSize: "1rem", m: 0 }}
           >
-            👤 Thống kê cá nhân: <Box component="span" sx={{ color: "#38bdf8" }}>{selectedUsername || "Chưa chọn giáo viên"}</Box>
+            <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
+              👤 Tổng hợp cá nhân:
+            </Box>
+            <Box component="span" sx={{ color: "#38bdf8" }}>{selectedUsername || "Chưa chọn giáo viên"}</Box>
           </Typography>
 
           {/* Các chỉ số nằm gọn bên phải */}

@@ -28,7 +28,11 @@ import {
   LinearProgress,
   Snackbar,
   Alert,
+  Dialog,
+  DialogContent,
+  IconButton,
 } from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close";
 
 export default function Users({ user }) {
   const [fileList, setFileList] = useState([]);
@@ -48,13 +52,16 @@ export default function Users({ user }) {
 
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadMode, setUploadMode] = useState("upload");
-  const [currentFileMsg, setCurrentFileMsg] = useState(""); // Hiển thị tên file đang tải
+  const [currentFileMsg, setCurrentFileMsg] = useState("");
 
   const [statsData, setStatsData] = useState([]);
   const [loadingStats, setLoadingStats] = useState(false);
   const [lopMonHocMap, setLopMonHocMap] = useState({}); 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [filesToDelete, setFilesToDelete] = useState([]);
+
+  // 📱 State quản lý bật/tắt bảng thống kê trên điện thoại
+  const [mobileStatsOpen, setMobileStatsOpen] = useState(false);
 
   // State quản lý Snackbar
   const [snackbar, setSnackbar] = useState({
@@ -99,7 +106,6 @@ export default function Users({ user }) {
         });
         setAllMonHoc(monList);
 
-        // Lấy dữ liệu môn học theo lớp từ collection LOP_MONHOC (doc ID là "1", "2", "3", "4", "5")
         const lopMonHocSnap = await getDocs(collection(db, "LOP_MONHOC"));
         const lopMap = {};
         lopMonHocSnap.forEach((d) => {
@@ -188,7 +194,6 @@ export default function Users({ user }) {
   }, [user]);
 
   // ✅ Bước 2: Lọc danh sách môn học hiển thị
-  // ✅ Bước 2: Lọc danh sách môn học hiển thị
   const getAvailableSubjects = () => {
     if (!className || allMonHoc.length === 0) return [];
 
@@ -203,7 +208,6 @@ export default function Users({ user }) {
     }
 
     if (teacherRole === "BM") {
-      // Lọc các môn mà giáo viên bộ môn được phân công
       const filtered = allMonHoc.filter(sub => {
         const matchesAssigned = teacherAssignedSubjects.some(
           as => as.toLowerCase().trim() === sub.name.toLowerCase().trim()
@@ -217,12 +221,9 @@ export default function Users({ user }) {
     }
 
     if (teacherRole === "GVCN") {
-      // 🌟 Lấy danh sách môn học chuẩn của khối/lớp đó từ collection LOP_MONHOC thông qua lopMonHocMap
       const subjectsForClass = lopMonHocMap[String(className)];
       
       if (Array.isArray(subjectsForClass) && subjectsForClass.length > 0) {
-        // Nếu GVCN có phân công riêng cụ thể (và không phải tất cả), ta có thể kết hợp lọc, 
-        // nhưng thông thường GVCN dạy toàn bộ các môn được quy định trong LOP_MONHOC của lớp đó.
         const hasSpecificAssigned = teacherAssignedSubjects.length > 0 && 
           !teacherAssignedSubjects.some(sub => sub.toLowerCase().includes("tất cả"));
 
@@ -234,7 +235,6 @@ export default function Users({ user }) {
         return subjectsForClass;
       }
 
-      // Fallback dự phòng nếu lopMonHocMap chưa tải kịp dữ liệu
       const hasSpecificAssigned = teacherAssignedSubjects.length > 0 && 
         !teacherAssignedSubjects.some(sub => sub.toLowerCase().includes("tất cả"));
 
@@ -299,7 +299,6 @@ export default function Users({ user }) {
   };
 
   // ✅ Thống kê cá nhân của giáo viên
-  // ✅ Thống kê cá nhân của giáo viên (Hỗ trợ tối ưu cho cả GVCN và GV Bộ môn)
   const fetchTeacherStats = async () => {
     if (!teacherName) return;
     setLoadingStats(true);
@@ -307,8 +306,6 @@ export default function Users({ user }) {
       const yearCol = `KEHOACH_DAYHOC_${academicYear}`;
       const stats = [];
 
-      // Xác định danh sách môn cần quét: 
-      // Nếu là GVCN hoặc teacherAssignedSubjects trống, tự động lấy tất cả các môn trong allMonHoc hoặc danh sách môn tiểu học chuẩn
       let subjectsToQuery = teacherAssignedSubjects;
       if (!subjectsToQuery || subjectsToQuery.length === 0 || teacherRole === "GVCN") {
         subjectsToQuery = allMonHoc.length > 0 
@@ -328,10 +325,8 @@ export default function Users({ user }) {
 
             subSnap.forEach((docSnap) => {
               const data = docSnap.data();
-              // Lấy thông tin khối/lớp linh hoạt từ document (data.khoi hoặc data.className)
               let khoiKey = data.khoi || data.className || "Chung";
               
-              // Chuẩn hóa tên khối/lớp gọn gàng (ví dụ: "Khối 4" -> "4" hoặc giữ nguyên tùy ý)
               if (String(khoiKey).toLowerCase().includes("khối")) {
                 khoiKey = String(khoiKey).replace(/khối/gi, "").trim();
               }
@@ -342,7 +337,7 @@ export default function Users({ user }) {
             stats.push(entry);
           }
         } catch (e) {
-          // Bỏ qua nếu subcollection môn đó không tồn tại
+          // Bỏ qua nếu subcollection không tồn tại
         }
       }
 
@@ -354,35 +349,25 @@ export default function Users({ user }) {
     }
   };
 
-  // 🌟 SỬA: Bỏ fileList ra khỏi mảng dependencies để khi thay đổi môn/lớp không bị gọi lại thống kê
-  // 🌟 Chỉ gọi tải thống kê từ Firestore khi đăng nhập hoặc đổi năm học
   useEffect(() => {
     if (teacherName && academicYear) {
       fetchTeacherStats();
     }
   }, [teacherName, academicYear]);
 
-  // ✅ Thanh tiến trình: Giai đoạn đầu chạy chậm, sau đó tăng tốc dần lên theo thời gian thực chờ Google Drive
-  // ✅ Thanh tiến trình: Giai đoạn đầu chạy chậm, sau đó tăng tốc dần lên theo thời gian thực chờ Google Drive
+  // ✅ Xử lý tải file lên
   const handleUpload = async (e) => {
     const rawFiles = Array.from(e.target.files);
     e.target.value = null;
     if (rawFiles.length === 0) return;
 
-    // 🌟 Chuẩn hóa tên file: Xóa timestamp ở đầu, viết hoa và thay dấu gạch dưới thành khoảng trắng
     const files = rawFiles.map((file) => {
-      // 1. Xóa chuỗi số timestamp ở đầu (ví dụ: 1790847575224_)
       let cleaned = file.name.replace(/^\d+_[_-]?/, "");
-
-      // 2. Tách riêng phần tên và phần mở rộng (ví dụ: .docx, .doc)
       const lastDotIndex = cleaned.lastIndexOf(".");
       let nameWithoutExt = lastDotIndex !== -1 ? cleaned.substring(0, lastDotIndex) : cleaned;
       let ext = lastDotIndex !== -1 ? cleaned.substring(lastDotIndex) : "";
 
-      // 3. Viết hoa toàn bộ tên và thay thế tất cả dấu gạch dưới (_) bằng khoảng trắng ( )
       nameWithoutExt = nameWithoutExt.toUpperCase().replace(/_/g, " ");
-
-      // 4. Ghép lại tên hoàn chỉnh với phần đuôi mở rộng
       const finalName = nameWithoutExt + ext.toLowerCase();
 
       return new File([file], finalName, { type: file.type });
@@ -426,7 +411,6 @@ export default function Users({ user }) {
         nhomPhanLoai: groupFolder,
       };
 
-      // 1. Khởi tạo thanh tiến trình: Bắt đầu chạy chậm, sau đó tăng tốc dần đều theo thời gian (giới hạn tối đa 90% khi đang chờ)
       let currentProgress = 0;
       let elapsed = 0;
       const progressInterval = setInterval(() => {
@@ -436,25 +420,18 @@ export default function Users({ user }) {
         setUploadProgress(Math.round(currentProgress));
       }, 200);
 
-      // 2. Gọi API thực tế với các file đã được chuẩn hóa tên: Chờ Google Drive ghi file xong
       const res = await uploadBatchKeHoachDayHoc(files, metadata);
-
-      // Dừng bộ chạy khi server đã trả về kết quả thành công thực tế
       clearInterval(progressInterval);
 
       if (!res.success) throw new Error(res.error);
 
-      // 3. Khi Google Drive hoàn tất: Kéo thanh tiến trình lên tròn 100%
       setUploadProgress(100);
-
-      // 4. Cập nhật danh sách file từ Firestore (đảm bảo file sẵn sàng để preview)
       await fetchFileList();
 
-      // 🌟 Cập nhật trực tiếp state thống kê ngay lập tức mà không cần gọi lại Firestore
       setStatsData((prevStats) => {
         const newStats = prevStats.map((item) => ({ ...item }));
         let entry = newStats.find((item) => item.subject === subject);
-        const khoiKey = className; // Khối/Lớp đang chọn
+        const khoiKey = className;
 
         if (entry) {
           entry[khoiKey] = (entry[khoiKey] || 0) + files.length;
@@ -467,7 +444,6 @@ export default function Users({ user }) {
         return newStats;
       });
 
-      // 5. Bật thông báo thành công
       showMessage(`🎉 Đã tải thành công ${files.length} file lên hệ thống!`, "success");
 
     } catch (err) {
@@ -482,59 +458,47 @@ export default function Users({ user }) {
     }
   };
   
-  // ✅ Xóa file khỏi Subcollection Firestore
-  // Bước 1: Khi người dùng bấm nút Xóa ở giao diện -> Mở Dialog lên
-const handleDeleteFiles = (files) => {
-  if (!files || files.length === 0) return;
-  setFilesToDelete(files);
-  setDeleteDialogOpen(true);
-};
+  // ✅ Xóa file
+  const handleDeleteFiles = (files) => {
+    if (!files || files.length === 0) return;
+    setFilesToDelete(files);
+    setDeleteDialogOpen(true);
+  };
 
-// Bước 2: Khi người dùng bấm "Xóa" xác nhận trong Dialog
-const handleConfirmDelete = async () => {
-  if (filesToDelete.length === 0) return;
+  const handleConfirmDelete = async () => {
+    if (filesToDelete.length === 0) return;
 
-  // Đóng dialog ngay lập tức
-  setDeleteDialogOpen(false);
+    setDeleteDialogOpen(false);
 
-  // 1. Lưu các ID cần xóa vào biến để lọc state danh sách file bên trái ngay lập tức
-  const fileIdsToDelete = new Set(filesToDelete.map((f) => f.id));
+    const fileIdsToDelete = new Set(filesToDelete.map((f) => f.id));
+    setFileList((prevList) => prevList.filter((f) => !fileIdsToDelete.has(f.id)));
+    showMessage("🗑️ Đã xóa file thành công!", "success");
 
-  // 2. Cập nhật giao diện danh sách file bên trái ngay lập tức (Lọc bỏ các file vừa chọn)
-  setFileList((prevList) => prevList.filter((f) => !fileIdsToDelete.has(f.id)));
+    setStatsData((prevStats) => {
+      const newStats = prevStats.map((item) => ({ ...item }));
+      let entry = newStats.find((item) => item.subject === subject);
+      const khoiKey = className;
 
-  // 3. Hiển thị thông báo thành công ngay lập tức
-  showMessage("🗑️ Đã xóa file thành công!", "success");
-
-  // 4. Cập nhật ngay lập tức state thống kê trên giao diện
-  setStatsData((prevStats) => {
-    const newStats = prevStats.map((item) => ({ ...item }));
-    let entry = newStats.find((item) => item.subject === subject);
-    const khoiKey = className;
-
-    if (entry) {
-      entry[khoiKey] = Math.max(0, (entry[khoiKey] || 0) - filesToDelete.length);
-    }
-    return newStats;
-  });
-
-  // 5. Chạy ngầm dưới nền (Xóa Google Drive và Firestore) mà không làm gián đoạn trải nghiệm người dùng
-  (async () => {
-    const yearCol = `KEHOACH_DAYHOC_${academicYear}`;
-    for (const file of filesToDelete) {
-      try {
-        // Xóa ngầm trên Google Drive
-        if (file.fileId) {
-          await deleteGoogleDriveFile(file.fileId);
-        }
-        // Xóa ngầm trên Firestore
-        await deleteDoc(doc(db, yearCol, teacherName, subject, file.id));
-      } catch (err) {
-        console.error(`❌ Lỗi khi xóa ngầm file ${file.fileName}:`, err);
+      if (entry) {
+        entry[khoiKey] = Math.max(0, (entry[khoiKey] || 0) - filesToDelete.length);
       }
-    }
-  })();
-};
+      return newStats;
+    });
+
+    (async () => {
+      const yearCol = `KEHOACH_DAYHOC_${academicYear}`;
+      for (const file of filesToDelete) {
+        try {
+          if (file.fileId) {
+            await deleteGoogleDriveFile(file.fileId);
+          }
+          await deleteDoc(doc(db, yearCol, teacherName, subject, file.id));
+        } catch (err) {
+          console.error(`❌ Lỗi khi xóa ngầm file ${file.fileName}:`, err);
+        }
+      }
+    })();
+  };
 
   useEffect(() => {
     fetchFileList();
@@ -555,7 +519,6 @@ const handleConfirmDelete = async () => {
         width: "100vw",
         display: "flex",
         gap: 2,
-        //p: 2,
         alignItems: "stretch",
         flexDirection: { xs: "column", sm: "row" },
         boxSizing: "border-box",
@@ -606,17 +569,30 @@ const handleConfirmDelete = async () => {
               </FormControl>
             </Box>
 
-            <Box sx={{ display: "flex", gap: 2, flexWrap: "nowrap", overflowX: "auto" }}>
+            <Box sx={{ display: "flex", gap: 1.5, flexWrap: "nowrap", overflowX: "auto" }}>
+              {/* Nút Tải file */}
               <Button
                 variant="contained"
                 component="label"
                 disabled={uploading}
-                sx={{ flex: 1, whiteSpace: "nowrap" }}
+                sx={{
+                  flex: 1,
+                  height: 46,
+                  borderRadius: "12px",
+                  textTransform: "none",
+                  fontWeight: 700,
+                  fontSize: "13.5px",
+                  bgcolor: "#1976d2",
+                  boxShadow: "0 8px 20px rgba(25, 118, 210, 0.3)",
+                  whiteSpace: "nowrap",
+                  "&:hover": { bgcolor: "#115293" },
+                }}
               >
-                📤 Tải file
+                📤 {uploading ? "Đang tải..." : "Tải file"}
                 <input type="file" accept=".doc,.docx" multiple hidden onChange={handleUpload} />
               </Button>
 
+              {/* Nút Xóa file */}
               <Button
                 variant="outlined"
                 color="error"
@@ -625,9 +601,47 @@ const handleConfirmDelete = async () => {
                   const selectedFiles = fileList.filter((file) => file.selected);
                   handleDeleteFiles(selectedFiles);
                 }}
-                sx={{ flex: 1, whiteSpace: "nowrap" }}
+                sx={{
+                  flex: 1,
+                  height: 46,
+                  borderRadius: "12px",
+                  textTransform: "none",
+                  fontWeight: 600,
+                  fontSize: "14.5px",
+                  borderColor: "#fca5a5",
+                  color: "#dc2626",
+                  whiteSpace: "nowrap",
+                  "&:hover": { 
+                    borderColor: "#dc2626", 
+                    bgcolor: "#fef2f2" 
+                  },
+                }}
               >
                 🗑️ Xóa file
+              </Button>
+
+              {/* Nút Thống kê - Chỉ hiển thị trên điện thoại (xs) và mở Dialog thống kê */}
+              <Button
+                variant="outlined"
+                onClick={() => setMobileStatsOpen(true)}
+                sx={{
+                  flex: 1,
+                  height: 46,
+                  borderRadius: "12px",
+                  textTransform: "none",
+                  fontWeight: 600,
+                  fontSize: "13.5px",
+                  borderColor: "#bae6fd",
+                  color: "#0284c7",
+                  whiteSpace: "nowrap",
+                  display: { xs: "flex", sm: "none" },
+                  "&:hover": { 
+                    borderColor: "#0284c7", 
+                    bgcolor: "#f0f9ff" 
+                  },
+                }}
+              >
+                📊 Thống kê
               </Button>
             </Box>
 
@@ -654,7 +668,7 @@ const handleConfirmDelete = async () => {
         />
       </Box>
 
-      {/* Khung xem file bên phải */}
+      {/* Khung xem file / Thống kê bên phải (Chỉ hiển thị trên máy tính - sm trở lên) */}
       <Card
         sx={{
           flex: 1,
@@ -695,6 +709,41 @@ const handleConfirmDelete = async () => {
           )}
         </CardContent>
       </Card>
+
+      {/* 📱 DIALOG HIỂN THỊ BẢNG THỐNG KÊ TRÊN ĐIỆN THOẠI KHI BẤM NÚT THỐNG KÊ */}
+      <Dialog
+        open={mobileStatsOpen}
+        onClose={() => setMobileStatsOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: "16px",
+            maxHeight: "85vh",
+            display: "flex",
+            flexDirection: "column",
+          },
+        }}
+      >
+        <Box sx={{ p: 2, display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #eee" }}>
+          <Typography variant="h6" fontWeight="bold" color="primary">
+            📊 Thống kê kế hoạch bài dạy
+          </Typography>
+          <IconButton onClick={() => setMobileStatsOpen(false)}>
+            <CloseIcon />
+          </IconButton>
+        </Box>
+        <DialogContent sx={{ p: 1, overflowY: "auto" }}>
+          <TeacherStatsView
+            selectedUsername={teacherName}
+            statsData={statsData}
+            teacherAllowedSubjects={teacherAssignedSubjects}
+            teacherAllowedClasses={assignedClassesList}
+            loadingStats={loadingStats}
+            academicYear={academicYear}
+          />
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDeleteDialog
         open={deleteDialogOpen}
