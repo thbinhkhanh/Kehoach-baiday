@@ -8,7 +8,7 @@ import {
   School,
 } from "@mui/icons-material";
 
-// 🌟 DASHBOARD CARD COMPONENT (GIỮ NGUYÊN KÍCH THƯỚC THEO YÊU CẦU)
+// 🌟 DASHBOARD CARD COMPONENT (GIỮ NGUYÊN KÍCH THƯỚC VÀ ĐỘ CAO BAN ĐẦU)
 function DashboardCard({ item, onClick }) {
   return (
     <Box
@@ -20,7 +20,7 @@ function DashboardCard({ item, onClick }) {
         bgcolor: "#fff",
         borderRadius: "18px",
         p: { xs: 1.5, sm: 2 },
-        minHeight: { xs: 150, sm: 165 }, // Giữ nguyên kích thước ban đầu
+        minHeight: { xs: 150, sm: 165 }, // Giữ nguyên độ cao ban đầu
         cursor: "pointer",
         border: "1px solid #e5e7eb",
         transition: "all .25s ease",
@@ -214,12 +214,9 @@ export default function Dashboard({ onSelectModule }) {
   return (
     <Box
       sx={{
-        // 🌟 Trừ đi 56px đến 60px chiều cao của thanh Header xanh ở trên
-        // giúp toàn bộ giao diện vừa khít 1 màn hình máy tính mà không gây ra cuộn trang
-        height: "calc(100vh - 40px)",
-        overflow: "hidden", // Khóa cuộn dọc trên máy tính
+        minHeight: "100vh", // Vùng xám ngoài tự động co giãn theo nội dung
         bgcolor: "#f4f6f8",
-        p: { xs: 1.5, md: 2 },
+        p: { xs: 1.5, md: 2.5 },
         display: "flex",
         flexDirection: "column",
         justifyContent: "space-between",
@@ -241,8 +238,8 @@ export default function Dashboard({ onSelectModule }) {
           fontWeight={700}
           sx={{
             color: "#1e3a8a",
-            mb: { xs: 1, sm: 1.5 },
-            fontSize: { xs: "1.05rem", sm: "1.2rem" },
+            mb: 2,
+            fontSize: { xs: "1.1rem", sm: "1.25rem" },
             fontFamily:
               '"Segoe UI", "Arial", "Helvetica", "Noto Sans", sans-serif',
           }}
@@ -280,7 +277,8 @@ export default function Dashboard({ onSelectModule }) {
           maxWidth: 1200,
           mx: "auto",
           width: "100%",
-          pt: 1.5,
+          mt: 4,
+          pt: 2,
           borderTop: "1px solid #e2e8f0",
           display: "flex",
           justifyContent: "space-between",
@@ -291,7 +289,7 @@ export default function Dashboard({ onSelectModule }) {
       >
         <Typography
           sx={{
-            fontSize: { xs: "11px", sm: "12.5px" },
+            fontSize: { xs: "11.5px", sm: "13px" },
             color: "#64748b",
           }}
         >
@@ -299,7 +297,7 @@ export default function Dashboard({ onSelectModule }) {
         </Typography>
         <Typography
           sx={{
-            fontSize: { xs: "11px", sm: "12.5px" },
+            fontSize: { xs: "11.5px", sm: "13px" },
             color: "#94a3b8",
           }}
         >
