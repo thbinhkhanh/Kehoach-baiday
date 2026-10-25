@@ -7,7 +7,11 @@ import {
   List,
   ListItem,
   ListItemText,
+  IconButton,
+  Tooltip,
 } from "@mui/material";
+import EditIcon from "@mui/icons-material/Edit";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle"; // Icon phụ đánh dấu đã điều chỉnh
 
 export default function FileListCard({
   fileList,
@@ -15,6 +19,7 @@ export default function FileListCard({
   setSelectedFile,
   setFileList,
   formatVNDate,
+  onEditFile,
 }) {
   const listRef = useRef(null);
   const [hasScrollbar, setHasScrollbar] = useState(false);
@@ -66,14 +71,23 @@ export default function FileListCard({
           fileList.map((file, index) => {
             const isSelected = selectedFile?.fileId === file.fileId;
             const rawName = file.fileName || file.name || file.tieuDe || "";
-            // Ẩn phần định dạng mở rộng ở cuối tên file (ví dụ: .docx, .pdf,...)
             const displayName = rawName.replace(/\.[^/.]+$/, "");
+
+            // 🔥 Kiểm tra xem file này đã có dữ liệu điều chỉnh hay chưa
+            const hasAdjustmentsData = Boolean(
+              file.adjustments ||
+              (file.outcomes && (file.outcomes.kienThuc || file.outcomes.nangLuc || file.outcomes.phamChat)) ||
+              (file.equipment && (file.equipment.giaoVien || file.equipment.hocSinh)) ||
+              (Array.isArray(file.activities) && file.activities.length > 0)
+            );
+
             return (
               <ListItem
                 key={file.id || index}
                 sx={{
                   mb: 1,
-                  border: "1px solid #ddd",
+                  // Nếu đã chỉnh sửa, viền item sẽ có màu xanh nổi bật thay vì xám nhạt #ddd
+                  border: hasAdjustmentsData ? "1.5px solid #1976d2" : "1px solid #ddd",
                   borderRadius: 1,
                   display: "flex",
                   alignItems: "center",
@@ -82,7 +96,7 @@ export default function FileListCard({
                   bgcolor: isSelected ? "rgba(25,118,210,0.1)" : "background.paper",
                 }}
               >
-                {/* 1. Vùng Tên tệp */}
+                {/* 1. Vùng Tên tệp (Xem trước) */}
                 <Box
                   onClick={() => {
                     if (window.innerWidth < 600) {
@@ -102,7 +116,34 @@ export default function FileListCard({
                   }}
                 >
                   <ListItemText
-                    primary={displayName}
+                    primary={
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <span>{displayName}</span>
+                        {/* Hiển thị huy hiệu nhỏ hoặc dấu hiệu nhận biết ngay cạnh tên file */}
+                        {hasAdjustmentsData && (
+                          <Tooltip title="Bài đã có nội dung điều chỉnh">
+                            <Box
+                              component="span"
+                              sx={{
+                                fontSize: "11px",
+                                bgcolor: "#e3f2fd",
+                                color: "#1565c0",
+                                px: 1,
+                                py: 0.2,
+                                borderRadius: "4px",
+                                fontWeight: 600,
+                                border: "1px solid #90caf9",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 0.5,
+                              }}
+                            >
+                              <CheckCircleIcon sx={{ fontSize: 13 }} /> Đã điều chỉnh
+                            </Box>
+                          </Tooltip>
+                        )}
+                      </Box>
+                    }
                     secondary={`Tải lên: ${formatVNDate(file.createdAt)}`}
                     primaryTypographyProps={{ sx: { fontWeight: "normal" } }}
                     secondaryTypographyProps={{ sx: { fontWeight: "normal" } }}
@@ -110,7 +151,32 @@ export default function FileListCard({
                   />
                 </Box>
 
-                {/* 2. Vùng Checkbox */}
+                {/* 2. Vùng Icon Chỉnh sửa */}
+                <Box
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onEditFile) {
+                      onEditFile(file);
+                    }
+                  }}
+                  sx={{ px: 1, display: "flex", alignItems: "center" }}
+                >
+                  <Tooltip title={hasAdjustmentsData ? "Đã có điều chỉnh - Bấm để sửa" : "Mở form điều chỉnh"}>
+                    <IconButton
+                      size="small"
+                      color={hasAdjustmentsData ? "primary" : "default"}
+                      sx={{
+                        // Nếu đã chỉnh sửa, nút bút chì sẽ có nền xanh nhẹ để dễ nhận diện
+                        bgcolor: hasAdjustmentsData ? "rgba(25,118,210,0.1)" : "transparent",
+                        "&:hover": { bgcolor: "rgba(25,118,210,0.2)" },
+                      }}
+                    >
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+
+                {/* 3. Vùng Checkbox */}
                 <Box
                   component="div"
                   onClick={(e) => e.stopPropagation()}

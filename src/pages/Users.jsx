@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+
 import { db } from "../firebase";
 import {
   collection,
@@ -17,6 +18,9 @@ import FileListCard from "../components/FileListCard";
 import ConfirmDeleteDialog from "../dialogs/ConfirmDeleteDialog";
 
 import { useLessonPlan } from "../contexts/LessonPlanContext";
+import CloseIcon from "@mui/icons-material/Close";
+import SaveIcon from "@mui/icons-material/Save";
+import LessonPlanEditor from "../components/LessonPlanEditor"; 
 
 import {
   Box,
@@ -35,7 +39,6 @@ import {
   DialogContent,
   IconButton,
 } from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
 
 export default function Users({ user }) {
   const {
@@ -45,6 +48,8 @@ export default function Users({ user }) {
     getTeacherStats,
   } = useLessonPlan();
 
+  const editorRef = useRef(null);
+
   const [fileList, setFileList] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -53,6 +58,8 @@ export default function Users({ user }) {
   const [academicYear, setAcademicYear] = useState("2026-2027");
   const [subject, setSubject] = useState("");
   const [className, setClassName] = useState("");
+
+// và các state khác như deleteDialogOpen, snackbar...
 
   const makeFileListKey = () =>
   `${academicYear}_${teacherName}_${subject}_${className}`;
@@ -98,6 +105,10 @@ export default function Users({ user }) {
 
   // 📱 State quản lý bật/tắt bảng thống kê trên điện thoại
   const [mobileStatsOpen, setMobileStatsOpen] = useState(false);
+
+  // Thêm các state này vào trong component Users
+  const [editFormOpen, setEditFormOpen] = useState(false);
+  const [editingFile, setEditingFile] = useState(null);
 
   // State quản lý Snackbar
   const [snackbar, setSnackbar] = useState({
@@ -350,6 +361,7 @@ export default function Users({ user }) {
 
   // ✅ Lấy danh sách file từ Firestore theo cấu trúc subcollection môn học
   
+  // ✅ Lấy danh sách file từ Firestore và reset cờ statsChanged về false sau khi tải xong
   const fetchFileList = async () => {
     if (!teacherName || !className || !subject || !academicYear) {
       setFileList([]);
@@ -357,17 +369,25 @@ export default function Users({ user }) {
     }
 
     const fileKey = `${academicYear}_${teacherName}_${subject}_${className}`;
-
-    // Hiển thị dữ liệu đã lưu trước khi truy vấn Firestore
     const cachedFiles = getFileList(fileKey);
-
-    if (cachedFiles.length > 0) {
-      setFileList(cachedFiles);
-    }
 
     try {
       const yearCol = `KEHOACH_DAYHOC_${academicYear}`;
 
+      // 1. Kiểm tra cờ statsChanged trên Firestore của giáo viên
+      const teacherRef = doc(db, yearCol, teacherName);
+      const teacherSnap = await getDoc(teacherRef);
+      const teacherData = teacherSnap.exists() ? teacherSnap.data() : {};
+      
+      const statsChangedFlag = teacherData.statsChanged === true;
+
+      // 2. Nếu cờ KHÔNG phải là true và trong Context đã có dữ liệu -> Dùng luôn Context (siêu tốc)
+      if (!statsChangedFlag && cachedFiles.length > 0) {
+        setFileList(cachedFiles);
+        return; 
+      }
+
+      // 3. Ngược lại (nếu statsChanged === true hoặc cache trống) -> Tải mới từ Firestore
       const filesRef = collection(
         db,
         yearCol,
@@ -383,10 +403,7 @@ export default function Users({ user }) {
         const data = docSnap.data();
         const docId = docSnap.id;
 
-        // Ưu tiên lấy khối từ ID: Khoi_4_..., Khoi_5_...
         const idMatch = docId.match(/^Khoi_(\d+)_/i);
-
-        // Dự phòng cho tài liệu lưu theo cấu trúc cũ
         const khoiValue = String(
           data.khoi || data.className || ""
         ).trim();
@@ -424,13 +441,22 @@ export default function Users({ user }) {
 
       setFileList(files);
 
-      updateFileList(
-        `${academicYear}_${teacherName}_${subject}_${className}`,
-        files
-      );
+      // Cập nhật lại danh sách file vào Context
+      updateFileList(fileKey, files);
+
+      // 👉 4. SAU KHI TẢI XONG THÀNH CÔNG, ĐẶT CỜ VỀ FALSE TRÊN FIRESTORE
+      if (statsChangedFlag) {
+        await setDoc(teacherRef, { statsChanged: false }, { merge: true });
+      }
+
     } catch (err) {
       console.error("Lỗi khi tải danh sách file:", err);
-      setFileList([]);
+      // Fallback: nếu lỗi mạng mà có cache thì vẫn hiện cache
+      if (cachedFiles.length > 0) {
+        setFileList(cachedFiles);
+      } else {
+        setFileList([]);
+      }
     }
   };
 
@@ -973,7 +999,7 @@ export default function Users({ user }) {
                 🗑️ Xóa file
               </Button>
 
-              {/* Nút Thống kê - Chỉ hiển thị trên điện thoại (xs) và mở Dialog thống kê */}
+              {/* Nút Thống kê - Chỉ hiển thị trên điện thoại (xs) */}
               <Button
                 variant="outlined"
                 onClick={() => setMobileStatsOpen(true)}
@@ -1011,13 +1037,17 @@ export default function Users({ user }) {
           </CardContent>
         </Card>
 
-        {/* Danh sách file */}
+        {/* Danh sách file kèm sự kiện bấm Icon sửa mở form */}
         <FileListCard
           fileList={fileList}
           selectedFile={selectedFile}
           setSelectedFile={setSelectedFile}
           setFileList={setFileList}
           formatVNDate={formatVNDate}
+          onEditFile={(file) => {
+            setEditingFile(file);     // Lưu thông tin file đang sửa
+            setEditFormOpen(true);    // Mở Dialog chứa LessonPlanEditor
+          }}
         />
       </Box>
 
@@ -1063,7 +1093,93 @@ export default function Users({ user }) {
         </CardContent>
       </Card>
 
-      {/* 📱 DIALOG HIỂN THỊ BẢNG THỐNG KÊ TRÊN ĐIỆN THOẠI KHI BẤM NÚT THỐNG KÊ */}
+      {/* 📝 DIALOG MỞ FORM CHỈNH SỬA KẾ HOẠCH BÀI DẠY (LessonPlanEditor) */}
+      <Dialog
+        open={editFormOpen}
+        onClose={() => setEditFormOpen(false)}
+        fullScreen
+        PaperProps={{ sx: { bgcolor: "#f8fafc" } }}
+      >
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", p: 1, bgcolor: "white", borderBottom: "1px solid #e2e8f0" }}>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<SaveIcon />}
+            onClick={() => {
+              // Kích hoạt hàm lưu bên trong LessonPlanEditor
+              if (editorRef.current) {
+                editorRef.current.triggerSave();
+              }
+            }}
+            sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 600 }}
+          >
+            Lưu điều chỉnh
+          </Button>
+
+          <Button 
+            variant="outlined" 
+            color="error" 
+            onClick={() => setEditFormOpen(false)}
+            sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 600 }}
+          >
+            Đóng / Thoát
+          </Button>
+        </Box>
+
+        <Box sx={{ flex: 1, overflowY: "auto", p: 2 }}>
+          <LessonPlanEditor 
+            ref={editorRef}
+            teacherName={teacherName} // 👈 Truyền thêm tên giáo viên để định vị đúng thư mục trong Firestore
+            initialData={{
+              ...editingFile,
+              metadata: {
+                ...editingFile?.metadata,
+                monHoc: subject, 
+                khoiLop: className,  
+              }
+            }}
+            onClose={() => setEditFormOpen(false)}
+            onSaveToFirestore={async (updatedPayload) => {
+              try {
+                console.log("🔥 Đã xử lý dữ liệu KHBD:", updatedPayload);
+
+                // Cập nhật ngay lập tức vào state fileList ngoài trang chính
+                setFileList((prevList) =>
+                  prevList.map((f) => {
+                    const fId = f.id || f.fileId;
+                    const targetId = editingFile.id || editingFile.fileId;
+                    
+                    if (fId === targetId) {
+                      if (updatedPayload === null) {
+                        // Trường hợp XÓA ĐIỀU CHỈNH: Gỡ bỏ các trường điều chỉnh cũ ra khỏi file
+                        const { outcomes, equipment, activities, adjustments, updatedAt, ...cleanFile } = f;
+                        return cleanFile;
+                      } else {
+                        // Trường hợp LƯU ĐIỀU CHỈNH: Gộp dữ liệu mới vào file
+                        return {
+                          ...f,
+                          ...updatedPayload,
+                        };
+                      }
+                    }
+                    return f;
+                  })
+                );
+
+                setEditFormOpen(false); // Đóng form soạn thảo lại
+
+                // Nếu Thầy muốn chắc chắn, có thể gọi lại hàm tải dữ liệu ngầm từ Firestore:
+                // fetchFileList(); 
+
+              } catch (error) {
+                console.error("Lỗi khi cập nhật danh sách:", error);
+              }
+            }}
+          />
+        </Box>
+      </Dialog>
+
+      {/* 📱 DIALOG HIỂN THỊ BẢNG THỐNG KÊ TRÊN ĐIỆN THOẠI */}
       <Dialog
         open={mobileStatsOpen}
         onClose={() => setMobileStatsOpen(false)}
