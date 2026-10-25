@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -16,12 +16,29 @@ export default function FileListCard({
   setFileList,
   formatVNDate,
 }) {
+  const listRef = useRef(null);
+  const [hasScrollbar, setHasScrollbar] = useState(false);
+
+  // Tự động kiểm tra sự tồn tại của thanh cuộn dọc
+  useEffect(() => {
+    const checkScrollbar = () => {
+      if (listRef.current) {
+        const { scrollHeight, clientHeight } = listRef.current;
+        setHasScrollbar(scrollHeight > clientHeight);
+      }
+    };
+
+    checkScrollbar();
+    window.addEventListener("resize", checkScrollbar);
+    return () => window.removeEventListener("resize", checkScrollbar);
+  }, [fileList]);
+
   return (
     <Card sx={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
       <CardContent sx={{ p: 1, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <Typography variant="h6">📂 Danh sách file</Typography>
         {fileList.length > 0 && (
-          <Box sx={{ display: "flex", alignItems: "center", mr: 3 }}> {/* 👈 Đã thêm mr: 2 để dịch lùi sang trái thẳng hàng với các dòng dưới */}
+          <Box sx={{ display: "flex", alignItems: "center", mr: hasScrollbar ? 3 : 1 }}>
             <Typography variant="body2" sx={{ mr: 1 }}>Chọn tất cả</Typography>
             <input
               type="checkbox"
@@ -39,7 +56,8 @@ export default function FileListCard({
         )}
       </CardContent>
 
-      <List sx={{ flex: 1, overflowY: "auto", p: 0 }}>
+      {/* Gắn ref vào List để đo kích thước */}
+      <List ref={listRef} sx={{ flex: 1, overflowY: "auto", p: 0 }}>
         {fileList.length === 0 ? (
           <ListItem>
             <ListItemText primary="Chưa có file nào." />
@@ -47,7 +65,9 @@ export default function FileListCard({
         ) : (
           fileList.map((file, index) => {
             const isSelected = selectedFile?.fileId === file.fileId;
-            const displayName = file.fileName || file.name || file.tieuDe;
+            const rawName = file.fileName || file.name || file.tieuDe || "";
+            // Ẩn phần định dạng mở rộng ở cuối tên file (ví dụ: .docx, .pdf,...)
+            const displayName = rawName.replace(/\.[^/.]+$/, "");
             return (
               <ListItem
                 key={file.id || index}

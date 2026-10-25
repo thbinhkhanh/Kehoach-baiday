@@ -37,7 +37,9 @@ export default function FileListCardBGH({
         ) : (
           fileList.map((file, index) => {
             const isSelected = selectedFile?.fileId === file.fileId;
-            const displayName = file.fileName || file.name || file.tieuDe;
+            const rawName = file.fileName || file.name || file.tieuDe || "";
+            // Ẩn phần định dạng mở rộng ở cuối tên file (ví dụ: .docx, .pdf,...)
+            const displayName = rawName.replace(/\.[^/.]+$/, "");
 
             return (
               <ListItem
