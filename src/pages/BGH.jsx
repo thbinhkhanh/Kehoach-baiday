@@ -28,6 +28,7 @@ import FileListCardBGH from "../components/FileListCardBGH";
 import CloseIcon from "@mui/icons-material/Close";
 
 import { useBGHStats } from "../contexts/BGHStatsContext";
+import { serverTimestamp } from "firebase/firestore";
 
 import {
   SchoolRounded,
@@ -156,7 +157,6 @@ const [filterCategory, setFilterCategory] = useState("gvcn");
     }
   }, [isBGH]);
 
-  // 2. Phân quyền giáo viên
   // 2. Phân quyền giáo viên
   useEffect(() => {
       const fetchPhanQuyen = async () => {
@@ -598,12 +598,6 @@ const [filterCategory, setFilterCategory] = useState("gvcn");
     }
   };
 
-
-
-  useEffect(() => {
-    fetchFileList();
-  }, [subject, className, selectedUsername, academicYear]);
-
   // Sắp xếp danh sách môn học theo thứ tự: Tổ bộ môn trước, GVCN sau
   const getFilteredSubjectNames = () => {
     const rawList = Array.from(
@@ -671,7 +665,6 @@ const [filterCategory, setFilterCategory] = useState("gvcn");
 
   // Thống kê cá nhân theo giáo viên và năm học
   
-  // Thống kê cá nhân theo giáo viên và năm học
   useEffect(() => {
     let cancelled = false;
 
@@ -680,61 +673,65 @@ const [filterCategory, setFilterCategory] = useState("gvcn");
         !isBGH ||
         !selectedUsername ||
         !academicYear ||
+        !subject ||
+        !className ||
         Object.keys(phanQuyenMap).length === 0 ||
         allMonHoc.length === 0
       ) {
         return;
       }
 
-      const cacheKey = `${academicYear}_${selectedUsername}`;
+      const teacherName = selectedUsername.trim().toUpperCase();
+      const cacheKey = `${academicYear}_${teacherName}`;
+
       const teacherRef = doc(
         db,
         `KEHOACH_DAYHOC_${academicYear}`,
-        selectedUsername
+        teacherName
       );
 
+      setLoadingFiles(true);
+      setLoadingStats(true);
+
       try {
-        // 1. Kiểm tra cờ thay đổi trên tài liệu giáo viên
+        // BƯỚC 1: Đọc cờ cập nhật trên Firestore
         const teacherSnap = await getDoc(teacherRef);
 
         if (cancelled) return;
 
-        const statsChanged =
-          teacherSnap.exists() &&
-          teacherSnap.data()?.statsChanged === true;
+        const teacherExists = teacherSnap.exists();
+        const teacherData = teacherExists
+          ? teacherSnap.data()
+          : {};
 
-        // 2. Nếu không thay đổi và có cache thì dùng cache
-        const cachedStats = getTeacherStats(cacheKey);
+        const statsChanged = teacherData.statsChanged === true;
 
-        if (
-          !statsChanged &&
-          Array.isArray(cachedStats) &&
-          cachedStats.length > 0
-        ) {
-          setStatsData(cachedStats);
-          setLoadingStats(false);
+        // BƯỚC 2: Tải danh sách file trước
+        const filesLoaded = await fetchFileList();
+
+        if (cancelled) return;
+
+        // Nếu cờ đang true mà danh sách file tải lỗi,
+        // không tải thống kê và không tắt cờ.
+        if (statsChanged && !filesLoaded) {
+          console.error(
+            "Tải danh sách file thất bại. Giữ statsChanged = true."
+          );
           return;
         }
 
-        setLoadingStats(true);
+        // BƯỚC 3: Nếu cờ false và Context có dữ liệu,
+        // sử dụng dữ liệu đã lưu trong Context.
+        const cachedStats = getTeacherStats(cacheKey);
+        const hasCache =
+          Array.isArray(cachedStats) && cachedStats.length > 0;
 
-        // 3. Nếu cờ bật, tải lại danh sách file đang xem
-        let filesLoaded = true;
-
-        if (statsChanged) {
-          filesLoaded = await fetchFileList();
-
-          if (cancelled) return;
-
-          if (!filesLoaded) {
-            console.warn(
-              "Tải danh sách file thất bại; giữ nguyên statsChanged."
-            );
-            return;
-          }
+        if (teacherExists && !statsChanged && hasCache) {
+          setStatsData(cachedStats);
+          return;
         }
 
-        // 4. Tải lại thống kê giáo viên
+        // BƯỚC 4: Tải thống kê từ Firestore
         let statsLoaded = false;
 
         await fetchTeacherStatsData({
@@ -751,7 +748,9 @@ const [filterCategory, setFilterCategory] = useState("gvcn");
           },
 
           setStatsData: (data) => {
-            if (cancelled || !Array.isArray(data)) return;
+            if (cancelled || !Array.isArray(data)) {
+              return;
+            }
 
             setStatsData(data);
             updateTeacherStats(cacheKey, data);
@@ -761,22 +760,61 @@ const [filterCategory, setFilterCategory] = useState("gvcn");
 
         if (cancelled) return;
 
-        // 5. Chỉ tắt cờ khi đã tải lại cả hai phần
-        if (statsChanged && filesLoaded && statsLoaded) {
-          await updateDoc(teacherRef, {
-            statsChanged: false,
+        // BƯỚC 5: Chỉ tắt cờ khi cả hai thao tác thành công        
+        if (teacherExists && statsChanged) {
+          console.log("Kiểm tra trước khi cập nhật statsChanged:", {
+            teacherName,
+            filesLoaded,
+            statsLoaded,
           });
 
-          console.log(
-            `Đã cập nhật danh sách file và thống kê: ${selectedUsername}`
-          );
+          if (!filesLoaded || !statsLoaded) {
+            console.error(
+              "Không thể cập nhật statsChanged = false:",
+              {
+                filesLoaded,
+                statsLoaded,
+                lyDo: !filesLoaded
+                  ? "Tải danh sách file chưa thành công"
+                  : "Chưa nhận được dữ liệu thống kê qua setStatsData",
+              }
+            );
+            return;
+          }
+
+          try {
+            await updateDoc(teacherRef, {
+              statsChanged: false,
+              updatedAt: serverTimestamp(),
+            });
+
+            const verifySnap = await getDoc(teacherRef);
+
+            if (
+              verifySnap.exists() &&
+              verifySnap.data().statsChanged === false
+            ) {
+              console.log(
+                `Đã cập nhật statsChanged = false cho ${teacherName}.`
+              );
+            } else {
+              console.warn(
+                "Đã gọi updateDoc nhưng cờ chưa xác nhận là false.",
+                verifySnap.exists() ? verifySnap.data().statsChanged : "Không tìm thấy tài liệu"
+              );
+            }
+          } catch (error) {
+            console.error("Lỗi cập nhật statsChanged:", error);
+          }
         }
+
       } catch (error) {
         if (!cancelled) {
           console.error("Lỗi tải dữ liệu BGH:", error);
         }
       } finally {
         if (!cancelled) {
+          setLoadingFiles(false);
           setLoadingStats(false);
         }
       }
@@ -791,12 +829,16 @@ const [filterCategory, setFilterCategory] = useState("gvcn");
     isBGH,
     selectedUsername,
     academicYear,
+    subject,
+    className,
     phanQuyenMap,
     allMonHoc,
     isAdmin,
     getTeacherStats,
     updateTeacherStats,
   ]);
+
+
 
 
   if (!isBGH) {
