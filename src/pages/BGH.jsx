@@ -20,12 +20,14 @@ import {
 } from "@mui/material";
 
 import { db } from "../firebase";
-import { collection, getDocs, doc, getDoc, query, where } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc, query, where, updateDoc, } from "firebase/firestore";
 import { fetchSchoolSummaryData, fetchTeacherStatsData } from "../utils/thongKe";
 import TeacherStatsView from "../components/TeacherStatsView";
 import SchoolSummaryView from "../components/SchoolSummaryView";
 import FileListCardBGH from "../components/FileListCardBGH";
 import CloseIcon from "@mui/icons-material/Close";
+
+import { useBGHStats } from "../contexts/BGHStatsContext";
 
 import {
   SchoolRounded,
@@ -60,28 +62,34 @@ const getShortSubjectName = (name) => {
 
 export default function BGH({ user }) {
   const [fileList, setFileList] = useState([]);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [loadingFiles, setLoadingFiles] = useState(false);
-  const [loadingStats, setLoadingStats] = useState(false);
+const [selectedFile, setSelectedFile] = useState(null);
+const [loadingFiles, setLoadingFiles] = useState(false);
 
-  // State cho chế độ Tổng hợp toàn trường
-  const [viewMode, setViewMode] = useState("single"); // "single" hoặc "summary"
-  const [loadingSchoolSummary, setLoadingSchoolSummary] = useState(false);
-  const [schoolSummaryGrouped, setSchoolSummaryGrouped] = useState({});
+// State cho chế độ Tổng hợp toàn trường
+const [viewMode, setViewMode] = useState("single");
+const [loadingSchoolSummary, setLoadingSchoolSummary] = useState(false);
+const [schoolSummaryGrouped, setSchoolSummaryGrouped] = useState({});
 
-  // State bật/tắt chế độ toàn màn hình cho phần hiển thị bên phải
-  const [isFullScreen, setIsFullScreen] = useState(false);
+// State bật/tắt chế độ toàn màn hình
+const [isFullScreen, setIsFullScreen] = useState(false);
 
-  const [academicYear, setAcademicYear] = useState("2026-2027");
-  const [subject, setSubject] = useState("");
-  const [className, setClassName] = useState("");
+const [academicYear, setAcademicYear] = useState("2026-2027");
+const [subject, setSubject] = useState("");
+const [className, setClassName] = useState("");
 
-  const [teacherAllowedSubjects, setTeacherAllowedSubjects] = useState([]);
-  const [teacherAllowedClasses, setTeacherAllowedClasses] = useState([]);
+// Dữ liệu thống kê giáo viên
+const [statsData, setStatsData] = useState([]);
+const [loadingStats, setLoadingStats] = useState(false);
 
-  const [allMonHoc, setAllMonHoc] = useState([]);
-  const [lopMonHocMap, setLopMonHocMap] = useState({}); 
-  const [filterCategory, setFilterCategory] = useState("gvcn");
+// Context chỉ quản lý dữ liệu thống kê dùng chung
+const { updateTeacherStats, getTeacherStats } = useBGHStats();
+
+const [teacherAllowedSubjects, setTeacherAllowedSubjects] = useState([]);
+const [teacherAllowedClasses, setTeacherAllowedClasses] = useState([]);
+
+const [allMonHoc, setAllMonHoc] = useState([]);
+const [lopMonHocMap, setLopMonHocMap] = useState({});
+const [filterCategory, setFilterCategory] = useState("gvcn");
 
   const [groupedTeachers, setGroupedTeachers] = useState({
     khoi1: [],
@@ -96,7 +104,6 @@ export default function BGH({ user }) {
   const [phanQuyenMap, setPhanQuyenMap] = useState({});
   const [selectedUsername, setSelectedUsername] = useState("");
 
-  const [statsData, setStatsData] = useState([]);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
@@ -464,7 +471,8 @@ export default function BGH({ user }) {
     if (!selectedUsername || !className || !subject || !academicYear) {
       setFileList([]);
       setSelectedFile(null);
-      return;
+      setLoadingFiles(false);
+      return false;
     }
 
     setLoadingFiles(true);
@@ -535,7 +543,6 @@ export default function BGH({ user }) {
           (value) => value === selectedGrade
         );
 
-        // Chấp nhận cả ID lớp đầy đủ và ID dữ liệu cũ theo khối.
         const isMatch =
           idMatchesExactClass ||
           idMatchesOldGrade ||
@@ -544,7 +551,7 @@ export default function BGH({ user }) {
 
         if (isMatch) {
           files.push({
-            id: docId,
+            id: docSnap.id,
             ...data,
           });
         }
@@ -578,14 +585,19 @@ export default function BGH({ user }) {
         matchedFiles: files.length,
         files: files.map((file) => file.id),
       });
+
+      // Truy vấn Firestore thành công, kể cả khi không có file phù hợp.
+      return true;
     } catch (err) {
       console.error("Lỗi khi tải danh sách file:", err);
       setFileList([]);
       setSelectedFile(null);
+      return false;
     } finally {
       setLoadingFiles(false);
     }
   };
+
 
 
   useEffect(() => {
@@ -657,23 +669,135 @@ export default function BGH({ user }) {
     });
   };
 
-  const handleStats = async () => {
-    return await fetchTeacherStatsData({
-      isAdmin,
-      selectedUsername,
-      academicYear,
-      phanQuyenMap,
-      allMonHoc, // 👈 Bổ sung thêm dòng này
-      setLoadingStats,
-      setStatsData,
-    });
-  };
-
+  // Thống kê cá nhân theo giáo viên và năm học
+  
+  // Thống kê cá nhân theo giáo viên và năm học
   useEffect(() => {
-    if (isBGH && selectedUsername && Object.keys(phanQuyenMap).length > 0) {
-      handleStats();
-    }
-  }, [isBGH, academicYear, phanQuyenMap, selectedUsername]);
+    let cancelled = false;
+
+    const loadTeacherStats = async () => {
+      if (
+        !isBGH ||
+        !selectedUsername ||
+        !academicYear ||
+        Object.keys(phanQuyenMap).length === 0 ||
+        allMonHoc.length === 0
+      ) {
+        return;
+      }
+
+      const cacheKey = `${academicYear}_${selectedUsername}`;
+      const teacherRef = doc(
+        db,
+        `KEHOACH_DAYHOC_${academicYear}`,
+        selectedUsername
+      );
+
+      try {
+        // 1. Kiểm tra cờ thay đổi trên tài liệu giáo viên
+        const teacherSnap = await getDoc(teacherRef);
+
+        if (cancelled) return;
+
+        const statsChanged =
+          teacherSnap.exists() &&
+          teacherSnap.data()?.statsChanged === true;
+
+        // 2. Nếu không thay đổi và có cache thì dùng cache
+        const cachedStats = getTeacherStats(cacheKey);
+
+        if (
+          !statsChanged &&
+          Array.isArray(cachedStats) &&
+          cachedStats.length > 0
+        ) {
+          setStatsData(cachedStats);
+          setLoadingStats(false);
+          return;
+        }
+
+        setLoadingStats(true);
+
+        // 3. Nếu cờ bật, tải lại danh sách file đang xem
+        let filesLoaded = true;
+
+        if (statsChanged) {
+          filesLoaded = await fetchFileList();
+
+          if (cancelled) return;
+
+          if (!filesLoaded) {
+            console.warn(
+              "Tải danh sách file thất bại; giữ nguyên statsChanged."
+            );
+            return;
+          }
+        }
+
+        // 4. Tải lại thống kê giáo viên
+        let statsLoaded = false;
+
+        await fetchTeacherStatsData({
+          isAdmin,
+          selectedUsername,
+          academicYear,
+          phanQuyenMap,
+          allMonHoc,
+
+          setLoadingStats: (loading) => {
+            if (!cancelled) {
+              setLoadingStats(loading);
+            }
+          },
+
+          setStatsData: (data) => {
+            if (cancelled || !Array.isArray(data)) return;
+
+            setStatsData(data);
+            updateTeacherStats(cacheKey, data);
+            statsLoaded = true;
+          },
+        });
+
+        if (cancelled) return;
+
+        // 5. Chỉ tắt cờ khi đã tải lại cả hai phần
+        if (statsChanged && filesLoaded && statsLoaded) {
+          await updateDoc(teacherRef, {
+            statsChanged: false,
+          });
+
+          console.log(
+            `Đã cập nhật danh sách file và thống kê: ${selectedUsername}`
+          );
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Lỗi tải dữ liệu BGH:", error);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingStats(false);
+        }
+      }
+    };
+
+    loadTeacherStats();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isBGH,
+    selectedUsername,
+    academicYear,
+    phanQuyenMap,
+    allMonHoc,
+    isAdmin,
+    getTeacherStats,
+    updateTeacherStats,
+  ]);
+
 
   if (!isBGH) {
     return (
@@ -889,96 +1013,96 @@ export default function BGH({ user }) {
               </Box>
 
               <FormControl fullWidth size="small">
-  <InputLabel>👤 Chọn Giáo viên</InputLabel>
-  <Select
-    value={selectedUsername || ""}
-    label="👤 Chọn Giáo viên"
-    onChange={(e) => {
-      setSelectedUsername(e.target.value);
-      setViewMode("single");
-    }}
-    MenuProps={{
-      PaperProps: {
-        sx: { maxHeight: 420 },
-      },
-    }}
-  >
-    {filterCategory === "gvcn" ? (
-      [
-        {
-          key: "khoi1",
-          title: "Khối Lớp 1",
-          teachers: groupedTeachers.khoi1,
-          icon: <ClassRounded fontSize="small" />,
-        },
-        {
-          key: "khoi2",
-          title: "Khối Lớp 2",
-          teachers: groupedTeachers.khoi2,
-          icon: <MenuBookRounded fontSize="small" />,
-        },
-        {
-          key: "khoi3",
-          title: "Khối Lớp 3",
-          teachers: groupedTeachers.khoi3,
-          icon: <BookmarkRounded fontSize="small" />,
-        },
-        {
-          key: "khoi4",
-          title: "Khối Lớp 4",
-          teachers: groupedTeachers.khoi4,
-          icon: <StarRounded fontSize="small" />,
-        },
-        {
-          key: "khoi5",
-          title: "Khối Lớp 5",
-          teachers: groupedTeachers.khoi5,
-          icon: <SchoolRounded fontSize="small" />,
-        },
-      ].flatMap((group) =>
-        group.teachers.length > 0
-          ? [
-              <ListSubheader
-                key={`header-${group.key}`}
-                disableSticky
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                  bgcolor: "#f1f5f9",
-                  color: "#1e40af",
-                  fontWeight: 700,
-                  lineHeight: "40px",
-                }}
-              >
-                {group.icon}
-                {group.title}
-              </ListSubheader>,
-              ...group.teachers.map((name) => (
-                <MenuItem
-                  key={`${group.key}-${name}`}
-                  value={name}
-                  sx={{ pl: 4 }}
+                <InputLabel>👤 Chọn Giáo viên</InputLabel>
+                <Select
+                  value={selectedUsername || ""}
+                  label="👤 Chọn Giáo viên"
+                  onChange={(e) => {
+                    setSelectedUsername(e.target.value);
+                    setViewMode("single");
+                  }}
+                  MenuProps={{
+                    PaperProps: {
+                      sx: { maxHeight: 420 },
+                    },
+                  }}
                 >
-                  {name}
-                </MenuItem>
-              )),
-            ]
-          : []
-      )
-    ) : currentTeacherList.length > 0 ? (
-      currentTeacherList.map((name) => (
-        <MenuItem key={name} value={name}>
-          {name}
-        </MenuItem>
-      ))
-    ) : (
-      <MenuItem disabled value="">
-        <em>Không có giáo viên trong nhóm này</em>
-      </MenuItem>
-    )}
-  </Select>
-</FormControl>
+                  {filterCategory === "gvcn" ? (
+                    [
+                      {
+                        key: "khoi1",
+                        title: "Khối Lớp 1",
+                        teachers: groupedTeachers.khoi1,
+                        icon: <ClassRounded fontSize="small" />,
+                      },
+                      {
+                        key: "khoi2",
+                        title: "Khối Lớp 2",
+                        teachers: groupedTeachers.khoi2,
+                        icon: <MenuBookRounded fontSize="small" />,
+                      },
+                      {
+                        key: "khoi3",
+                        title: "Khối Lớp 3",
+                        teachers: groupedTeachers.khoi3,
+                        icon: <BookmarkRounded fontSize="small" />,
+                      },
+                      {
+                        key: "khoi4",
+                        title: "Khối Lớp 4",
+                        teachers: groupedTeachers.khoi4,
+                        icon: <StarRounded fontSize="small" />,
+                      },
+                      {
+                        key: "khoi5",
+                        title: "Khối Lớp 5",
+                        teachers: groupedTeachers.khoi5,
+                        icon: <SchoolRounded fontSize="small" />,
+                      },
+                    ].flatMap((group) =>
+                      group.teachers.length > 0
+                        ? [
+                            <ListSubheader
+                              key={`header-${group.key}`}
+                              disableSticky
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1,
+                                bgcolor: "#f1f5f9",
+                                color: "#1e40af",
+                                fontWeight: 700,
+                                lineHeight: "40px",
+                              }}
+                            >
+                              {group.icon}
+                              {group.title}
+                            </ListSubheader>,
+                            ...group.teachers.map((name) => (
+                              <MenuItem
+                                key={`${group.key}-${name}`}
+                                value={name}
+                                sx={{ pl: 4 }}
+                              >
+                                {name}
+                              </MenuItem>
+                            )),
+                          ]
+                        : []
+                    )
+                  ) : currentTeacherList.length > 0 ? (
+                    currentTeacherList.map((name) => (
+                      <MenuItem key={name} value={name}>
+                        {name}
+                      </MenuItem>
+                    ))
+                  ) : (
+                    <MenuItem disabled value="">
+                      <em>Không có giáo viên trong nhóm này</em>
+                    </MenuItem>
+                  )}
+                </Select>
+              </FormControl>
 
               <Box sx={{ display: "flex", gap: 1.5 }}>
                 <FormControl size="small" sx={{ flex: 1 }}>

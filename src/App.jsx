@@ -7,6 +7,9 @@ import Admin from "./pages/Admin";
 import BGH from "./pages/BGH";
 import Dashboard from "./pages/Dashboard"; 
 import { ProfileProvider, useProfile } from "./contexts/ProfileContext";
+import { LessonPlanProvider } from "./contexts/LessonPlanContext";
+import { BGHStatsProvider } from "./contexts/BGHStatsContext";
+
 import ChangePasswordDialog from "./dialogs/ChangePasswordDialog"; 
 import MenuIcon from "@mui/icons-material/Menu";
 import PhanQuyen from "./pages/PhanQuyen";
@@ -412,9 +415,13 @@ function AppContent() {
 export default function App() {
   return (
     <ProfileProvider>
-      <Router>
-        <AppContent />
-      </Router>
+      <LessonPlanProvider>
+        <BGHStatsProvider>
+          <Router>
+            <AppContent />
+          </Router>
+        </BGHStatsProvider>
+      </LessonPlanProvider>
     </ProfileProvider>
   );
 }

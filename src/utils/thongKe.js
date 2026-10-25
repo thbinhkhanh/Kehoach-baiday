@@ -1,6 +1,5 @@
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
-
 /**
  * Hàm tổng hợp dữ liệu toàn trường theo các khối và tổ
  */
@@ -94,7 +93,11 @@ export const fetchTeacherStatsData = async ({
   setLoadingStats,
   setStatsData,
 }) => {
-  if (!isAdmin || !selectedUsername) return [];
+  if (!isAdmin || !selectedUsername || !academicYear) {
+    setStatsData?.([]);
+    setLoadingStats?.(false);
+    return [];
+  }
 
   setLoadingStats?.(true);
 
@@ -109,7 +112,7 @@ export const fetchTeacherStatsData = async ({
     }
 
     const rawSubs = teacherInfo.assignedSubjects || [];
-    const isGVCN = teacherInfo.role === "GVCN";
+    const isGVCN = String(teacherInfo.role || "").trim().toUpperCase() === "GVCN";
 
     const isAllGVCN =
       rawSubs.length === 0 ||

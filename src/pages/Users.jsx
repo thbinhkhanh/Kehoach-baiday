@@ -1,19 +1,22 @@
 import React, { useState, useEffect } from "react";
 import { db } from "../firebase";
-import { 
-  collection, 
-  query, 
-  where, 
-  getDocs, 
-  deleteDoc, 
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  deleteDoc,
   doc,
-  getDoc 
+  getDoc,
+  setDoc,
 } from "firebase/firestore";
 import { uploadBatchKeHoachDayHoc } from "../utils/uploadService";
 import { deleteGoogleDriveFile } from "../utils/uploadService";
 import TeacherStatsView from "../components/TeacherStatsView";
 import FileListCard from "../components/FileListCard";
 import ConfirmDeleteDialog from "../dialogs/ConfirmDeleteDialog";
+
+import { useLessonPlan } from "../contexts/LessonPlanContext";
 
 import {
   Box,
@@ -35,20 +38,53 @@ import {
 import CloseIcon from "@mui/icons-material/Close";
 
 export default function Users({ user }) {
+  const {
+    updateFileList,
+    updateTeacherStats,
+    getFileList,
+    getTeacherStats,
+  } = useLessonPlan();
+
   const [fileList, setFileList] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   
   const [teacherName, setTeacherName] = useState("");
   const [academicYear, setAcademicYear] = useState("2026-2027");
+  const [subject, setSubject] = useState("");
+  const [className, setClassName] = useState("");
+
+  const makeFileListKey = () =>
+  `${academicYear}_${teacherName}_${subject}_${className}`;
+
+  const makeStatsKey = () =>
+    `${academicYear}_${teacherName}`;
+
+  // Đánh dấu thống kê cần được BGH tải lại
+  const markTeacherStatsChanged = async () => {
+    if (!teacherName || !academicYear) return;
+
+    const teacherRef = doc(
+      db,
+      `KEHOACH_DAYHOC_${academicYear}`,
+      teacherName
+    );
+
+    await setDoc(
+      teacherRef,
+      {
+        statsChanged: true,
+        updatedAt: new Date(),
+      },
+      { merge: true }
+    );
+  };
+
   
   const [teacherRole, setTeacherRole] = useState("GVCN");
   const [teacherAssignedSubjects, setTeacherAssignedSubjects] = useState([]);
   const [allMonHoc, setAllMonHoc] = useState([]);
-  const [assignedClassesList, setAssignedClassesList] = useState([]);
-
-  const [subject, setSubject] = useState("");
-  const [className, setClassName] = useState("");
+  const [assignedClassesList, setAssignedClassesList] = useState([]); 
 
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadMode, setUploadMode] = useState("upload");
@@ -320,6 +356,15 @@ export default function Users({ user }) {
       return;
     }
 
+    const fileKey = `${academicYear}_${teacherName}_${subject}_${className}`;
+
+    // Hiển thị dữ liệu đã lưu trước khi truy vấn Firestore
+    const cachedFiles = getFileList(fileKey);
+
+    if (cachedFiles.length > 0) {
+      setFileList(cachedFiles);
+    }
+
     try {
       const yearCol = `KEHOACH_DAYHOC_${academicYear}`;
 
@@ -331,63 +376,31 @@ export default function Users({ user }) {
       );
 
       const querySnapshot = await getDocs(filesRef);
-
-      const selectedClass = String(className).trim();
-      const selectedGrade = selectedClass.split(".")[0];
+      const selectedGrade = String(className).split(".")[0];
       const files = [];
 
       querySnapshot.forEach((docSnap) => {
         const data = docSnap.data();
         const docId = docSnap.id;
 
-        // Trường hợp mới: Khoi_5.8_...
-        const exactClassPattern = new RegExp(
-          `^Khoi_${selectedClass.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}_`,
-          "i"
+        // Ưu tiên lấy khối từ ID: Khoi_4_..., Khoi_5_...
+        const idMatch = docId.match(/^Khoi_(\d+)_/i);
+
+        // Dự phòng cho tài liệu lưu theo cấu trúc cũ
+        const khoiValue = String(
+          data.khoi || data.className || ""
+        ).trim();
+
+        const khoiMatch = khoiValue.match(
+          /^(?:khối|khoi|lớp|lop)\s*(\d+)/i
         );
 
-        const idMatchesExactClass = exactClassPattern.test(docId);
+        const documentGrade = idMatch?.[1] || khoiMatch?.[1];
 
-        // Trường hợp cũ: Khoi_5_...
-        const oldGradePattern = /^Khoi_(\d+)_/i;
-        const oldIdMatch = docId.match(oldGradePattern);
-
-        const idMatchesOldGrade =
-          oldIdMatch !== null &&
-          oldIdMatch[1] === selectedGrade;
-
-        // Dự phòng nếu thông tin lớp được lưu trong dữ liệu.
-        const classValues = [
-          data.lop,
-          data.lopHoc,
-          data.maLop,
-          data.className,
-          data.class,
-          data.khoi,
-          data.grade,
-        ]
-          .filter((value) => value !== undefined && value !== null)
-          .map((value) =>
-            String(value)
-              .trim()
-              .replace(/^(khối|khoi|lớp|lop)\s*/i, "")
-              .replace(/^Khoi_/i, "")
-          );
-
-        const dataMatchesExactClass = classValues.some(
-          (value) => value === selectedClass
-        );
-
-        const dataMatchesGrade = classValues.some(
-          (value) => value === selectedGrade
-        );
-
-        // Nhận tài liệu theo lớp chính xác hoặc theo cấu trúc dữ liệu cũ.
         const matchesClass =
-          idMatchesExactClass ||
-          idMatchesOldGrade ||
-          dataMatchesExactClass ||
-          dataMatchesGrade;
+          documentGrade === selectedGrade ||
+          khoiValue === `Khối ${className}` ||
+          khoiValue === String(className);
 
         if (matchesClass) {
           files.push({
@@ -397,33 +410,24 @@ export default function Users({ user }) {
         }
       });
 
-      // Tài liệu mới nhất hiển thị trước.
-      const getTime = (value) => {
-        if (!value) return 0;
+      files.sort((a, b) => {
+        const timeA = a.createdAt?.toMillis
+          ? a.createdAt.toMillis()
+          : new Date(a.createdAt || 0).getTime();
 
-        if (typeof value.toMillis === "function") {
-          return value.toMillis();
-        }
+        const timeB = b.createdAt?.toMillis
+          ? b.createdAt.toMillis()
+          : new Date(b.createdAt || 0).getTime();
 
-        const time = new Date(value).getTime();
-        return Number.isNaN(time) ? 0 : time;
-      };
-
-      files.sort(
-        (a, b) => getTime(b.createdAt) - getTime(a.createdAt)
-      );
+        return timeB - timeA;
+      });
 
       setFileList(files);
 
-      console.log("Danh sách tài liệu đã lọc:", {
-        teacherName,
-        subject,
-        selectedClass,
-        selectedGrade,
-        totalDocuments: querySnapshot.size,
-        matchedDocuments: files.length,
-        documentIds: files.map((file) => file.id),
-      });
+      updateFileList(
+        `${academicYear}_${teacherName}_${subject}_${className}`,
+        files
+      );
     } catch (err) {
       console.error("Lỗi khi tải danh sách file:", err);
       setFileList([]);
@@ -435,7 +439,17 @@ export default function Users({ user }) {
   const fetchTeacherStats = async () => {
     if (!teacherName || !academicYear) return;
 
-    setLoadingStats(true);
+    const statsKey = `${academicYear}_${teacherName}`;
+    const cachedStats = getTeacherStats(statsKey);
+
+    // Nếu đã có thống kê trong Context/localStorage,
+    // hiển thị ngay và không bật vòng xoay chờ dữ liệu.
+    if (cachedStats.length > 0) {
+      setStatsData(cachedStats);
+      setLoadingStats(false);
+    } else {
+      setLoadingStats(true);
+    }
 
     try {
       const yearCol = `KEHOACH_DAYHOC_${academicYear}`;
@@ -558,6 +572,7 @@ export default function Users({ user }) {
       }
 
       setStatsData(stats);
+      updateTeacherStats(statsKey, stats);
     } catch (error) {
       console.error("Lỗi khi thống kê cá nhân:", error);
       setStatsData([]);
@@ -590,25 +605,20 @@ export default function Users({ user }) {
   const handleUpload = async (e) => {
     const rawFiles = Array.from(e.target.files);
     e.target.value = null;
+
     if (rawFiles.length === 0) return;
 
-    /*const files = rawFiles.map((file) => {
-      let cleaned = file.name.replace(/^\d+_[_-]?/, ""); // ✂️ Cắt bỏ dãy số ở đây nè!
-      const lastDotIndex = cleaned.lastIndexOf(".");
-      let nameWithoutExt = lastDotIndex !== -1 ? cleaned.substring(0, lastDotIndex) : cleaned;
-      let ext = lastDotIndex !== -1 ? cleaned.substring(lastDotIndex) : "";
-
-      nameWithoutExt = nameWithoutExt.toUpperCase().replace(/_/g, " ");
-      const finalName = nameWithoutExt + ext.toLowerCase();
-
-      return new File([file], finalName, { type: file.type });
-    });*/
-
+    // Chuẩn hóa tên file, giữ nguyên tên gốc, không cắt dãy số đầu tên.
     const files = rawFiles.map((file) => {
-      // Bỏ dòng cắt dãy số, sử dụng trực tiếp tên gốc của file
       const lastDotIndex = file.name.lastIndexOf(".");
-      let nameWithoutExt = lastDotIndex !== -1 ? file.name.substring(0, lastDotIndex) : file.name;
-      let ext = lastDotIndex !== -1 ? file.name.substring(lastDotIndex) : "";
+      let nameWithoutExt =
+        lastDotIndex !== -1
+          ? file.name.substring(0, lastDotIndex)
+          : file.name;
+      const ext =
+        lastDotIndex !== -1
+          ? file.name.substring(lastDotIndex)
+          : "";
 
       nameWithoutExt = nameWithoutExt.toUpperCase().replace(/_/g, " ");
       const finalName = nameWithoutExt + ext.toLowerCase();
@@ -616,6 +626,7 @@ export default function Users({ user }) {
       return new File([file], finalName, { type: file.type });
     });
 
+    // Chỉ chấp nhận file Word .doc và .docx.
     for (const file of files) {
       if (
         ![
@@ -623,23 +634,32 @@ export default function Users({ user }) {
           "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         ].includes(file.type)
       ) {
-        showMessage(`⚠️ File "${file.name}" không hợp lệ. Chỉ hỗ trợ .doc hoặc .docx`, "warning");
+        showMessage(
+          `⚠️ File "${file.name}" không hợp lệ. Chỉ hỗ trợ .doc hoặc .docx`,
+          "warning"
+        );
         return;
       }
     }
 
     if (!subject || !className || !teacherName) {
-      showMessage("⚠️ Thiếu thông tin Môn học, Lớp hoặc Tên giáo viên!", "warning");
+      showMessage(
+        "⚠️ Thiếu thông tin Môn học, Lớp hoặc Tên giáo viên!",
+        "warning"
+      );
       return;
     }
+
+    let progressInterval;
 
     try {
       setUploadMode("upload");
       setUploading(true);
       setUploadProgress(0);
-      setCurrentFileMsg(` ${files.length} file...`);
+      setCurrentFileMsg(`${files.length} file...`);
 
       let groupFolder = `Khối ${className}`;
+
       if (teacherRole === "TA") {
         groupFolder = "Tiếng Anh";
       } else if (teacherRole === "BM") {
@@ -650,13 +670,14 @@ export default function Users({ user }) {
         giaoVien: teacherName,
         khoi: `Khối ${className}`,
         monHoc: subject,
-        academicYear: academicYear,
+        academicYear,
         nhomPhanLoai: groupFolder,
       };
 
       let currentProgress = 0;
       let elapsed = 0;
-      const progressInterval = setInterval(() => {
+
+      progressInterval = setInterval(() => {
         elapsed++;
         const increment = Math.min(4, 0.3 + elapsed * 0.12);
         currentProgress = Math.min(90, currentProgress + increment);
@@ -664,35 +685,63 @@ export default function Users({ user }) {
       }, 200);
 
       const res = await uploadBatchKeHoachDayHoc(files, metadata);
-      clearInterval(progressInterval);
 
-      if (!res.success) throw new Error(res.error);
+      clearInterval(progressInterval);
+      progressInterval = null;
+
+      if (!res.success) {
+        throw new Error(res.error || "Tải file thất bại.");
+      }
+
+      // Bật cờ để BGH biết thống kê đã thay đổi
+      try {
+        await markTeacherStatsChanged();
+      } catch (flagError) {
+        console.error("Lỗi bật cờ thống kê:", flagError);
+      }
 
       setUploadProgress(100);
+
+      // Cập nhật danh sách file sau khi tải lên thành công.
       await fetchFileList();
 
-      setStatsData((prevStats) => {
-        const newStats = prevStats.map((item) => ({ ...item }));
-        let entry = newStats.find((item) => item.subject === subject);
-        const khoiKey = className;
+      // Cập nhật thống kê và Context bên ngoài setState updater.
+      const newStats = statsData.map((item) => ({ ...item }));
+      const entry = newStats.find((item) => item.subject === subject);
 
-        if (entry) {
-          entry[khoiKey] = (entry[khoiKey] || 0) + files.length;
-        } else {
-          newStats.push({
-            subject: subject,
-            [khoiKey]: files.length,
-          });
-        }
-        return newStats;
-      });
+      if (entry) {
+        entry[className] =
+          (Number(entry[className]) || 0) + files.length;
+      } else {
+        newStats.push({
+          subject,
+          [className]: files.length,
+        });
+      }
 
-      showMessage(`🎉 Đã tải thành công ${files.length} file lên hệ thống!`, "success");
+      setStatsData(newStats);
 
+      updateTeacherStats(
+        `${academicYear}_${teacherName}`,
+        newStats
+      );
+
+      showMessage(
+        `🎉 Đã tải thành công ${files.length} file lên hệ thống!`,
+        "success"
+      );
     } catch (err) {
       console.error("❌ Lỗi khi upload:", err);
-      showMessage("❌ Không thể tải file lên: " + err.message, "error");
+
+      showMessage(
+        "❌ Không thể tải file lên: " + err.message,
+        "error"
+      );
     } finally {
+      if (progressInterval) {
+        clearInterval(progressInterval);
+      }
+
       setTimeout(() => {
         setUploadProgress(0);
         setCurrentFileMsg("");
@@ -700,6 +749,7 @@ export default function Users({ user }) {
       }, 1000);
     }
   };
+
   
   // ✅ Xóa file
   const handleDeleteFiles = (files) => {
@@ -708,40 +758,100 @@ export default function Users({ user }) {
     setDeleteDialogOpen(true);
   };
 
+  
   const handleConfirmDelete = async () => {
     if (filesToDelete.length === 0) return;
 
     setDeleteDialogOpen(false);
 
-    const fileIdsToDelete = new Set(filesToDelete.map((f) => f.id));
-    setFileList((prevList) => prevList.filter((f) => !fileIdsToDelete.has(f.id)));
-    showMessage("🗑️ Đã xóa file thành công!", "success");
+    const filesDeleted = [...filesToDelete];
+    const fileIdsToDelete = new Set(filesDeleted.map((f) => f.id));
 
+    // Cập nhật danh sách file trên giao diện
+    setFileList((prevList) => {
+      const newList = prevList.filter((f) => !fileIdsToDelete.has(f.id));
+
+      // Đồng bộ danh sách file vào Context
+      updateFileList(
+        `${academicYear}_${teacherName}_${subject}_${className}`,
+        newList
+      );
+
+      return newList;
+    });
+
+    // Cập nhật thống kê trên giao diện và đồng bộ Context
     setStatsData((prevStats) => {
       const newStats = prevStats.map((item) => ({ ...item }));
-      let entry = newStats.find((item) => item.subject === subject);
+      const entry = newStats.find((item) => item.subject === subject);
       const khoiKey = className;
 
       if (entry) {
-        entry[khoiKey] = Math.max(0, (entry[khoiKey] || 0) - filesToDelete.length);
+        entry[khoiKey] = Math.max(
+          0,
+          (Number(entry[khoiKey]) || 0) - filesDeleted.length
+        );
       }
+
+      updateTeacherStats(`${academicYear}_${teacherName}`, newStats);
+
       return newStats;
     });
 
+    showMessage("🗑️ Đã xóa file thành công!", "success");
+
+    // Xóa file trên Google Drive và Firestore ở nền
+    // Xóa file trên Google Drive và Firestore
     (async () => {
       const yearCol = `KEHOACH_DAYHOC_${academicYear}`;
-      for (const file of filesToDelete) {
+      let firestoreChanged = false;
+      let deletedCount = 0;
+
+      for (const file of filesDeleted) {
         try {
+          // Xóa file trên Google Drive nếu có
           if (file.fileId) {
             await deleteGoogleDriveFile(file.fileId);
           }
-          await deleteDoc(doc(db, yearCol, teacherName, subject, file.id));
+
+          // Xóa tài liệu trên Firestore
+          await deleteDoc(
+            doc(db, yearCol, teacherName, subject, file.id)
+          );
+
+          firestoreChanged = true;
+          deletedCount++;
         } catch (err) {
-          console.error(`❌ Lỗi khi xóa ngầm file ${file.fileName}:`, err);
+          console.error(
+            `Lỗi khi xóa file ${file.fileName}:`,
+            err
+          );
         }
       }
+
+      // Chỉ bật cờ nếu có ít nhất một tài liệu đã xóa khỏi Firestore
+      if (firestoreChanged) {
+        try {
+          await markTeacherStatsChanged();
+        } catch (flagError) {
+          console.error("Lỗi bật cờ thống kê sau khi xóa:", flagError);
+        }
+      }
+
+      if (deletedCount > 0) {
+        showMessage(
+          `Đã xóa thành công ${deletedCount}/${filesDeleted.length} file.`,
+          deletedCount === filesDeleted.length ? "success" : "warning"
+        );
+      } else {
+        showMessage("Không xóa được file nào trên Firestore.", "error");
+      }
+
+      // Tải lại danh sách file thực tế từ Firestore
+      await fetchFileList();
     })();
   };
+
 
   useEffect(() => {
     fetchFileList();
