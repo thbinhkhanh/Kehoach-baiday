@@ -43,7 +43,7 @@ export const themCoStatsChangedHangLoat = async () => {
 
       result.updated.push(item.id);
 
-      console.log(`Đã cập nhật statsChanged: ${item.id}`);
+      //console.log(`Đã cập nhật statsChanged: ${item.id}`);
     } catch (error) {
       result.errors.push({
         teacher: item.id,
@@ -57,7 +57,7 @@ export const themCoStatsChangedHangLoat = async () => {
     }
   }
 
-  console.log("KẾT QUẢ CẬP NHẬT CỜ HÀNG LOẠT:", result);
+  //console.log("KẾT QUẢ CẬP NHẬT CỜ HÀNG LOẠT:", result);
 
   return result;
 };

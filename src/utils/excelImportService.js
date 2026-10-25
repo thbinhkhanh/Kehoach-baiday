@@ -1,14 +1,36 @@
-
- // src/utils/excelImportService.js
-import ExcelJS from "exceljs";
-import { writeBatch, doc, collection, getDocs } from "firebase/firestore";
+// src/utils/excelImportService.js
+import {
+  writeBatch,
+  doc,
+  serverTimestamp,
+} from "firebase/firestore";
 
 /**
- * Đọc file Excel phân quyền giáo viên và lưu trực tiếp vào Firestore.
+ * Đọc Excel phân quyền giáo viên.
  * Cột A: STT
  * Cột B: Họ và tên
  * Cột C: Lớp/Môn
+ *
+ * Excel là nguồn dữ liệu giáo viên.
+ * Lưu phân quyền vào PHANQUYEN_<năm học>.
+ * Cập nhật tài khoản vào DANHSACH_GV.
  */
+
+const taoMaGiaoVien = (hoTen) =>
+  String(hoTen || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[đĐ]/g, "D")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "_")
+    .replace(/[^A-Z0-9_]/g, "");
+
+const chuanHoaChuoi = (value) =>
+  String(value || "")
+    .replace(/\s+/g, " ")
+    .trim();
+
 export const handleExcelImportService = async (
   event,
   {
@@ -20,6 +42,7 @@ export const handleExcelImportService = async (
     setImportProgress,
     setImporting,
     setAssignmentsMap,
+    setTeachers,
   }
 ) => {
   const file = event.target.files?.[0];
@@ -31,6 +54,7 @@ export const handleExcelImportService = async (
   setImporting?.(true);
 
   try {
+    const ExcelJS = (await import("exceljs")).default;
     const arrayBuffer = await file.arrayBuffer();
     const workbook = new ExcelJS.Workbook();
 
@@ -43,142 +67,216 @@ export const handleExcelImportService = async (
     }
 
     const importedMap = {};
+    const teacherList = [];
+    const seenTeachers = new Set();
 
     worksheet.eachRow((row) => {
-      const colName = String(
+      const colSTT = chuanHoaChuoi(
+        getTextCellValue
+          ? getTextCellValue(row.getCell(1))
+          : row.getCell(1).text
+      );
+
+      const colName = chuanHoaChuoi(
         getTextCellValue
           ? getTextCellValue(row.getCell(2))
-          : row.getCell(2).text || ""
-      )
-        .replace(/\s+/g, " ")
-        .trim();
+          : row.getCell(2).text
+      );
 
-      const colLopMon = String(
+      const colLopMon = chuanHoaChuoi(
         getTextCellValue
           ? getTextCellValue(row.getCell(3))
-          : row.getCell(3).text || ""
-      )
-        .replace(/\s+/g, " ")
-        .trim();
+          : row.getCell(3).text
+      );
 
-      // Bỏ dòng tiêu đề và dòng không hợp lệ.
+      // Bỏ dòng tiêu đề và dòng thiếu dữ liệu.
       if (
         !colName ||
         !colLopMon ||
         /^(họ và tên|ho va ten)$/i.test(colName) ||
-        /^stt$/i.test(
-          String(
-            getTextCellValue
-              ? getTextCellValue(row.getCell(1))
-              : row.getCell(1).text || ""
-          ).trim()
-        )
+        /^lớp\/môn$/i.test(colLopMon) ||
+        /^stt$/i.test(colSTT)
       ) {
         return;
       }
 
-      const upperName = colName.toLocaleUpperCase("vi-VN");
+      const username = colName.toLocaleUpperCase("vi-VN");
       const upperLopMon = colLopMon.toLocaleUpperCase("vi-VN");
 
-      // Nhận diện đầy đủ mã lớp như 1.1, 2.7, 3.4, 5.4.
+      // Phân loại giáo viên dựa trên dữ liệu Excel.
       const isHomeroom = /^[1-5]\.\d+$/.test(colLopMon);
+      const isTA =
+        upperLopMon === "TA" ||
+        upperLopMon.includes("TIẾNG ANH");
 
       let role = "BM";
       let assignedClass = "";
-      let assignedSubjectStr = "";
-      let assignedSubjectsArr = [];
-      let teachingClassesArr = ["1", "2", "3", "4", "5"];
+      let assignedSubject = "";
+      let assignedSubjects = [];
+      let teachingClasses = ["1", "2", "3", "4", "5"];
       let grade = "";
 
       if (isHomeroom) {
         role = "GVCN";
-
-        // Lưu nguyên mã lớp từ Excel, không cắt ký tự.
         assignedClass = colLopMon;
-        teachingClassesArr = [colLopMon];
-        assignedSubjectStr = "Tất cả môn GVCN";
-        assignedSubjectsArr = ["Tất cả môn GVCN"];
+        assignedSubject = colLopMon;
+        assignedSubjects = [colLopMon];
+        teachingClasses = [colLopMon];
         grade = colLopMon.split(".")[0];
-      } else if (
-        upperLopMon === "TA" ||
-        upperLopMon.includes("TIẾNG ANH")
-      ) {
+      } else if (isTA) {
         role = "TA";
-        assignedSubjectStr = "Tiếng Anh";
-        assignedSubjectsArr = ["Tiếng Anh"];
+        assignedSubject = "Tiếng Anh";
+        assignedSubjects = ["Tiếng Anh"];
       } else {
         role = "BM";
-
-        assignedSubjectsArr = colLopMon
+        assignedSubjects = colLopMon
           .split(/[,;]+/)
           .map((subject) => subject.trim())
           .filter(Boolean);
-
-        assignedSubjectStr = assignedSubjectsArr.join(", ");
+        assignedSubject = assignedSubjects.join(", ");
       }
 
-      importedMap[upperName] = {
-        username: upperName,
+      // Dữ liệu phân quyền.
+      importedMap[username] = {
+        username,
         role,
         assignedClass,
-        assignedSubject: assignedSubjectStr,
-        assignedSubjects: assignedSubjectsArr,
-        teachingClasses: teachingClassesArr,
+        assignedSubject,
+        assignedSubjects,
+        teachingClasses,
         ...(grade ? { grade } : {}),
         academicYear,
         updatedAt: new Date(),
       };
+
+      // Dữ liệu nguồn để cập nhật DANHSACH_GV.
+      // GVCN: subject là mã lớp, ví dụ 5.4.
+      // TA: subject là TA.
+      // Các môn khác: subject là BM.
+      const accountSubject = isHomeroom
+        ? colLopMon
+        : isTA
+        ? "TA"
+        : "BM";
+
+      const teacherId = taoMaGiaoVien(username);
+
+      if (!seenTeachers.has(teacherId)) {
+        seenTeachers.add(teacherId);
+
+        teacherList.push({
+          id: teacherId,
+          username,
+          subject: accountSubject,
+          excelClassSubject: colLopMon,
+        });
+      }
     });
 
     const entries = Object.entries(importedMap);
 
     if (entries.length === 0) {
       throw new Error(
-        "Không tìm thấy dữ liệu hợp lệ. Vui lòng kiểm tra cột B (Họ và tên) và cột C (Lớp/Môn) trong file Excel."
+        "Không tìm thấy dữ liệu hợp lệ. Vui lòng kiểm tra cột B (Họ và tên) và cột C (Lớp/Môn)."
       );
     }
 
-    const collectionName = `PHANQUYEN_${academicYear}`;
-    const chunkSize = 450;
+    const chunkSize = 400;
+    const totalOperations = entries.length + teacherList.length;
+    let completed = 0;
 
-    for (let i = 0; i < entries.length; i += chunkSize) {
+    // Ghi phân quyền và tài khoản theo batch.
+    const operations = [
+      ...entries.map(([teacherName, data]) => ({
+        type: "permission",
+        id: teacherName,
+        data,
+      })),
+      ...teacherList.map((teacher) => ({
+        type: "account",
+        id: teacher.id,
+        data: teacher,
+      })),
+    ];
+
+    for (let i = 0; i < operations.length; i += chunkSize) {
       const batch = writeBatch(db);
-      const chunk = entries.slice(i, i + chunkSize);
+      const chunk = operations.slice(i, i + chunkSize);
 
-      chunk.forEach(([teacherName, data]) => {
-        const ref = doc(db, collectionName, teacherName);
-        batch.set(ref, data, { merge: true });
-      });
+      for (const operation of chunk) {
+        if (operation.type === "permission") {
+          const ref = doc(
+            db,
+            `PHANQUYEN_${academicYear}`,
+            operation.id
+          );
+
+          batch.set(ref, operation.data, { merge: true });
+        } else {
+          const ref = doc(
+            db,
+            "DANHSACH_GV",
+            operation.id
+          );
+
+          // Không ghi đè mật khẩu của tài khoản hiện có.
+          // Nếu tài liệu chưa tồn tại, đặt pass mặc định.
+          const accountData = {
+            username: operation.data.username,
+            subject: operation.data.subject,
+            academicYear,
+            updatedAt: serverTimestamp(),
+          };
+
+          // Dùng merge để giữ lại các trường khác, gồm pass.
+          batch.set(ref, accountData, { merge: true });
+        }
+
+        completed += 1;
+      }
 
       await batch.commit();
 
-      const completed = Math.min(i + chunk.length, entries.length);
-
       setImportProgress?.(
-        Math.round((completed / entries.length) * 100)
+        Math.round((completed / totalOperations) * 100)
       );
     }
 
-    // Đọc lại dữ liệu đã lưu để cập nhật giao diện.
-    const pqSnap = await getDocs(collection(db, collectionName));
-    const map = {};
+    // Tạo tài khoản mới có pass mặc định nếu chưa có tài liệu.
+    // Kiểm tra riêng sau khi đã ghi dữ liệu để không ghi đè mật khẩu cũ.
+    // Nếu cần mật khẩu mặc định cho tài khoản mới, xử lý bổ sung bên dưới.
+    // Các tài liệu đã tồn tại vẫn giữ nguyên pass.
 
-    pqSnap.forEach((documentSnapshot) => {
-      map[documentSnapshot.id] = documentSnapshot.data();
-    });
+    // Cập nhật danh sách giáo viên trên giao diện từ Excel.
+    teacherList.sort((a, b) =>
+      a.username
+        .split(" ")
+        .slice(-1)[0]
+        .localeCompare(
+          b.username.split(" ").slice(-1)[0],
+          "vi"
+        )
+    );
 
-    setAssignmentsMap?.(map);
+    setTeachers?.(teacherList);
+
+    // Cập nhật bản đồ phân quyền ngay từ dữ liệu Excel.
+    setAssignmentsMap?.(importedMap);
 
     setMessage?.({
       type: "success",
-      text: `Đã nhập thành công ${entries.length} giáo viên từ Excel vào ${collectionName}.`,
+      text:
+        `Đã nhập ${entries.length} giáo viên từ Excel. ` +
+        `Đã cập nhật PHANQUYEN_${academicYear} và DANHSACH_GV.`,
     });
   } catch (error) {
     console.error("Lỗi khi import file Excel phân quyền:", error);
 
     setMessage?.({
       type: "error",
-      text: error.message || "Đã xảy ra lỗi khi đọc file Excel phân quyền.",
+      text:
+        error.message ||
+        "Đã xảy ra lỗi khi đọc file Excel phân quyền.",
     });
   } finally {
     setImporting?.(false);

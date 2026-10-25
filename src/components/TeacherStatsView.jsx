@@ -19,13 +19,8 @@ export default function TeacherStatsView({
     (c) => !String(c).toLowerCase().includes("username")
   );
 
-  // Xác định các cột lớp hiển thị (dynamicColumns):
-  // Ưu tiên lấy các lớp từ allowedClassesFiltered của giáo viên. 
-  // Nếu statsData có các cột khác mà giáo viên đó có nộp bài, ta có thể gộp thêm hoặc chỉ bám sát vào danh sách lớp được phân công.
-  // Ở đây chúng ta lọc trực tiếp từ allowedClassesFiltered để chỉ hiện đúng lớp giáo viên dạy.
   let dynamicColumns = allowedClassesFiltered;
 
-  // Phòng hờ nếu allowedClassesFiltered trống nhưng statsData có sẵn các keys lớp học
   if (dynamicColumns.length === 0 && statsData.length > 0) {
     const keysSet = new Set();
     statsData.forEach((row) => {
@@ -47,8 +42,11 @@ export default function TeacherStatsView({
     return total;
   };
 
-  // Tính tổng toàn bộ bài nộp của giáo viên
-  const grandTotal = statsData.reduce((sum, row) => sum + getRowTotal(row), 0);
+  // Lọc bỏ các môn học có tổng số bài nộp bằng 0
+  const filteredStatsData = statsData.filter((row) => getRowTotal(row) > 0);
+
+  // Tính tổng toàn bộ bài nộp của giáo viên (từ danh sách đã lọc)
+  const grandTotal = filteredStatsData.reduce((sum, row) => sum + getRowTotal(row), 0);
 
   return (
     <Box sx={{ p: 2.5, overflowY: "auto", flex: 1, bgcolor: "#fafafa" }}>
@@ -64,7 +62,6 @@ export default function TeacherStatsView({
         }}
       >
         <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1.5 }}>
-          {/* Tên giáo viên */}
           <Typography 
             variant="subtitle1" 
             fontWeight="bold" 
@@ -76,7 +73,6 @@ export default function TeacherStatsView({
             <Box component="span" sx={{ color: "#38bdf8" }}>{selectedUsername || "Chưa chọn giáo viên"}</Box>
           </Typography>
 
-          {/* Các chỉ số nằm gọn bên phải */}
           <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.8, px: 1.5, py: 0.5, borderRadius: 1.5, bgcolor: "rgba(255, 255, 255, 0.06)", border: "1px solid rgba(255, 255, 255, 0.1)" }}>
               <span>📦</span>
@@ -90,7 +86,7 @@ export default function TeacherStatsView({
               <span>📚</span>
               <Typography variant="body2" sx={{ color: "#94a3b8" }}>Môn:</Typography>
               <Typography variant="body1" fontWeight="bold" sx={{ color: "#818cf8" }}>
-                {statsData.length > 0 ? statsData.length : teacherAllowedSubjects.length}
+                {filteredStatsData.length}
               </Typography>
             </Box>
 
@@ -115,9 +111,9 @@ export default function TeacherStatsView({
             📊 Chi tiết bài nộp
           </Typography>
           
-          {statsData.length === 0 ? (
+          {filteredStatsData.length === 0 ? (
             <Box sx={{ p: 4, textAlign: "center" }}>
-              <Typography color="text.secondary">Chưa có dữ liệu thống kê kế hoạch bài dạy cho giáo viên này trong năm học {academicYear}.</Typography>
+              <Typography color="text.secondary">Chưa có dữ liệu bài nộp nào được ghi nhận cho giáo viên này trong năm học {academicYear}.</Typography>
             </Box>
           ) : (
             <Box sx={{ overflowX: "auto" }}>
@@ -161,7 +157,7 @@ export default function TeacherStatsView({
                   </Box>
                 </thead>
                 <tbody>
-                  {statsData.map((row, idx) => {
+                  {filteredStatsData.map((row, idx) => {
                     const rowTotal = getRowTotal(row);
                     return (
                       <Box 
@@ -190,7 +186,7 @@ export default function TeacherStatsView({
                           📖 {row.subject}
                         </Box>
 
-                        {/* Các cột Lớp động (chỉ hiện đúng các lớp được phân công) */}
+                        {/* Các cột Lớp động */}
                         {dynamicColumns.map((col) => {
                           const count = row[col] || 0;
                           return (

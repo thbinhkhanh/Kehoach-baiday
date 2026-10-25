@@ -569,7 +569,7 @@ export default function BGH({ user }) {
       setFileList(files);
       setSelectedFile(null);
 
-      console.log("Danh sách file BGH:", {
+      /*console.log("Danh sách file BGH:", {
         teacher: selectedUsername,
         subject,
         selectedClass,
@@ -577,7 +577,7 @@ export default function BGH({ user }) {
         totalInCollection: snapshot.size,
         matchedFiles: files.length,
         files: files.map((file) => file.id),
-      });
+      });*/
     } catch (err) {
       console.error("Lỗi khi tải danh sách file:", err);
       setFileList([]);

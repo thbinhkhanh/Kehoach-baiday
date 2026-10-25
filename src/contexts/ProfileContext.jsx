@@ -40,7 +40,7 @@ export const ProfileProvider = ({ children }) => {
         });
       });
       setAllProfiles(profilesList);
-      console.log("⚡ Fetched profiles:", profilesList);
+      //console.log("⚡ Fetched profiles:", profilesList);
     } catch (err) {
       console.error("❌ Lỗi fetch profiles:", err);
     }
@@ -59,7 +59,7 @@ export const ProfileProvider = ({ children }) => {
         )
       );
 
-      console.log(`✅ Đã cập nhật môn học cho user ${userId}: ${newSubject}`);
+      //console.log(`✅ Đã cập nhật môn học cho user ${userId}: ${newSubject}`);
     } catch (err) {
       console.error("❌ Lỗi cập nhật môn học:", err);
     }

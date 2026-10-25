@@ -497,7 +497,7 @@ return (
           <Box sx={{ minWidth: 0, width: "100%" }}>
             <Stack spacing={2.5} sx={{ width: "100%", minWidth: 0 }}>
               {/* NHÓM 1: QUẢN LÝ GIÁO VIÊN */}
-              <Box
+              {/*<Box
                 sx={{
                   p: 2,
                   borderRadius: 2,
@@ -649,6 +649,65 @@ return (
                     {message.text}
                   </Alert>
                 )}
+              </Box>*/}
+
+              {/* NHÓM PHÂN QUYỀN */}
+              <Box
+                sx={{
+                  p: 2,
+                  borderRadius: 2,
+                  backgroundColor: "#f8fafc",
+                  border: "1px solid #e2e8f0",
+                  minWidth: 0,
+                  boxSizing: "border-box",
+                }}
+              >
+                <Typography
+                  variant="subtitle1"
+                  sx={{
+                    fontWeight: 800,
+                    color: "#1e293b",
+                    mb: 0.5,
+                    fontSize: "0.95rem",
+                  }}
+                >
+                  🛡️ Phân quyền
+                </Typography>
+
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: "#64748b",
+                    mb: 1.5,
+                    fontSize: "0.85rem",
+                  }}
+                >
+                  Phân quyền truy cập hệ thống.
+                </Typography>
+
+                <Button
+                  variant="contained"
+                  size="small"
+                  fullWidth
+                  startIcon={<AssignmentIndOutlinedIcon />}
+                  onClick={() =>
+                    navigate("/phan-quyen", {
+                      state: { from: "/admin" },
+                    })
+                  }
+                  sx={{
+                    borderRadius: 1.5,
+                    textTransform: "none",
+                    fontWeight: 700,
+                    fontSize: "0.85rem",
+                    backgroundColor: "#7c3aed",
+                    boxShadow: "none",
+                    py: 1,
+                    "&:hover": { backgroundColor: "#6d28d9" },
+                  }}
+                >
+                  Mở Phân quyền
+                </Button>
               </Box>
 
               {/* NHÓM 2: QUẢN LÝ MÔN HỌC */}
@@ -811,72 +870,13 @@ return (
           </Box>
 
           {/* ================================================== */}
-          {/* CỘT 2: PHÂN QUYỀN VÀ RESET MẬT KHẨU */}
+          {/* CỘT 2: RESET MẬT KHẨU */}
           {/* ================================================== */}
           <Box sx={{ minWidth: 0, width: "100%" }}>
             <Stack
               spacing={2.5}
               sx={{ height: "100%", width: "100%", minWidth: 0 }}
-            >
-              {/* NHÓM PHÂN QUYỀN */}
-              <Box
-                sx={{
-                  p: 2,
-                  borderRadius: 2,
-                  backgroundColor: "#f8fafc",
-                  border: "1px solid #e2e8f0",
-                  minWidth: 0,
-                  boxSizing: "border-box",
-                }}
-              >
-                <Typography
-                  variant="subtitle1"
-                  sx={{
-                    fontWeight: 800,
-                    color: "#1e293b",
-                    mb: 0.5,
-                    fontSize: "0.95rem",
-                  }}
-                >
-                  🛡️ Phân quyền
-                </Typography>
-
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: "#64748b",
-                    mb: 1.5,
-                    fontSize: "0.85rem",
-                  }}
-                >
-                  Phân quyền truy cập hệ thống.
-                </Typography>
-
-                <Button
-                  variant="contained"
-                  size="small"
-                  fullWidth
-                  startIcon={<AssignmentIndOutlinedIcon />}
-                  onClick={() =>
-                    navigate("/phan-quyen", {
-                      state: { from: "/admin" },
-                    })
-                  }
-                  sx={{
-                    borderRadius: 1.5,
-                    textTransform: "none",
-                    fontWeight: 700,
-                    fontSize: "0.85rem",
-                    backgroundColor: "#7c3aed",
-                    boxShadow: "none",
-                    py: 1,
-                    "&:hover": { backgroundColor: "#6d28d9" },
-                  }}
-                >
-                  Mở Phân quyền
-                </Button>
-              </Box>
-              
+            >             
               {/* NHÓM RESET MẬT KHẨU */}
               <Box
                 sx={{
@@ -884,10 +884,11 @@ return (
                   borderRadius: 2,
                   backgroundColor: "#f8fafc",
                   border: "1px solid #e2e8f0",
-                  flexGrow: 1,
+                  width: "100%",
+                  flexGrow: 0,
                   display: "flex",
                   flexDirection: "column",
-                  justifyContent: "flex-start", // Đưa các ô lên sát phía trên
+                  justifyContent: "flex-start",
                   gap: 1.5,
                   minWidth: 0,
                   boxSizing: "border-box",

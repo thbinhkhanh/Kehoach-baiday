@@ -21,7 +21,7 @@ export default function FileListCard({
       <CardContent sx={{ p: 1, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <Typography variant="h6">📂 Danh sách file</Typography>
         {fileList.length > 0 && (
-          <Box sx={{ display: "flex", alignItems: "center", mr: 1.25 }}>
+          <Box sx={{ display: "flex", alignItems: "center", mr: 3 }}> {/* 👈 Đã thêm mr: 2 để dịch lùi sang trái thẳng hàng với các dòng dưới */}
             <Typography variant="body2" sx={{ mr: 1 }}>Chọn tất cả</Typography>
             <input
               type="checkbox"
@@ -29,7 +29,11 @@ export default function FileListCard({
               onChange={(e) => {
                 const checked = e.target.checked;
                 setFileList((prev) => prev.map((file) => ({ ...file, selected: checked })));
+                if (selectedFile) {
+                  setSelectedFile(null);
+                }
               }}
+              style={{ width: "18px", height: "18px", cursor: "pointer" }}
             />
           </Box>
         )}
@@ -47,13 +51,6 @@ export default function FileListCard({
             return (
               <ListItem
                 key={file.id || index}
-                onClick={() => {
-                  if (window.innerWidth < 600) {
-                    window.open(file.fileUrl, "_blank");
-                  } else {
-                    setSelectedFile(file);
-                  }
-                }}
                 sx={{
                   mb: 1,
                   border: "1px solid #ddd",
@@ -61,28 +58,61 @@ export default function FileListCard({
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  cursor: "pointer",
+                  p: 0,
                   bgcolor: isSelected ? "rgba(25,118,210,0.1)" : "background.paper",
-                  "&:hover": {
-                    bgcolor: isSelected ? "rgba(25,118,210,0.15)" : "action.hover",
-                  },
                 }}
               >
-                <ListItemText
-                  primary={displayName}
-                  secondary={`Tải lên: ${formatVNDate(file.createdAt)}`}
-                />
-                <input
-                  type="checkbox"
-                  checked={!!file.selected}
-                  onChange={(e) => {
-                    e.stopPropagation();
-                    const checked = e.target.checked;
-                    setFileList((prev) =>
-                      prev.map((f, i) => (i === index ? { ...f, selected: checked } : f))
-                    );
+                {/* 1. Vùng Tên tệp */}
+                <Box
+                  onClick={() => {
+                    if (window.innerWidth < 600) {
+                      window.open(file.fileUrl, "_blank");
+                    } else {
+                      setSelectedFile(file);
+                    }
                   }}
-                />
+                  sx={{
+                    flex: 1,
+                    cursor: "pointer",
+                    py: 1,
+                    pl: 1.5,
+                    "&:hover": {
+                      bgcolor: isSelected ? "rgba(25,118,210,0.15)" : "action.hover",
+                    },
+                  }}
+                >
+                  <ListItemText
+                    primary={displayName}
+                    secondary={`Tải lên: ${formatVNDate(file.createdAt)}`}
+                    primaryTypographyProps={{ sx: { fontWeight: "normal" } }}
+                    secondaryTypographyProps={{ sx: { fontWeight: "normal" } }}
+                    sx={{ my: 0 }}
+                  />
+                </Box>
+
+                {/* 2. Vùng Checkbox */}
+                <Box
+                  component="div"
+                  onClick={(e) => e.stopPropagation()}
+                  sx={{ px: 2, display: "flex", alignItems: "center" }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={!!file.selected}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      const checked = e.target.checked;
+                      setFileList((prev) =>
+                        prev.map((f, i) => (i === index ? { ...f, selected: checked } : f))
+                      );
+                      if (selectedFile) {
+                        setSelectedFile(null);
+                      }
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ cursor: "pointer", width: "18px", height: "18px" }}
+                  />
+                </Box>
               </ListItem>
             );
           })

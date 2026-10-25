@@ -35,12 +35,12 @@ export async function uploadTeacherList(teacherList) {
         });
         countAdded++;
       } else {
-        console.log(`Giáo viên ${teacher.tenGV} đã tồn tại trong hệ thống.`);
+        //console.log(`Giáo viên ${teacher.tenGV} đã tồn tại trong hệ thống.`);
         countSkipped++;
       }
     }
 
-    console.log(`✅ Hoàn tất! Đã thêm mới ${countAdded} giáo viên vào collection GIAOVIEN.`);
+    //console.log(`✅ Hoàn tất! Đã thêm mới ${countAdded} giáo viên vào collection GIAOVIEN.`);
     return { success: true, added: countAdded, skipped: countSkipped };
 
   } catch (error) {

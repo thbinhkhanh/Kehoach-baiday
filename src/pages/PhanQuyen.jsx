@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import ExcelJS from "exceljs";
+
 import {
   Box,
   Card,
@@ -24,11 +25,21 @@ import {
   FormControlLabel,
 } from "@mui/material";
 
+import {
+  collection,
+  getDocs,
+  doc,
+  getDoc,
+  setDoc,
+  writeBatch,
+  serverTimestamp,
+} from "firebase/firestore";
+
 import { db } from "../firebase";
-import { collection, getDocs, doc, getDoc, setDoc, writeBatch } from "firebase/firestore";
 import { useNavigate, useLocation } from "react-router-dom";
 import IconButton from "@mui/material/IconButton";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
+
 import { handleExcelImportService } from "../utils/excelImportService";
 import TeacherAssignmentForm from "../components/TeacherAssignmentForm";
 import ExcelImportCard from "../components/ExcelImportCard";
@@ -45,6 +56,16 @@ const getTextCellValue = (cell) => {
   }
   return String(cell.value).trim();
 };
+
+const taoMaGiaoVien = (hoTen) =>
+  String(hoTen || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[đĐ]/g, "D")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "_")
+    .replace(/[^A-Z0-9_]/g, "");
 
 export default function PhanQuyen({ user, onClose }) {
   const navigate = useNavigate();
@@ -349,53 +370,117 @@ export default function PhanQuyen({ user, onClose }) {
 };
 
   const handleSave = async () => {
-  if (!selectedTeacher) return;
+    if (!selectedTeacher) return;
 
-  setSaving(true);
-  setMessage(null);
+    setSaving(true);
+    setMessage(null);
 
-  try {
-    // Nếu là GVCN, gán subject chính là giá trị của assignedClass (VD: "5.2")
-    const subjectString =
-      assignedRole === "GVCN"
-        ? assignedClass 
-        : assignedRole === "TA"
-        ? "Tiếng Anh"
-        : assignedSubjects.join(", ");
+    try {
+      const teacher = teachers.find(
+        (t) => t.username === selectedTeacher
+      );
 
-    const payload = {
-      username: selectedTeacher,
-      role: assignedRole,
-      assignedClass: assignedRole === "GVCN" ? assignedClass : "",
-      assignedSubject: subjectString, // Sẽ lưu chuỗi lớp, ví dụ: "5.2"
-      assignedSubjects: assignedRole === "GVCN" ? [assignedClass] : assignedSubjects, // Sẽ lưu mảng: ["5.2"]
-      teachingClasses: assignedRole === "GVCN" ? [assignedClass] : teachingClasses,
-      academicYear: academicYear,
-      updatedAt: new Date(),
-    };
+      if (!teacher) {
+        throw new Error(
+          "Không tìm thấy giáo viên trong danh sách đã nhập từ Excel."
+        );
+      }
 
-    const phanQuyenColName = `PHANQUYEN_${academicYear}`;
-    await setDoc(doc(db, phanQuyenColName, selectedTeacher), payload, { merge: true });
+      // Dữ liệu phân quyền hiện tại
+      const subjectString =
+        assignedRole === "GVCN"
+          ? assignedClass
+          : assignedRole === "TA"
+          ? "Tiếng Anh"
+          : assignedSubjects.join(", ");
 
-    setAssignmentsMap((prev) => ({
-      ...prev,
-      [selectedTeacher]: payload,
-    }));
+      const payload = {
+        username: selectedTeacher,
+        role: assignedRole,
+        assignedClass:
+          assignedRole === "GVCN" ? assignedClass : "",
+        assignedSubject: subjectString,
+        assignedSubjects:
+          assignedRole === "GVCN"
+            ? [assignedClass]
+            : assignedSubjects,
+        teachingClasses:
+          assignedRole === "GVCN"
+            ? [assignedClass]
+            : teachingClasses,
+        academicYear,
+        updatedAt: new Date(),
+      };
 
-    setMessage({
-      type: "success",
-      text: `Cập nhật thành công`,
-    });
-  } catch (err) {
-    console.error("Lỗi khi lưu phân quyền:", err);
-    setMessage({
-      type: "error",
-      text: "Không thể lưu dữ liệu phân quyền. Vui lòng thử lại.",
-    });
-  } finally {
-    setSaving(false);
-  }
-};
+      // 1. Lưu phân quyền như hiện tại
+      const phanQuyenRef = doc(
+        db,
+        `PHANQUYEN_${academicYear}`,
+        selectedTeacher
+      );
+
+      // 2. Xác định subject ghi vào DANHSACH_GV
+      // Dữ liệu gốc phải đến từ file Excel, không lấy từ Firestore.
+      const excelClassSubject = String(
+        teacher.excelClassSubject || teacher.subject || ""
+      ).trim();
+
+      let accountSubject = "BM";
+
+      if (/^TA$/i.test(excelClassSubject)) {
+        accountSubject = "TA";
+      } else if (/^\d+\.\d+$/.test(excelClassSubject)) {
+        accountSubject = excelClassSubject;
+      }
+
+      // 3. Document ID theo quy tắc không dấu, viết hoa, nối bằng _
+      const teacherId = taoMaGiaoVien(selectedTeacher);
+
+      const accountRef = doc(
+        db,
+        "DANHSACH_GV",
+        teacherId
+      );
+
+      // Kiểm tra tài khoản để giữ nguyên mật khẩu cũ
+      const accountSnap = await getDoc(accountRef);
+
+      const accountPayload = {
+        username: selectedTeacher,
+        subject: accountSubject,
+        academicYear,
+        updatedAt: serverTimestamp(),
+      };
+
+      if (!accountSnap.exists()) {
+        accountPayload.pass = "123";
+      }
+
+      // Chỉ thực hiện ghi sau khi đã xác định đủ dữ liệu
+      await setDoc(phanQuyenRef, payload, { merge: true });
+
+      await setDoc(accountRef, accountPayload, { merge: true });
+
+      setAssignmentsMap((prev) => ({
+        ...prev,
+        [selectedTeacher]: payload,
+      }));
+
+      setMessage({
+        type: "success",
+        text: `Đã lưu phân quyền và cập nhật tài khoản ${selectedTeacher}.`,
+      });
+    } catch (err) {
+      console.error("Lỗi khi lưu phân quyền:", err);
+
+      setMessage({
+        type: "error",
+        text: err.message || "Không thể lưu dữ liệu. Vui lòng thử lại.",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleExcelImport = async (event) => {
     await handleExcelImportService(event, {
@@ -407,6 +492,7 @@ export default function PhanQuyen({ user, onClose }) {
       setImportProgress,
       setImporting,
       setAssignmentsMap,
+      setTeachers,
     });
   };
 

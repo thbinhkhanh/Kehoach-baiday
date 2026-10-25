@@ -576,7 +576,7 @@ const [filterCategory, setFilterCategory] = useState("gvcn");
       setFileList(files);
       setSelectedFile(null);
 
-      console.log("Danh sách file BGH:", {
+      /*console.log("Danh sách file BGH:", {
         teacher: selectedUsername,
         subject,
         selectedClass,
@@ -584,7 +584,7 @@ const [filterCategory, setFilterCategory] = useState("gvcn");
         totalInCollection: snapshot.size,
         matchedFiles: files.length,
         files: files.map((file) => file.id),
-      });
+      });*/
 
       // Truy vấn Firestore thành công, kể cả khi không có file phù hợp.
       return true;
@@ -794,14 +794,14 @@ const [filterCategory, setFilterCategory] = useState("gvcn");
               verifySnap.exists() &&
               verifySnap.data().statsChanged === false
             ) {
-              console.log(
+              /*console.log(
                 `Đã cập nhật statsChanged = false cho ${teacherName}.`
-              );
+              );*/
             } else {
-              console.warn(
+              /*console.warn(
                 "Đã gọi updateDoc nhưng cờ chưa xác nhận là false.",
                 verifySnap.exists() ? verifySnap.data().statsChanged : "Không tìm thấy tài liệu"
-              );
+              );*/
             }
           } catch (error) {
             console.error("Lỗi cập nhật statsChanged:", error);
