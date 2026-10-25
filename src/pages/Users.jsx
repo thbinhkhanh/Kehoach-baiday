@@ -331,31 +331,63 @@ export default function Users({ user }) {
       );
 
       const querySnapshot = await getDocs(filesRef);
-      const selectedGrade = String(className).split(".")[0];
+
+      const selectedClass = String(className).trim();
+      const selectedGrade = selectedClass.split(".")[0];
       const files = [];
 
       querySnapshot.forEach((docSnap) => {
         const data = docSnap.data();
         const docId = docSnap.id;
 
-        // Ưu tiên lấy khối từ ID: Khoi_4_..., Khoi_5_...
-        const idMatch = docId.match(/^Khoi_(\d+)_/i);
-
-        // Dự phòng cho tài liệu lưu theo cấu trúc cũ
-        const khoiValue = String(
-          data.khoi || data.className || ""
-        ).trim();
-
-        const khoiMatch = khoiValue.match(
-          /^(?:khối|khoi|lớp|lop)\s*(\d+)/i
+        // Trường hợp mới: Khoi_5.8_...
+        const exactClassPattern = new RegExp(
+          `^Khoi_${selectedClass.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}_`,
+          "i"
         );
 
-        const documentGrade = idMatch?.[1] || khoiMatch?.[1];
+        const idMatchesExactClass = exactClassPattern.test(docId);
 
+        // Trường hợp cũ: Khoi_5_...
+        const oldGradePattern = /^Khoi_(\d+)_/i;
+        const oldIdMatch = docId.match(oldGradePattern);
+
+        const idMatchesOldGrade =
+          oldIdMatch !== null &&
+          oldIdMatch[1] === selectedGrade;
+
+        // Dự phòng nếu thông tin lớp được lưu trong dữ liệu.
+        const classValues = [
+          data.lop,
+          data.lopHoc,
+          data.maLop,
+          data.className,
+          data.class,
+          data.khoi,
+          data.grade,
+        ]
+          .filter((value) => value !== undefined && value !== null)
+          .map((value) =>
+            String(value)
+              .trim()
+              .replace(/^(khối|khoi|lớp|lop)\s*/i, "")
+              .replace(/^Khoi_/i, "")
+          );
+
+        const dataMatchesExactClass = classValues.some(
+          (value) => value === selectedClass
+        );
+
+        const dataMatchesGrade = classValues.some(
+          (value) => value === selectedGrade
+        );
+
+        // Nhận tài liệu theo lớp chính xác hoặc theo cấu trúc dữ liệu cũ.
         const matchesClass =
-          documentGrade === selectedGrade ||
-          khoiValue === `Khối ${className}` ||
-          khoiValue === String(className);
+          idMatchesExactClass ||
+          idMatchesOldGrade ||
+          dataMatchesExactClass ||
+          dataMatchesGrade;
 
         if (matchesClass) {
           files.push({
@@ -365,19 +397,33 @@ export default function Users({ user }) {
         }
       });
 
-      files.sort((a, b) => {
-        const timeA = a.createdAt?.toMillis
-          ? a.createdAt.toMillis()
-          : new Date(a.createdAt || 0).getTime();
+      // Tài liệu mới nhất hiển thị trước.
+      const getTime = (value) => {
+        if (!value) return 0;
 
-        const timeB = b.createdAt?.toMillis
-          ? b.createdAt.toMillis()
-          : new Date(b.createdAt || 0).getTime();
+        if (typeof value.toMillis === "function") {
+          return value.toMillis();
+        }
 
-        return timeB - timeA;
-      });
+        const time = new Date(value).getTime();
+        return Number.isNaN(time) ? 0 : time;
+      };
+
+      files.sort(
+        (a, b) => getTime(b.createdAt) - getTime(a.createdAt)
+      );
 
       setFileList(files);
+
+      console.log("Danh sách tài liệu đã lọc:", {
+        teacherName,
+        subject,
+        selectedClass,
+        selectedGrade,
+        totalDocuments: querySnapshot.size,
+        matchedDocuments: files.length,
+        documentIds: files.map((file) => file.id),
+      });
     } catch (err) {
       console.error("Lỗi khi tải danh sách file:", err);
       setFileList([]);

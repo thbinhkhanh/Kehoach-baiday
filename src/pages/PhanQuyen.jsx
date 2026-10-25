@@ -217,9 +217,20 @@ export default function PhanQuyen({ user, onClose }) {
   useEffect(() => {
     if (!selectedTeacher) return;
 
+    // Lấy thông tin lớp chuẩn từ danh sách giáo viên gốc (DANHSACH_GV tương ứng với cột LỚP/MÔN)
+    const currentTeacherObj = teachers.find((t) => t.username === selectedTeacher);
+    const defaultSubj = (currentTeacherObj?.subject || "").trim(); // Ví dụ: "5.4", "4.7"
+
     const existing = assignmentsMap[selectedTeacher];
     if (existing) {
-      setAssignedClass(existing.assignedClass || "1");
+      // Nếu dữ liệu cũ trong Firestore chỉ là số khối (vd: "4") nhưng dữ liệu gốc có mã lớp đầy đủ (vd: "5.4"), hãy ưu tiên lấy dữ liệu gốc
+      const savedClass = existing.assignedClass || "";
+      const useClass = (savedClass.length <= 1 && defaultSubj.includes(".")) 
+        ? defaultSubj 
+        : (savedClass || defaultSubj || "1.1");
+
+      setAssignedClass(useClass);
+
       if (Array.isArray(existing.assignedSubjects)) {
         setAssignedSubjects(existing.assignedSubjects);
       } else if (existing.assignedSubject && existing.assignedSubject !== "Tất cả môn GVCN") {
@@ -227,24 +238,14 @@ export default function PhanQuyen({ user, onClose }) {
       } else {
         setAssignedSubjects([]);
       }
-      setTeachingClasses(existing.teachingClasses || ["1", "2", "3", "4", "5"]);
+      setTeachingClasses(existing.teachingClasses?.length > 1 ? existing.teachingClasses : [useClass]);
     } else {
-      const currentTeacherObj = teachers.find((t) => t.username === selectedTeacher);
-      const subj = (currentTeacherObj?.subject || "").toUpperCase();
-
-      if (assignedRole === "TA") {
-        setAssignedSubjects(["Tiếng Anh"]);
-        setTeachingClasses(["1", "2", "3", "4", "5"]);
-      } else if (assignedRole === "BM") {
-        setAssignedSubjects(allSubjects[0]?.name ? [allSubjects[0].name] : []);
-        setTeachingClasses(["1", "2", "3", "4", "5"]);
-      } else {
-        setAssignedClass(subj.replace(/\D/g, "") || "1");
-        setTeachingClasses([subj.replace(/\D/g, "") || "1"]);
-        setAssignedSubjects([]);
-      }
+      const classCode = defaultSubj || "1.1";
+      setAssignedClass(classCode);
+      setTeachingClasses([classCode]);
+      setAssignedSubjects([]);
     }
-  }, [selectedTeacher]);
+  }, [selectedTeacher, teachers, assignmentsMap]);
 
   const getFilteredSubjects = () => {
     if (assignedRole === "TA") {

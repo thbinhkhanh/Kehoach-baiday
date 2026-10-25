@@ -459,50 +459,134 @@ export default function BGH({ user }) {
   }, [selectedUsername, className, phanQuyenMap, allMonHoc, lopMonHocMap]);
 
   // Truy vấn danh sách file từ Firestore
+  
   const fetchFileList = async () => {
-    if (!selectedUsername || !className || !subject) {
+    if (!selectedUsername || !className || !subject || !academicYear) {
       setFileList([]);
+      setSelectedFile(null);
       return;
     }
 
     setLoadingFiles(true);
+
     try {
       const yearCol = `KEHOACH_DAYHOC_${academicYear}`;
-      const filesRef = collection(db, yearCol, selectedUsername, subject);
 
-      // Mã lớp 5.4 -> khối 5; lớp 3.5 -> khối 3
-      const grade = String(className).split(".")[0].trim();
-
-      const q = query(
-        filesRef,
-        where("khoi", "==", `Khối ${grade}`)
+      const filesRef = collection(
+        db,
+        yearCol,
+        selectedUsername,
+        subject
       );
-      const querySnapshot = await getDocs(q);
 
+      const selectedClass = String(className).trim();
+      const selectedGrade = selectedClass.split(".")[0];
+
+      const snapshot = await getDocs(filesRef);
       const files = [];
-      querySnapshot.forEach((docSnap) => {
-        files.push({ id: docSnap.id, ...docSnap.data() });
+
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        const docId = docSnap.id;
+
+        // Trường hợp mới: Khoi_5.8_...
+        const escapedClass = selectedClass.replace(
+          /[.*+?^${}()|[\]\\]/g,
+          "\\$&"
+        );
+
+        const exactClassPattern = new RegExp(
+          `^Khoi_${escapedClass}_`,
+          "i"
+        );
+
+        const idMatchesExactClass = exactClassPattern.test(docId);
+
+        // Trường hợp cũ: Khoi_5_...
+        const oldIdMatch = docId.match(/^Khoi_(\d+)_/i);
+
+        const idMatchesOldGrade =
+          oldIdMatch !== null &&
+          oldIdMatch[1] === selectedGrade;
+
+        // Dự phòng: lấy thông tin lớp từ dữ liệu tài liệu.
+        const classValues = [
+          data.lop,
+          data.lopHoc,
+          data.maLop,
+          data.className,
+          data.class,
+          data.khoi,
+          data.grade,
+        ]
+          .filter((value) => value !== undefined && value !== null)
+          .map((value) =>
+            String(value)
+              .trim()
+              .replace(/^(khối|khoi|lớp|lop)\s*/i, "")
+              .replace(/^Khoi_/i, "")
+          );
+
+        const dataMatchesClass = classValues.some(
+          (value) => value === selectedClass
+        );
+
+        const dataMatchesGrade = classValues.some(
+          (value) => value === selectedGrade
+        );
+
+        // Chấp nhận cả ID lớp đầy đủ và ID dữ liệu cũ theo khối.
+        const isMatch =
+          idMatchesExactClass ||
+          idMatchesOldGrade ||
+          dataMatchesClass ||
+          dataMatchesGrade;
+
+        if (isMatch) {
+          files.push({
+            id: docId,
+            ...data,
+          });
+        }
       });
 
-      files.sort((a, b) => {
-        const timeA = a.createdAt?.toMillis
-          ? a.createdAt.toMillis()
-          : new Date(a.createdAt || 0).getTime();
-        const timeB = b.createdAt?.toMillis
-          ? b.createdAt.toMillis()
-          : new Date(b.createdAt || 0).getTime();
-        return timeB - timeA;
-      });
+      // Sắp xếp file mới nhất lên đầu.
+      const getTime = (value) => {
+        if (!value) return 0;
+
+        if (typeof value.toMillis === "function") {
+          return value.toMillis();
+        }
+
+        const time = new Date(value).getTime();
+        return Number.isNaN(time) ? 0 : time;
+      };
+
+      files.sort(
+        (a, b) => getTime(b.createdAt) - getTime(a.createdAt)
+      );
 
       setFileList(files);
       setSelectedFile(null);
+
+      console.log("Danh sách file BGH:", {
+        teacher: selectedUsername,
+        subject,
+        selectedClass,
+        selectedGrade,
+        totalInCollection: snapshot.size,
+        matchedFiles: files.length,
+        files: files.map((file) => file.id),
+      });
     } catch (err) {
-      console.error("❌ Lỗi khi tải danh sách file:", err);
+      console.error("Lỗi khi tải danh sách file:", err);
       setFileList([]);
+      setSelectedFile(null);
     } finally {
       setLoadingFiles(false);
     }
   };
+
 
   useEffect(() => {
     fetchFileList();
