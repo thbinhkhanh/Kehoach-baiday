@@ -13,23 +13,21 @@ import {
   ToggleButtonGroup,
   useMediaQuery,
   useTheme,
-  Dialog,
-  DialogContent,
-  IconButton,
   ListSubheader,
 } from "@mui/material";
 
 import { db } from "../firebase";
-//import { collection, getDocs, doc, getDoc, query, where, updateDoc, } from "firebase/firestore";
-import { collection, getDocs, doc, getDoc, query, where, updateDoc, setDoc, serverTimestamp, deleteField, arrayUnion, arrayRemove } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc, query, where, updateDoc, serverTimestamp } from "firebase/firestore";
 import { fetchSchoolSummaryData, fetchTeacherStatsData } from "../utils/thongKe";
+import { saveBghRequestService, deleteBghRequestService } from "../utils/bghNotificationService";
+
 import TeacherStatsView from "../components/TeacherStatsView";
 import SchoolSummaryView from "../components/SchoolSummaryView";
 import FileListCardBGH from "../components/FileListCardBGH";
-import CloseIcon from "@mui/icons-material/Close";
 
 import { useBGHStats } from "../contexts/BGHStatsContext";
 import BghRequestManageDialog from "../dialogs/BghRequestManageDialog";
+import MobileStatsSummaryDialog from "../dialogs/MobileStatsSummaryDialog";
 
 import {
   SchoolRounded,
@@ -64,34 +62,34 @@ const getShortSubjectName = (name) => {
 
 export default function BGH({ user }) {
   const [fileList, setFileList] = useState([]);
-const [selectedFile, setSelectedFile] = useState(null);
-const [loadingFiles, setLoadingFiles] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [loadingFiles, setLoadingFiles] = useState(false);
 
-// State cho chế độ Tổng hợp toàn trường
-const [viewMode, setViewMode] = useState("single");
-const [loadingSchoolSummary, setLoadingSchoolSummary] = useState(false);
-const [schoolSummaryGrouped, setSchoolSummaryGrouped] = useState({});
+  // State cho chế độ Tổng hợp toàn trường
+  const [viewMode, setViewMode] = useState("single");
+  const [loadingSchoolSummary, setLoadingSchoolSummary] = useState(false);
+  const [schoolSummaryGrouped, setSchoolSummaryGrouped] = useState({});
 
-// State bật/tắt chế độ toàn màn hình
-const [isFullScreen, setIsFullScreen] = useState(false);
+  // State bật/tắt chế độ toàn màn hình
+  const [isFullScreen, setIsFullScreen] = useState(false);
 
-const [academicYear, setAcademicYear] = useState("2026-2027");
-const [subject, setSubject] = useState("");
-const [className, setClassName] = useState("");
+  const [academicYear, setAcademicYear] = useState("2026-2027");
+  const [subject, setSubject] = useState("");
+  const [className, setClassName] = useState("");
 
-// Dữ liệu thống kê giáo viên
-const [statsData, setStatsData] = useState([]);
-const [loadingStats, setLoadingStats] = useState(false);
+  // Dữ liệu thống kê giáo viên
+  const [statsData, setStatsData] = useState([]);
+  const [loadingStats, setLoadingStats] = useState(false);
 
-// Context chỉ quản lý dữ liệu thống kê dùng chung
-const { updateTeacherStats, getTeacherStats } = useBGHStats();
+  // Context chỉ quản lý dữ liệu thống kê dùng chung
+  const { updateTeacherStats, getTeacherStats } = useBGHStats();
 
-const [teacherAllowedSubjects, setTeacherAllowedSubjects] = useState([]);
-const [teacherAllowedClasses, setTeacherAllowedClasses] = useState([]);
+  const [teacherAllowedSubjects, setTeacherAllowedSubjects] = useState([]);
+  const [teacherAllowedClasses, setTeacherAllowedClasses] = useState([]);
 
-const [allMonHoc, setAllMonHoc] = useState([]);
-const [lopMonHocMap, setLopMonHocMap] = useState({});
-const [filterCategory, setFilterCategory] = useState("gvcn");
+  const [allMonHoc, setAllMonHoc] = useState([]);
+  const [lopMonHocMap, setLopMonHocMap] = useState({});
+  const [filterCategory, setFilterCategory] = useState("gvcn");
 
 // 🚀 State quản lý Dialog nhập yêu cầu điều chỉnh của BGH
   const [bghRequestOpen, setBghRequestOpen] = useState(false);
@@ -122,7 +120,6 @@ const [filterCategory, setFilterCategory] = useState("gvcn");
     user?.role === "bgh";
   const isAdmin = isBGH;
 
-  // 1. Lấy CONFIG & MONHOC
   // 1. Lấy CONFIG, MONHOC & LOP_MONHOC
   useEffect(() => {
     const fetchConfigAndMonHoc = async () => {
@@ -793,9 +790,6 @@ const [filterCategory, setFilterCategory] = useState("gvcn");
     updateTeacherStats,
   ]);
 
-
-
-
   if (!isBGH) {
     return (
       <Box sx={{ p: 4, textAlign: "center" }}>
@@ -826,7 +820,6 @@ const [filterCategory, setFilterCategory] = useState("gvcn");
   };
 
   const currentTeacherList = getFilteredTeacherList();
-
   
   const handleSelectTeacherFromSummary = (teacherName) => {
     if (!teacherName) return;
@@ -877,60 +870,30 @@ const [filterCategory, setFilterCategory] = useState("gvcn");
   };
 
   // Hàm lưu nội dung yêu cầu điều chỉnh từ BGH
-  // Hàm lưu nội dung yêu cầu điều chỉnh từ BGH
   const handleSaveBghRequest = async () => {
     if (!bghTargetFile || !bghTargetFile.id) return;
 
     try {
       setSaving(true);
-      const yearCol = `KEHOACH_DAYHOC_${academicYear}`;
-      const targetSubject = bghTargetFile.metadata?.monHoc || bghTargetFile.subject || subject;
-      const rawTeacher = selectedUsername || bghTargetFile.giaoVien || "";
-      const teacherId = rawTeacher.trim().toUpperCase();
+      const res = await saveBghRequestService({
+        bghTargetFile,
+        academicYear,
+        selectedUsername,
+        subject,
+        bghRequestText,
+      });
 
-      const fileId = bghTargetFile.id;
+      if (res.success) {
+        // Cập nhật lại giao diện danh sách file ngay lập tức
+        setFileList((prev) =>
+          prev.map((f) => (f.id === res.fileId ? { ...f, bghRequest: bghRequestText } : f))
+        );
 
-      // 1. Đọc document gốc của giáo viên hiện tại để xử lý mảng bghNotifications
-      const teacherRef = doc(db, yearCol, teacherId);
-      const teacherSnap = await getDoc(teacherRef);
-      const teacherData = teacherSnap.exists() ? teacherSnap.data() : {};
-      let notifications = teacherData.bghNotifications || [];
-
-      // Kiểm tra xem file này đã có thông báo chưa
-      const existingIndex = notifications.findIndex((n) => n.fileId === fileId);
-      const newNotificationItem = {
-        fileId: fileId,
-        content: bghRequestText,
-        read: false, // Mặc định giáo viên chưa đọc/chưa xác nhận
-        createdAt: new Date(),
-      };
-
-      if (existingIndex >= 0) {
-        notifications[existingIndex] = newNotificationItem;
-      } else {
-        notifications.push(newNotificationItem);
+        setBghRequestOpen(false);
+        setBghTargetFile(null);
+        setBghRequestText("");
+        console.log("✅ Đã lưu yêu cầu thành công!");
       }
-
-      // 2. Lưu mảng mới vào document giáo viên
-      await setDoc(
-        teacherRef,
-        {
-          bghNotifications: notifications,
-          statsChanged: true,
-          updatedAt: new Date(),
-        },
-        { merge: true }
-      );
-
-      // Cập nhật lại giao diện danh sách file ngay lập tức
-      setFileList((prev) =>
-        prev.map((f) => (f.id === fileId ? { ...f, bghRequest: bghRequestText } : f))
-      );
-
-      setBghRequestOpen(false);
-      setBghTargetFile(null);
-      setBghRequestText("");
-      console.log("✅ Đã lưu yêu cầu thành công!");
     } catch (error) {
       console.error("❌ Lỗi khi gửi yêu cầu:", error);
     } finally {
@@ -943,38 +906,23 @@ const [filterCategory, setFilterCategory] = useState("gvcn");
 
     try {
       setSaving(true);
-      const yearCol = `KEHOACH_DAYHOC_${academicYear}`;
-      const teacherId = (selectedUsername || bghTargetFile.giaoVien || "").trim().toUpperCase();
-      const fileId = bghTargetFile.id;
+      const res = await deleteBghRequestService({
+        bghTargetFile,
+        academicYear,
+        selectedUsername,
+      });
 
-      // 1. Lọc bỏ thông báo ứng với fileId này ra khỏi mảng
-      const teacherRef = doc(db, yearCol, teacherId);
-      const teacherSnap = await getDoc(teacherRef);
-      if (teacherSnap.exists()) {
-        const data = teacherSnap.data();
-        let notifications = data.bghNotifications || [];
-        notifications = notifications.filter((n) => n.fileId !== fileId);
-
-        await setDoc(
-          teacherRef,
-          {
-            bghNotifications: notifications,
-            statsChanged: true,
-            updatedAt: new Date(),
-          },
-          { merge: true }
+      if (res.success) {
+        // Cập nhật lại state fileList để ẩn chip đi
+        setFileList((prev) =>
+          prev.map((f) => (f.id === res.fileId ? { ...f, bghRequest: undefined } : f))
         );
+
+        setBghRequestOpen(false);
+        setBghTargetFile(null);
+        setBghRequestText("");
+        console.log("✅ Đã xóa yêu cầu hoàn toàn!");
       }
-
-      // 2. Cập nhật lại state fileList để ẩn chip đi
-      setFileList((prev) =>
-        prev.map((f) => (f.id === fileId ? { ...f, bghRequest: undefined } : f))
-      );
-
-      setBghRequestOpen(false);
-      setBghTargetFile(null);
-      setBghRequestText("");
-      console.log("✅ Đã xóa yêu cầu hoàn toàn!");
     } catch (error) {
       console.error("❌ Lỗi khi xóa:", error);
     } finally {
@@ -1273,57 +1221,26 @@ const [filterCategory, setFilterCategory] = useState("gvcn");
       )}
 
       {/* 📱 DIALOG HIỂN THỊ BẢNG NỔI TRÊN ĐIỆN THOẠI KHI BẤM NÚT CÁ NHÂN HOẶC TOÀN TRƯỜNG */}
-      <Dialog
-        open={isMobile && (viewMode === "summary" || viewMode === "personal")}
-        onClose={() => setViewMode("single")}
-        maxWidth="md"
-        fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: "16px",
-            maxHeight: "85vh",
-            display: "flex",
-            flexDirection: "column",
-          },
-        }}
-      >
-        <Box sx={{ p: 2, display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #eee" }}>
-          <Typography variant="h6" fontWeight="bold" color="primary">
-            {viewMode === "summary" 
-              ? `📊 Bảng tổng hợp toàn trường` 
-              : `📊 Thống kê KHBD`}
-          </Typography>
-          <IconButton onClick={() => setViewMode("single")}>
-            <CloseIcon />
-          </IconButton>
-        </Box>
-        <DialogContent sx={{ p: 1, overflowY: "auto" }}>
-          {viewMode === "summary" ? (
-            <SchoolSummaryView
-              academicYear={academicYear}
-              loadingSchoolSummary={loadingSchoolSummary}
-              schoolSummaryGrouped={schoolSummaryGrouped}
-              filteredSubjectNames={filteredSubjectNames}
-              fetchSchoolSummary={fetchSchoolSummary}
-              setViewMode={setViewMode}
-              getShortSubjectName={getShortSubjectName}
-              setSelectedUsername={handleSelectTeacherFromSummary}
-              setSelectedFile={setSelectedFile}
-              isFullScreen={isFullScreen}
-              setIsFullScreen={setIsFullScreen}
-            />
-          ) : (
-            <TeacherStatsView
-              selectedUsername={selectedUsername}
-              statsData={statsData}
-              teacherAllowedSubjects={teacherAllowedSubjects}
-              teacherAllowedClasses={teacherAllowedClasses}
-              loadingStats={loadingStats}
-              academicYear={academicYear}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      <MobileStatsSummaryDialog
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+        isMobile={isMobile}
+        academicYear={academicYear}
+        loadingSchoolSummary={loadingSchoolSummary}
+        schoolSummaryGrouped={schoolSummaryGrouped}
+        filteredSubjectNames={filteredSubjectNames}
+        fetchSchoolSummary={fetchSchoolSummary}
+        getShortSubjectName={getShortSubjectName}
+        handleSelectTeacherFromSummary={handleSelectTeacherFromSummary}
+        setSelectedFile={setSelectedFile}
+        isFullScreen={isFullScreen}
+        setIsFullScreen={setIsFullScreen}
+        selectedUsername={selectedUsername}
+        statsData={statsData}
+        teacherAllowedSubjects={teacherAllowedSubjects}
+        teacherAllowedClasses={teacherAllowedClasses}
+        loadingStats={loadingStats}
+      />
 
       {/* Cột phải hiển thị trên máy tính (Desktop) hoặc khi xem trước file trên điện thoại */}
       <Card

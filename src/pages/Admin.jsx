@@ -36,6 +36,7 @@ import ConfirmResetAllDialog from "../dialogs/ConfirmResetAllDialog";
 import ConfirmResetDialog from "../dialogs/ConfirmResetDialog";
 import { handleSubjectFileSelectService } from "../utils/subjectImportService";
 import { handleFileSelectService } from "../utils/teacherImportService";
+import { resetTeacherPasswordService, resetAllTeachersPasswordService } from "../utils/passwordResetService";
 
 const getTextCellValue = (cell) => {
   if (!cell || cell.value == null) return "";
@@ -213,25 +214,15 @@ export default function Admin({ user }) {
     setMessage(null);
 
     try {
-      const teacherId = normalizeTeacherId(teacherName);
-      const teacherRef = doc(db, "DANHSACH_GV", teacherId);
-      const teacherSnapshot = await getDoc(teacherRef);
-
-      if (!teacherSnapshot.exists()) {
-        throw new Error(
-          `Không tìm thấy giáo viên "${teacherName}" trong DANHSACH_GV. Vui lòng kiểm tra lại họ tên.`
-        );
-      }
-
-      await updateDoc(teacherRef, {
-        pass: "123",
-        academicYear: academicYear,
-        updatedAt: new Date(),
+      const res = await resetTeacherPasswordService({
+        teacherNameToReset,
+        academicYear,
+        normalizeTeacherId,
       });
 
       setMessage({
         type: "success",
-        text: `Đã reset mật khẩu của ${teacherSnapshot.data().username || teacherName} về 123 (Năm học: ${academicYear}).`,
+        text: res.message,
       });
       setTeacherNameToReset("");
       await fetchTeachersAndAccountsData();
@@ -252,47 +243,13 @@ export default function Admin({ user }) {
     setMessage(null);
 
     try {
-      const querySnapshot = await getDocs(collection(db, "DANHSACH_GV"));
-      let updatedCount = 0;
-      let skippedCount = 0;
-
-      const batch = writeBatch(db);
-
-      querySnapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        const role = (data.role || data.quyen || data.chucVu || "").toLowerCase();
-        const docId = docSnap.id.toUpperCase();
-        const username = (data.username || "").toLowerCase();
-
-        const isAdminOrBgh =
-          role.includes("admin") ||
-          role.includes("bgh") ||
-          role.includes("ban giám hiệu") ||
-          role.includes("ban giam hieu") ||
-          docId.includes("ADMIN") ||
-          docId.includes("BGH") ||
-          username.includes("admin") ||
-          username.includes("bgh");
-
-        if (isAdminOrBgh) {
-          skippedCount++;
-        } else {
-          batch.update(docSnap.ref, {
-            pass: "123",
-            academicYear: academicYear,
-            updatedAt: new Date(),
-          });
-          updatedCount++;
-        }
+      const res = await resetAllTeachersPasswordService({
+        academicYear,
       });
-
-      if (updatedCount > 0) {
-        await batch.commit();
-      }
 
       setMessage({
         type: "success",
-        text: `Đã reset mật khẩu về 123 cho ${updatedCount} giáo viên (Đã tự động bỏ qua ${skippedCount} tài khoản Admin/BGH).`,
+        text: res.message,
       });
       await fetchTeachersAndAccountsData();
     } catch (error) {

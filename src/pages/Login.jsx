@@ -14,7 +14,6 @@ import {
   Toolbar,
   IconButton,
   InputAdornment,
-  Dialog,
 } from "@mui/material";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { db } from "../firebase";

@@ -41,6 +41,8 @@ import IconButton from "@mui/material/IconButton";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 
 import { handleExcelImportService } from "../utils/excelImportService";
+import { saveTeacherAssignmentService } from "../utils/teacherAssignmentService";
+
 import TeacherAssignmentForm from "../components/TeacherAssignmentForm";
 import ExcelImportCard from "../components/ExcelImportCard";
 
@@ -315,59 +317,59 @@ export default function PhanQuyen({ user, onClose }) {
 
   // Lưu cấu hình Khối lớp và Môn học vào LOP_MONHOC
   const handleSaveClassSubjectMap = async () => {
-  setSavingClassSubject(true);
-  setMessage(null);
-  try {
-    // Khởi tạo mảng môn học cho từng lớp từ 1 đến 5
-    const gradesMap = { "1": [], "2": [], "3": [], "4": [], "5": [] };
+    setSavingClassSubject(true);
+    setMessage(null);
+    try {
+      // Khởi tạo mảng môn học cho từng lớp từ 1 đến 5
+      const gradesMap = { "1": [], "2": [], "3": [], "4": [], "5": [] };
 
-    // Quy định các lớp KHÔNG ĐƯỢC PHÉP có môn đó (để chặn triệt để lỗi lệch state)
-    const invalidRules = {
-      "Công nghệ": ["1", "2"],
-      "Khoa học": ["1", "2", "3"],
-      "Lịch sử và Địa lí": ["1", "2", "3"],
-      "Tự nhiên và Xã hội": ["4", "5"]
-    };
+      // Quy định các lớp KHÔNG ĐƯỢC PHÉP có môn đó (để chặn triệt để lỗi lệch state)
+      const invalidRules = {
+        "Công nghệ": ["1", "2"],
+        "Khoa học": ["1", "2", "3"],
+        "Lịch sử và Địa lí": ["1", "2", "3"],
+        "Tự nhiên và Xã hội": ["4", "5"]
+      };
 
-    // Gom nhóm từ Môn học -> Lớp, đồng thời lọc bỏ các trường hợp không hợp lệ
-    Object.entries(classSubjectMap).forEach(([subName, grades]) => {
-      grades.forEach((g) => {
-        const restrictedGrades = invalidRules[subName] || [];
-        // Chỉ thêm vào nếu lớp này hợp lệ và tồn tại trong gradesMap
-        if (gradesMap[g] && !restrictedGrades.includes(g)) {
-          gradesMap[g].push(subName);
-        }
+      // Gom nhóm từ Môn học -> Lớp, đồng thời lọc bỏ các trường hợp không hợp lệ
+      Object.entries(classSubjectMap).forEach(([subName, grades]) => {
+        grades.forEach((g) => {
+          const restrictedGrades = invalidRules[subName] || [];
+          // Chỉ thêm vào nếu lớp này hợp lệ và tồn tại trong gradesMap
+          if (gradesMap[g] && !restrictedGrades.includes(g)) {
+            gradesMap[g].push(subName);
+          }
+        });
       });
-    });
 
-    // Lưu mỗi lớp thành một Document riêng biệt trong collection LOP_MONHOC
-    // Do dùng batch.set (không có merge: true), Firestore sẽ GHI ĐÈ HOÀN TOÀN,
-    // nghĩa là môn nào bị bỏ tích (không có trong mảng subjects) sẽ tự động bị XOÁ khỏi DB.
-    const batch = writeBatch(db);
-    Object.entries(gradesMap).forEach(([cls, subjects]) => {
-      const docRef = doc(db, "LOP_MONHOC", cls);
-      batch.set(docRef, {
-        subjects: subjects, // Chỉ chứa đúng danh sách các môn đang được check trên giao diện
-        updatedAt: new Date(),
+      // Lưu mỗi lớp thành một Document riêng biệt trong collection LOP_MONHOC
+      // Do dùng batch.set (không có merge: true), Firestore sẽ GHI ĐÈ HOÀN TOÀN,
+      // nghĩa là môn nào bị bỏ tích (không có trong mảng subjects) sẽ tự động bị XOÁ khỏi DB.
+      const batch = writeBatch(db);
+      Object.entries(gradesMap).forEach(([cls, subjects]) => {
+        const docRef = doc(db, "LOP_MONHOC", cls);
+        batch.set(docRef, {
+          subjects: subjects, // Chỉ chứa đúng danh sách các môn đang được check trên giao diện
+          updatedAt: new Date(),
+        });
       });
-    });
 
-    await batch.commit();
+      await batch.commit();
 
-    setMessage({
-      type: "success",
-      text: "Lưu cấu hình Môn học theo lớp thành công!",
-    });
-  } catch (err) {
-    console.error("Lỗi khi lưu LOP_MONHOC:", err);
-    setMessage({
-      type: "error",
-      text: "Không thể lưu cấu hình. Vui lòng thử lại.",
-    });
-  } finally {
-    setSavingClassSubject(false);
-  }
-};
+      setMessage({
+        type: "success",
+        text: "Lưu cấu hình Môn học theo lớp thành công!",
+      });
+    } catch (err) {
+      console.error("Lỗi khi lưu LOP_MONHOC:", err);
+      setMessage({
+        type: "error",
+        text: "Không thể lưu cấu hình. Vui lòng thử lại.",
+      });
+    } finally {
+      setSavingClassSubject(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!selectedTeacher) return;
@@ -376,99 +378,25 @@ export default function PhanQuyen({ user, onClose }) {
     setMessage(null);
 
     try {
-      const teacher = teachers.find(
-        (t) => t.username === selectedTeacher
-      );
-
-      if (!teacher) {
-        throw new Error(
-          "Không tìm thấy giáo viên trong danh sách đã nhập từ Excel."
-        );
-      }
-
-      // Dữ liệu phân quyền hiện tại
-      const subjectString =
-        assignedRole === "GVCN"
-          ? assignedClass
-          : assignedRole === "TA"
-          ? "Tiếng Anh"
-          : assignedSubjects.join(", ");
-
-      const payload = {
-        username: selectedTeacher,
-        role: assignedRole,
-        assignedClass:
-          assignedRole === "GVCN" ? assignedClass : "",
-        assignedSubject: subjectString,
-        assignedSubjects:
-          assignedRole === "GVCN"
-            ? [assignedClass]
-            : assignedSubjects,
-        teachingClasses:
-          assignedRole === "GVCN"
-            ? [assignedClass]
-            : teachingClasses,
+      const res = await saveTeacherAssignmentService({
+        selectedTeacher,
+        teachers,
+        assignedRole,
+        assignedClass,
+        assignedSubjects,
+        teachingClasses,
         academicYear,
-        updatedAt: new Date(),
-      };
-
-      // 1. Lưu phân quyền như hiện tại
-      const phanQuyenRef = doc(
-        db,
-        `PHANQUYEN_${academicYear}`,
-        selectedTeacher
-      );
-
-      // 2. Xác định subject ghi vào DANHSACH_GV
-      // Dữ liệu gốc phải đến từ file Excel, không lấy từ Firestore.
-      const excelClassSubject = String(
-        teacher.excelClassSubject || teacher.subject || ""
-      ).trim();
-
-      let accountSubject = "BM";
-
-      if (/^TA$/i.test(excelClassSubject)) {
-        accountSubject = "TA";
-      } else if (/^\d+\.\d+$/.test(excelClassSubject)) {
-        accountSubject = excelClassSubject;
-      }
-
-      // 3. Document ID theo quy tắc không dấu, viết hoa, nối bằng _
-      const teacherId = taoMaGiaoVien(selectedTeacher);
-
-      const accountRef = doc(
-        db,
-        "DANHSACH_GV",
-        teacherId
-      );
-
-      // Kiểm tra tài khoản để giữ nguyên mật khẩu cũ
-      const accountSnap = await getDoc(accountRef);
-
-      const accountPayload = {
-        username: selectedTeacher,
-        subject: accountSubject,
-        academicYear,
-        updatedAt: serverTimestamp(),
-      };
-
-      if (!accountSnap.exists()) {
-        accountPayload.pass = "123";
-      }
-
-      // Chỉ thực hiện ghi sau khi đã xác định đủ dữ liệu
-      await setDoc(phanQuyenRef, payload, { merge: true });
-
-      await setDoc(accountRef, accountPayload, { merge: true });
+        taoMaGiaoVien,
+      });
 
       setAssignmentsMap((prev) => ({
         ...prev,
-        [selectedTeacher]: payload,
+        [res.selectedTeacher]: res.payload,
       }));
 
       setMessage({
         type: "success",
-        text: `Đã lưu phân quyền và cập nhật tài khoản ${selectedTeacher}.`,
+        text: res.message,
       });
     } catch (err) {
       console.error("Lỗi khi lưu phân quyền:", err);
