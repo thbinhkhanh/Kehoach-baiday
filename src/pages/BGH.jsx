@@ -20,7 +20,8 @@ import {
 } from "@mui/material";
 
 import { db } from "../firebase";
-import { collection, getDocs, doc, getDoc, query, where, updateDoc, } from "firebase/firestore";
+//import { collection, getDocs, doc, getDoc, query, where, updateDoc, } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc, query, where, updateDoc, setDoc, serverTimestamp, deleteField, arrayUnion, arrayRemove } from "firebase/firestore";
 import { fetchSchoolSummaryData, fetchTeacherStatsData } from "../utils/thongKe";
 import TeacherStatsView from "../components/TeacherStatsView";
 import SchoolSummaryView from "../components/SchoolSummaryView";
@@ -28,7 +29,7 @@ import FileListCardBGH from "../components/FileListCardBGH";
 import CloseIcon from "@mui/icons-material/Close";
 
 import { useBGHStats } from "../contexts/BGHStatsContext";
-import { serverTimestamp } from "firebase/firestore";
+import BghRequestManageDialog from "../dialogs/BghRequestManageDialog";
 
 import {
   SchoolRounded,
@@ -91,6 +92,12 @@ const [teacherAllowedClasses, setTeacherAllowedClasses] = useState([]);
 const [allMonHoc, setAllMonHoc] = useState([]);
 const [lopMonHocMap, setLopMonHocMap] = useState({});
 const [filterCategory, setFilterCategory] = useState("gvcn");
+
+// 🚀 State quản lý Dialog nhập yêu cầu điều chỉnh của BGH
+  const [bghRequestOpen, setBghRequestOpen] = useState(false);
+  const [bghTargetFile, setBghTargetFile] = useState(null);
+  const [bghRequestText, setBghRequestText] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const [groupedTeachers, setGroupedTeachers] = useState({
     khoi1: [],
@@ -479,119 +486,67 @@ const [filterCategory, setFilterCategory] = useState("gvcn");
 
     try {
       const yearCol = `KEHOACH_DAYHOC_${academicYear}`;
+      const teacherId = selectedUsername.trim().toUpperCase();
 
-      const filesRef = collection(
-        db,
-        yearCol,
-        selectedUsername,
-        subject
-      );
+      const teacherRef = doc(db, yearCol, teacherId);
+      const teacherSnap = await getDoc(teacherRef);
+      const teacherData = teacherSnap.exists() ? teacherSnap.data() : {};
+      const notifications = teacherData.bghNotifications || [];
+
+      // Tạo một map tra cứu nhanh nội dung thông báo theo fileId
+      const notificationMap = {};
+      notifications.forEach((n) => {
+        notificationMap[n.fileId] = n;
+      });
+
+      const filesRef = collection(db, yearCol, teacherId, subject);
+      const snapshot = await getDocs(filesRef);
+      const files = [];
 
       const selectedClass = String(className).trim();
       const selectedGrade = selectedClass.split(".")[0];
-
-      const snapshot = await getDocs(filesRef);
-      const files = [];
 
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
         const docId = docSnap.id;
 
-        // Trường hợp mới: Khoi_5.8_...
-        const escapedClass = selectedClass.replace(
-          /[.*+?^${}()|[\]\\]/g,
-          "\\$&"
-        );
+        const notifItem = notificationMap[docId];
+        const hasNotification = Boolean(notifItem);
 
-        const exactClassPattern = new RegExp(
-          `^Khoi_${escapedClass}_`,
-          "i"
-        );
-
+        // Logic lọc lớp/khối cũ của thầy...
+        const escapedClass = selectedClass.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const exactClassPattern = new RegExp(`^Khoi_${escapedClass}_`, "i");
         const idMatchesExactClass = exactClassPattern.test(docId);
-
-        // Trường hợp cũ: Khoi_5_...
         const oldIdMatch = docId.match(/^Khoi_(\d+)_/i);
+        const idMatchesOldGrade = oldIdMatch !== null && oldIdMatch[1] === selectedGrade;
 
-        const idMatchesOldGrade =
-          oldIdMatch !== null &&
-          oldIdMatch[1] === selectedGrade;
-
-        // Dự phòng: lấy thông tin lớp từ dữ liệu tài liệu.
         const classValues = [
-          data.lop,
-          data.lopHoc,
-          data.maLop,
-          data.className,
-          data.class,
-          data.khoi,
-          data.grade,
+          data.lop, data.lopHoc, data.maLop, data.className, data.class, data.khoi, data.grade,
         ]
-          .filter((value) => value !== undefined && value !== null)
-          .map((value) =>
-            String(value)
-              .trim()
-              .replace(/^(khối|khoi|lớp|lop)\s*/i, "")
-              .replace(/^Khoi_/i, "")
-          );
+          .filter((v) => v !== undefined && v !== null)
+          .map((v) => String(v).trim().replace(/^(khối|khoi|lớp|lop)\s*/i, "").replace(/^Khoi_/i, ""));
 
-        const dataMatchesClass = classValues.some(
-          (value) => value === selectedClass
-        );
+        const dataMatchesClass = classValues.some((v) => v === selectedClass);
+        const dataMatchesGrade = classValues.some((v) => v === selectedGrade);
 
-        const dataMatchesGrade = classValues.some(
-          (value) => value === selectedGrade
-        );
-
-        const isMatch =
-          idMatchesExactClass ||
-          idMatchesOldGrade ||
-          dataMatchesClass ||
-          dataMatchesGrade;
-
-        if (isMatch) {
+        if (idMatchesExactClass || idMatchesOldGrade || dataMatchesClass || dataMatchesGrade) {
           files.push({
-            id: docSnap.id,
+            id: docId,
             ...data,
+            // Nếu giáo viên đã đọc (read: true) thì hiện chip "Đã điều chỉnh", chưa đọc hiện "BGH yêu cầu sửa"
+            bghRequest: hasNotification 
+              ? (notifItem.content || "Yêu cầu từ BGH") 
+              : undefined,
+            bghRequestRead: hasNotification ? notifItem.read : undefined,
           });
         }
       });
 
-      // Sắp xếp file mới nhất lên đầu.
-      const getTime = (value) => {
-        if (!value) return 0;
-
-        if (typeof value.toMillis === "function") {
-          return value.toMillis();
-        }
-
-        const time = new Date(value).getTime();
-        return Number.isNaN(time) ? 0 : time;
-      };
-
-      files.sort(
-        (a, b) => getTime(b.createdAt) - getTime(a.createdAt)
-      );
-
       setFileList(files);
-      setSelectedFile(null);
-
-      /*console.log("Danh sách file BGH:", {
-        teacher: selectedUsername,
-        subject,
-        selectedClass,
-        selectedGrade,
-        totalInCollection: snapshot.size,
-        matchedFiles: files.length,
-        files: files.map((file) => file.id),
-      });*/
-
-      // Truy vấn Firestore thành công, kể cả khi không có file phù hợp.
+      setSelectedFile(false);
       return true;
     } catch (err) {
-      console.error("Lỗi khi tải danh sách file:", err);
-      setFileList([]);
-      setSelectedFile(null);
+      console.error("Lỗi tải file:", err);
       return false;
     } finally {
       setLoadingFiles(false);
@@ -921,7 +876,112 @@ const [filterCategory, setFilterCategory] = useState("gvcn");
     setViewMode("single");
   };
 
+  // Hàm lưu nội dung yêu cầu điều chỉnh từ BGH
+  // Hàm lưu nội dung yêu cầu điều chỉnh từ BGH
+  const handleSaveBghRequest = async () => {
+    if (!bghTargetFile || !bghTargetFile.id) return;
 
+    try {
+      setSaving(true);
+      const yearCol = `KEHOACH_DAYHOC_${academicYear}`;
+      const targetSubject = bghTargetFile.metadata?.monHoc || bghTargetFile.subject || subject;
+      const rawTeacher = selectedUsername || bghTargetFile.giaoVien || "";
+      const teacherId = rawTeacher.trim().toUpperCase();
+
+      const fileId = bghTargetFile.id;
+
+      // 1. Đọc document gốc của giáo viên hiện tại để xử lý mảng bghNotifications
+      const teacherRef = doc(db, yearCol, teacherId);
+      const teacherSnap = await getDoc(teacherRef);
+      const teacherData = teacherSnap.exists() ? teacherSnap.data() : {};
+      let notifications = teacherData.bghNotifications || [];
+
+      // Kiểm tra xem file này đã có thông báo chưa
+      const existingIndex = notifications.findIndex((n) => n.fileId === fileId);
+      const newNotificationItem = {
+        fileId: fileId,
+        content: bghRequestText,
+        read: false, // Mặc định giáo viên chưa đọc/chưa xác nhận
+        createdAt: new Date(),
+      };
+
+      if (existingIndex >= 0) {
+        notifications[existingIndex] = newNotificationItem;
+      } else {
+        notifications.push(newNotificationItem);
+      }
+
+      // 2. Lưu mảng mới vào document giáo viên
+      await setDoc(
+        teacherRef,
+        {
+          bghNotifications: notifications,
+          statsChanged: true,
+          updatedAt: new Date(),
+        },
+        { merge: true }
+      );
+
+      // Cập nhật lại giao diện danh sách file ngay lập tức
+      setFileList((prev) =>
+        prev.map((f) => (f.id === fileId ? { ...f, bghRequest: bghRequestText } : f))
+      );
+
+      setBghRequestOpen(false);
+      setBghTargetFile(null);
+      setBghRequestText("");
+      console.log("✅ Đã lưu yêu cầu thành công!");
+    } catch (error) {
+      console.error("❌ Lỗi khi gửi yêu cầu:", error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteBghRequest = async () => {
+    if (!bghTargetFile) return;
+
+    try {
+      setSaving(true);
+      const yearCol = `KEHOACH_DAYHOC_${academicYear}`;
+      const teacherId = (selectedUsername || bghTargetFile.giaoVien || "").trim().toUpperCase();
+      const fileId = bghTargetFile.id;
+
+      // 1. Lọc bỏ thông báo ứng với fileId này ra khỏi mảng
+      const teacherRef = doc(db, yearCol, teacherId);
+      const teacherSnap = await getDoc(teacherRef);
+      if (teacherSnap.exists()) {
+        const data = teacherSnap.data();
+        let notifications = data.bghNotifications || [];
+        notifications = notifications.filter((n) => n.fileId !== fileId);
+
+        await setDoc(
+          teacherRef,
+          {
+            bghNotifications: notifications,
+            statsChanged: true,
+            updatedAt: new Date(),
+          },
+          { merge: true }
+        );
+      }
+
+      // 2. Cập nhật lại state fileList để ẩn chip đi
+      setFileList((prev) =>
+        prev.map((f) => (f.id === fileId ? { ...f, bghRequest: undefined } : f))
+      );
+
+      setBghRequestOpen(false);
+      setBghTargetFile(null);
+      setBghRequestText("");
+      console.log("✅ Đã xóa yêu cầu hoàn toàn!");
+    } catch (error) {
+      console.error("❌ Lỗi khi xóa:", error);
+    } finally {
+      setSaving(false);
+    }
+  };
+  
   return (
     <Box
       sx={{
@@ -1203,6 +1263,11 @@ const [filterCategory, setFilterCategory] = useState("gvcn");
             loadingFiles={loadingFiles}
             setViewMode={setViewMode}
             formatVNDate={formatVNDate}
+            onRequestAdjustment={(file) => {
+              setBghTargetFile(file);
+              setBghRequestText(file.bghRequest || ""); // Lấy lại nội dung cũ nếu có
+              setBghRequestOpen(true); // 👈 Bật Dialog mở form nhập
+            }}
           />
         </Box>
       )}
@@ -1328,6 +1393,21 @@ const [filterCategory, setFilterCategory] = useState("gvcn");
           )}
         </CardContent>
       </Card>
+
+      {/* DIALOG NHẬP YÊU CẦU ĐIỀU CHỈNH CỦA BGH */}
+      <BghRequestManageDialog
+        open={bghRequestOpen}
+        onClose={() => setBghRequestOpen(false)}
+        selectedUsername={selectedUsername}
+        subject={subject}
+        className={className}
+        bghRequestText={bghRequestText}
+        setBghRequestText={setBghRequestText}
+        hasExistingRequest={Boolean(bghTargetFile?.bghRequest)}
+        handleDeleteBghRequest={handleDeleteBghRequest}
+        handleSaveBghRequest={handleSaveBghRequest}
+      />
+
     </Box>
   );
 }

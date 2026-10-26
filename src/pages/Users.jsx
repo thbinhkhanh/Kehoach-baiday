@@ -10,6 +10,7 @@ import {
   doc,
   getDoc,
   setDoc,
+  arrayRemove,
 } from "firebase/firestore";
 import { uploadBatchKeHoachDayHoc } from "../utils/uploadService";
 import { deleteGoogleDriveFile } from "../utils/uploadService";
@@ -21,6 +22,8 @@ import { useLessonPlan } from "../contexts/LessonPlanContext";
 import CloseIcon from "@mui/icons-material/Close";
 import SaveIcon from "@mui/icons-material/Save";
 import LessonPlanEditor from "../components/LessonPlanEditor"; 
+import BghRequestDialog from "../dialogs/BghRequestDialog";
+import NotificationsRoundedIcon from "@mui/icons-material/NotificationsRounded";
 
 import {
   Box,
@@ -38,6 +41,7 @@ import {
   Dialog,
   DialogContent,
   IconButton,
+  Badge,
 } from "@mui/material";
 
 export default function Users({ user }) {
@@ -109,6 +113,163 @@ export default function Users({ user }) {
   // Thêm các state này vào trong component Users
   const [editFormOpen, setEditFormOpen] = useState(false);
   const [editingFile, setEditingFile] = useState(null);
+
+  const [bghRequestViewOpen, setBghRequestViewOpen] = useState(false);
+  const [bghRequestContent, setBghRequestContent] = useState("");
+  const [currentRequest, setCurrentRequest] = useState(null);
+
+  // 🔔 State lưu danh sách ID thông báo của BGH lấy từ document gốc
+  // 🔔 State lưu mảng object thông báo của BGH từ document gốc
+  const [bghNotifications, setBghNotifications] = useState([]);
+
+  // 🌟 Lấy mảng bghNotifications trực tiếp từ document gốc của giáo viên khi tải trang hoặc đổi năm học
+  useEffect(() => {
+    const fetchTeacherNotifications = async () => {
+      if (!teacherName || !academicYear) return;
+
+      try {
+        const yearCol = `KEHOACH_DAYHOC_${academicYear}`;
+        const teacherRef = doc(db, yearCol, teacherName);
+        const teacherSnap = await getDoc(teacherRef);
+
+        if (teacherSnap.exists()) {
+          const data = teacherSnap.data();
+          // Hỗ trợ tương thích ngược nếu dữ liệu cũ là mảng chuỗi ID hoặc mảng object mới
+          const rawNotifs = data.bghNotifications || [];
+          const formattedNotifs = rawNotifs.map((item) =>
+            typeof item === "string"
+              ? { fileId: item, content: "Yêu cầu từ BGH", read: false }
+              : item
+          );
+          setBghNotifications(formattedNotifs);
+        } else {
+          setBghNotifications([]);
+        }
+      } catch (err) {
+        console.error("❌ Lỗi tải thông báo:", err);
+      }
+    };
+
+    fetchTeacherNotifications();
+  }, [teacherName, academicYear]);
+
+  // 🔔 Tổng số lượng thông báo chưa đọc (dùng cho Badge trên quả chuông)
+  const unreadCount = bghNotifications.filter((n) => !n.read).length;
+
+  // 🌟 Hàm mở thông báo, hỗ trợ tìm file ở bất kỳ môn/lớp nào trên toàn hệ thống của giáo viên
+  // 🌟 Hàm mở thông báo, tự động quét và gom đủ thông tin Tên bài, Môn, Lớp
+  const handleOpenNotificationByFileId = async (fileId) => {
+    // 1. Tìm trong mảng bghNotifications xem có nội dung gì
+    const notif = bghNotifications.find((n) => n.fileId === fileId);
+    const contentText = notif ? notif.content : "BGH yêu cầu điều chỉnh kế hoạch bài dạy.";
+
+    // 2. Tìm file trong fileList hiện tại của màn hình
+    let foundFile = fileList.find((f) => f.id === fileId);
+
+    if (foundFile) {
+      setCurrentRequest({ 
+        ...foundFile, 
+        bghRequest: contentText,
+        // Gom dữ liệu chuẩn xác để hiển thị lên Dialog
+        tenBai: foundFile.tenBai || foundFile.metadata?.tenBai || foundFile.fileName || "Kế hoạch bài dạy",
+        subject: foundFile.subject || foundFile.metadata?.monHoc || subject,
+        khoi: foundFile.khoi || foundFile.metadata?.khoiLop || foundFile.lop || className
+      });
+      setBghRequestContent(contentText);
+      setBghRequestViewOpen(true);
+      return;
+    }
+
+    // 3. Nếu file nằm ở môn/lớp khác, quét tìm trong các môn phân công
+    const yearCol = `KEHOACH_DAYHOC_${academicYear}`;
+    for (const sub of assignedSubjectsList) {
+      try {
+        const docRef = doc(db, yearCol, teacherName, sub, fileId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          foundFile = { id: docSnap.id, subject: sub, ...docSnap.data() };
+          setCurrentRequest({ 
+            ...foundFile, 
+            bghRequest: contentText,
+            tenBai: foundFile.tenBai || foundFile.metadata?.tenBai || foundFile.fileName || "Kế hoạch bài dạy",
+            subject: foundFile.subject || foundFile.metadata?.monHoc || sub,
+            khoi: foundFile.khoi || foundFile.metadata?.khoiLop || foundFile.lop || "Chưa xác định"
+          });
+          setBghRequestContent(contentText);
+          setBghRequestViewOpen(true);
+          return;
+        }
+      } catch (e) {}
+    }
+
+    // 4. Fallback an toàn nếu không tìm thấy file vật lý
+    setCurrentRequest({ 
+      id: fileId, 
+      bghRequest: contentText,
+      tenBai: "Không tìm thấy file chi tiết",
+      subject: "Chưa xác định",
+      khoi: "Chưa xác định"
+    });
+    setBghRequestContent(contentText);
+    setBghRequestViewOpen(true);
+  };
+
+  // 🌟 Khi giáo viên bấm "Đã hiểu", chỉ chuyển read thành true để giữ lại chip trên giao diện
+  const handleCloseBghRequestView = async () => {
+    if (!currentRequest || !currentRequest.id) {
+      setBghRequestViewOpen(false);
+      return;
+    }
+
+    try {
+      const yearCol = `KEHOACH_DAYHOC_${academicYear}`;
+      const docId = currentRequest.id;
+
+      // 1. Cập nhật mảng bghNotifications trên Firestore: chuyển read thành true cho fileId này
+      const teacherRef = doc(db, yearCol, teacherName);
+      const teacherSnap = await getDoc(teacherRef);
+
+      if (teacherSnap.exists()) {
+        const data = teacherSnap.data();
+        let notifications = data.bghNotifications || [];
+
+        notifications = notifications.map((n) => {
+          const currentFileId = typeof n === "string" ? n : n.fileId;
+          const currentContent = typeof n === "string" ? "Yêu cầu từ BGH" : n.content;
+          
+          if (currentFileId === docId) {
+            return { fileId: currentFileId, content: currentContent, read: true };
+          }
+          return typeof n === "string" ? { fileId: n, content: "Yêu cầu từ BGH", read: false } : n;
+        });
+
+        await setDoc(
+          teacherRef,
+          {
+            bghNotifications: notifications,
+            statsChanged: true,
+            updatedAt: new Date(),
+          },
+          { merge: true }
+        );
+
+        // Cập nhật state local
+        setBghNotifications(notifications);
+      }
+
+      // Cập nhật giao diện fileList hiện tại
+      setFileList((prev) =>
+        prev.map((f) => (f.id === docId ? { ...f, bghRequestRead: true } : f))
+      );
+
+      setBghRequestViewOpen(false);
+      setCurrentRequest(null);
+      showMessage("✅ Đã xác nhận đã hiểu yêu cầu từ BGH!", "success");
+    } catch (error) {
+      console.error("❌ Lỗi khi xác nhận đã hiểu:", error);
+      setBghRequestViewOpen(false);
+    }
+  };
 
   // State quản lý Snackbar
   const [snackbar, setSnackbar] = useState({
@@ -358,10 +519,9 @@ export default function Users({ user }) {
       setSubject("");
     }
   }, [className, teacherRole, lopMonHocMap, allMonHoc]);
-
-  // ✅ Lấy danh sách file từ Firestore theo cấu trúc subcollection môn học
   
   // ✅ Lấy danh sách file từ Firestore và reset cờ statsChanged về false sau khi tải xong
+  // ✅ Lấy danh sách file từ Firestore và map trạng thái chip từ bghNotifications
   const fetchFileList = async () => {
     if (!teacherName || !className || !subject || !academicYear) {
       setFileList([]);
@@ -369,25 +529,31 @@ export default function Users({ user }) {
     }
 
     const fileKey = `${academicYear}_${teacherName}_${subject}_${className}`;
-    const cachedFiles = getFileList(fileKey);
 
     try {
       const yearCol = `KEHOACH_DAYHOC_${academicYear}`;
 
-      // 1. Kiểm tra cờ statsChanged trên Firestore của giáo viên
+      // 1. Lấy thông tin từ document gốc của giáo viên
       const teacherRef = doc(db, yearCol, teacherName);
       const teacherSnap = await getDoc(teacherRef);
       const teacherData = teacherSnap.exists() ? teacherSnap.data() : {};
       
       const statsChangedFlag = teacherData.statsChanged === true;
+      const notifications = teacherData.bghNotifications || [];
 
-      // 2. Nếu cờ KHÔNG phải là true và trong Context đã có dữ liệu -> Dùng luôn Context (siêu tốc)
-      if (!statsChangedFlag && cachedFiles.length > 0) {
-        setFileList(cachedFiles);
-        return; 
-      }
+      // Tạo map tra cứu nhanh thông tin theo fileId để gắn chip
+      const notificationMap = {};
+      notifications.forEach((item) => {
+        const fId = typeof item === "string" ? item : item.fileId;
+        const fContent = typeof item === "string" ? "Yêu cầu từ BGH" : (item.content || "Yêu cầu từ BGH");
+        const fRead = typeof item === "string" ? false : Boolean(item.read);
 
-      // 3. Ngược lại (nếu statsChanged === true hoặc cache trống) -> Tải mới từ Firestore
+        if (fId) {
+          notificationMap[fId] = { content: fContent, read: fRead };
+        }
+      });
+
+      // 2. Tải danh sách file từ sub-collection môn học
       const filesRef = collection(
         db,
         yearCol,
@@ -420,9 +586,14 @@ export default function Users({ user }) {
           khoiValue === String(className);
 
         if (matchesClass) {
+          const notifInfo = notificationMap[docId];
+          const hasNotification = Boolean(notifInfo);
+
           files.push({
-            id: docSnap.id,
+            id: docId,
             ...data,
+            bghRequest: hasNotification ? notifInfo.content : undefined,
+            bghRequestRead: hasNotification ? notifInfo.read : undefined,
           });
         }
       });
@@ -441,17 +612,17 @@ export default function Users({ user }) {
 
       setFileList(files);
 
-      // Cập nhật lại danh sách file vào Context
+      // Cập nhật lại danh sách file mới nhất vào Context/Cache
       updateFileList(fileKey, files);
 
-      // 👉 4. SAU KHI TẢI XONG THÀNH CÔNG, ĐẶT CỜ VỀ FALSE TRÊN FIRESTORE
+      // 👉 3. SAU KHI TẢI XONG THÀNH CÔNG, ĐẶT CỜ VỀ FALSE TRÊN FIRESTORE
       if (statsChangedFlag) {
         await setDoc(teacherRef, { statsChanged: false }, { merge: true });
       }
 
     } catch (err) {
       console.error("Lỗi khi tải danh sách file:", err);
-      // Fallback: nếu lỗi mạng mà có cache thì vẫn hiện cache
+      const cachedFiles = getFileList(fileKey);
       if (cachedFiles.length > 0) {
         setFileList(cachedFiles);
       } else {
@@ -881,16 +1052,54 @@ export default function Users({ user }) {
 
   useEffect(() => {
     fetchFileList();
-  }, [teacherName, subject, className]);
+  }, [teacherName, subject, className, bghNotifications]);
 
-  const formatVNDate = (timestamp) => {
+  /*const formatVNDate = (timestamp) => {
     if (!timestamp) return "";
     const date = timestamp?.toDate ? timestamp.toDate() : new Date(timestamp);
     const optionsDate = { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Ho_Chi_Minh" };
     const optionsTime = { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: "Asia/Ho_Chi_Minh" };
     return `${date.toLocaleDateString("vi-VN", optionsDate)}, ${date.toLocaleTimeString("vi-VN", optionsTime)}`;
-  };
+  };*/
+  const formatVNDate = (timestamp) => {
+    if (!timestamp) return "";
 
+    let date;
+
+    // Kiểm tra các định dạng thời gian khác nhau để chuyển đổi an toàn cho giao diện
+    if (timestamp && typeof timestamp.toDate === "function") {
+      // 1. Định dạng chuẩn Firestore Timestamp
+      date = timestamp.toDate();
+    } else if (timestamp && typeof timestamp.seconds === "number") {
+      // 2. Định dạng object chứa seconds (nếu qua cache/state)
+      date = new Date(timestamp.seconds * 1000);
+    } else {
+      // 3. Các định dạng chuỗi hoặc số thông thường
+      date = new Date(timestamp);
+    }
+
+    // Nếu không thể chuyển đổi thành ngày hợp lệ thì trả về chuỗi trống
+    if (isNaN(date.getTime())) {
+      return "";
+    }
+
+    const optionsDate = {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      timeZone: "Asia/Ho_Chi_Minh",
+    };
+    const optionsTime = {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+      timeZone: "Asia/Ho_Chi_Minh",
+    };
+
+    return `${date.toLocaleDateString("vi-VN", optionsDate)}, ${date.toLocaleTimeString("vi-VN", optionsTime)}`;
+  };
+  
   return (
     <Box
       sx={{
@@ -916,9 +1125,30 @@ export default function Users({ user }) {
       >
         <Card sx={{ width: "100%", flexShrink: 0 }}>
           <CardContent sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <Typography variant="h5" gutterBottom color="primary">
-              📚 Kế hoạch bài dạy
-            </Typography>
+            
+            {/* 🌟 Hàng tiêu đề và quả chuông căn sát phải */}
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <Typography variant="h5" color="primary" sx={{ m: 0, fontWeight: 700 }}>
+                📚 Kế hoạch bài dạy
+              </Typography>
+
+              <IconButton 
+                onClick={async () => {
+                  const unreadList = bghNotifications.filter((n) => !n.read);
+                  const targetNotif = unreadList.length > 0 ? unreadList[0] : bghNotifications[0];
+
+                  if (targetNotif) {
+                    await handleOpenNotificationByFileId(targetNotif.fileId);
+                  } else {
+                    showMessage("📭 Không có thông báo nào từ BGH.", "info");
+                  }
+                }}
+              >
+                <Badge badgeContent={unreadCount} color="error" max={99}>
+                  <NotificationsRoundedIcon />
+                </Badge>
+              </IconButton>
+            </Box>
 
             <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap" }}>
               <FormControl size="small" sx={{ flex: 1 }}>
@@ -1045,8 +1275,20 @@ export default function Users({ user }) {
           setFileList={setFileList}
           formatVNDate={formatVNDate}
           onEditFile={(file) => {
-            setEditingFile(file);     // Lưu thông tin file đang sửa
-            setEditFormOpen(true);    // Mở Dialog chứa LessonPlanEditor
+            setEditingFile(file);
+            setEditFormOpen(true);
+          }}
+          onOpenBghRequest={(file) => {
+            // 🌟 1. Cần set currentRequest để Dialog nhận được Tên bài, Môn, Lớp của đúng file này
+            setCurrentRequest({
+              ...file,
+              tenBai: file.tenBai || file.metadata?.tenBai || file.fileName || file.name || "Kế hoạch bài dạy",
+              subject: file.subject || file.metadata?.monHoc || subject || "Chưa xác định",
+              khoi: file.khoi || file.metadata?.khoiLop || file.lop || className || "Chưa xác định"
+            });
+            // 🌟 2. Set nội dung yêu cầu và mở Dialog
+            setBghRequestContent(file.bghRequest || "Không có nội dung chi tiết.");
+            setBghRequestViewOpen(true);
           }}
         />
       </Box>
@@ -1143,9 +1385,11 @@ export default function Users({ user }) {
               try {
                 console.log("🔥 Đã xử lý dữ liệu KHBD:", updatedPayload);
 
-                // Cập nhật ngay lập tức vào state fileList ngoài trang chính
-                setFileList((prevList) =>
-                  prevList.map((f) => {
+                let updatedList = [];
+
+                // 1. Cập nhật ngay lập tức vào state fileList ngoài trang chính
+                setFileList((prevList) => {
+                  updatedList = prevList.map((f) => {
                     const fId = f.id || f.fileId;
                     const targetId = editingFile.id || editingFile.fileId;
                     
@@ -1163,16 +1407,20 @@ export default function Users({ user }) {
                       }
                     }
                     return f;
-                  })
-                );
+                  });
+                  return updatedList;
+                });
+
+                // 🔥 2. ĐỒNG BỘ VÀO CONTEXT / LOCALSTORAGE ĐỂ GIỮ CHIP KHI ĐỔI MÔN, ĐỔI LỚP
+                const fileKey = `${academicYear}_${teacherName}_${subject}_${className}`;
+                updateFileList(fileKey, updatedList);
 
                 setEditFormOpen(false); // Đóng form soạn thảo lại
-
-                // Nếu Thầy muốn chắc chắn, có thể gọi lại hàm tải dữ liệu ngầm từ Firestore:
-                // fetchFileList(); 
+                showMessage("💾 Lưu nội dung điều chỉnh thành công!", "success");
 
               } catch (error) {
                 console.error("Lỗi khi cập nhật danh sách:", error);
+                showMessage("❌ Không thể cập nhật trạng thái hiển thị.", "error");
               }
             }}
           />
@@ -1237,6 +1485,15 @@ export default function Users({ user }) {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {/* 2. Gắn hàm xử lý vào sự kiện onClose của Dialog */}
+      <BghRequestDialog
+        open={bghRequestViewOpen}
+        onClose={handleCloseBghRequestView}
+        content={bghRequestContent}
+        fileInfo={currentRequest} // 👈 Truyền object currentRequest vào đây
+      />
+
     </Box>
   );
 }

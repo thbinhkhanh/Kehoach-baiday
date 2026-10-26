@@ -11,7 +11,8 @@ import {
   Tooltip,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle"; // Icon phụ đánh dấu đã điều chỉnh
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import AssignmentLateIcon from "@mui/icons-material/AssignmentLate"; // 👈 Icon thông báo yêu cầu từ BGH
 
 export default function FileListCard({
   fileList,
@@ -20,6 +21,7 @@ export default function FileListCard({
   setFileList,
   formatVNDate,
   onEditFile,
+  onOpenBghRequest, // 👈 Hàm callback mở dialog xem nội dung yêu cầu của BGH (nếu có)
 }) {
   const listRef = useRef(null);
   const [hasScrollbar, setHasScrollbar] = useState(false);
@@ -73,20 +75,23 @@ export default function FileListCard({
             const rawName = file.fileName || file.name || file.tieuDe || "";
             const displayName = rawName.replace(/\.[^/.]+$/, "");
 
-            // 🔥 Kiểm tra xem file này đã có dữ liệu điều chỉnh hay chưa
+            // Kiểm tra xem file đã từng lưu điều chỉnh chưa
             const hasAdjustmentsData = Boolean(
-              file.adjustments ||
-              (file.outcomes && (file.outcomes.kienThuc || file.outcomes.nangLuc || file.outcomes.phamChat)) ||
-              (file.equipment && (file.equipment.giaoVien || file.equipment.hocSinh)) ||
-              (Array.isArray(file.activities) && file.activities.length > 0)
+              file.activities !== undefined ||
+              file.outcomes !== undefined ||
+              file.equipment !== undefined ||
+              file.adjustments !== undefined ||
+              file.hasAdjustments === true
             );
+
+            // 🔥 Kiểm tra xem BGH có gửi yêu cầu chỉnh sửa hay không
+            const hasBghRequest = Boolean(file.bghRequest);
 
             return (
               <ListItem
                 key={file.id || index}
                 sx={{
                   mb: 1,
-                  // Nếu đã chỉnh sửa, viền item sẽ có màu xanh nổi bật thay vì xám nhạt #ddd
                   border: hasAdjustmentsData ? "1.5px solid #1976d2" : "1px solid #ddd",
                   borderRadius: 1,
                   display: "flex",
@@ -117,9 +122,10 @@ export default function FileListCard({
                 >
                   <ListItemText
                     primary={
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
                         <span>{displayName}</span>
-                        {/* Hiển thị huy hiệu nhỏ hoặc dấu hiệu nhận biết ngay cạnh tên file */}
+                        
+                        {/* Chip Đã điều chỉnh */}
                         {hasAdjustmentsData && (
                           <Tooltip title="Bài đã có nội dung điều chỉnh">
                             <Box
@@ -139,6 +145,48 @@ export default function FileListCard({
                               }}
                             >
                               <CheckCircleIcon sx={{ fontSize: 13 }} /> Đã điều chỉnh
+                            </Box>
+                          </Tooltip>
+                        )}
+
+                        {/* 🚀 Chip BGH yêu cầu sửa / Đã hiểu */}
+                        {hasBghRequest && (
+                          <Tooltip title={file.bghRequestRead ? "BGH đã yêu cầu (Bạn đã xác nhận đã hiểu)" : "Bấm để xem nội dung yêu cầu điều chỉnh từ BGH"}>
+                            <Box
+                              component="span"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (onOpenBghRequest) {
+                                  onOpenBghRequest(file);
+                                }
+                              }}
+                              sx={{
+                                fontSize: "11px",
+                                // Đổi màu nền và màu chữ nhẹ nhàng hơn nếu đã đọc (read: true)
+                                bgcolor: file.bghRequestRead ? "#f1f5f9" : "#fff3e0",
+                                color: file.bghRequestRead ? "#475569" : "#e65100",
+                                px: 1,
+                                py: 0.2,
+                                borderRadius: "4px",
+                                fontWeight: 600,
+                                border: file.bghRequestRead ? "1px solid #cbd5e1" : "1px solid #ffe0b2",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 0.5,
+                                cursor: "pointer",
+                                "&:hover": { bgcolor: file.bghRequestRead ? "#e2e8f0" : "#ffe0b2" }
+                              }}
+                            >
+                              {/* Hiển thị icon tick xanh nếu đã đọc, hoặc icon thông báo nếu chưa đọc */}
+                              {file.bghRequestRead ? (
+                                <>
+                                  <CheckCircleIcon sx={{ fontSize: 13, color: "#16a34a" }} /> BGH yêu cầu sửa (đã xem)
+                                </>
+                              ) : (
+                                <>
+                                  <AssignmentLateIcon sx={{ fontSize: 13 }} /> BGH yêu cầu sửa
+                                </>
+                              )}
                             </Box>
                           </Tooltip>
                         )}
@@ -166,7 +214,6 @@ export default function FileListCard({
                       size="small"
                       color={hasAdjustmentsData ? "primary" : "default"}
                       sx={{
-                        // Nếu đã chỉnh sửa, nút bút chì sẽ có nền xanh nhẹ để dễ nhận diện
                         bgcolor: hasAdjustmentsData ? "rgba(25,118,210,0.1)" : "transparent",
                         "&:hover": { bgcolor: "rgba(25,118,210,0.2)" },
                       }}
