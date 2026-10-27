@@ -4,6 +4,8 @@ import {
   Card,
   Typography,
   CircularProgress,
+  useTheme,
+  useMediaQuery,
 } from "@mui/material";
 
 export default function TeacherStatsView({
@@ -14,6 +16,33 @@ export default function TeacherStatsView({
   loadingStats,
   academicYear,
 }) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
+  // Hàm hiển thị tên môn học: Chỉ rút gọn trên điện thoại, máy tính giữ nguyên
+  const getDisplaySubjectName = (name) => {
+    if (!name) return "";
+    const trimmed = name.trim();
+    
+    // Nếu không phải mobile (tức là máy tính/tablet lớn), giữ nguyên tên gốc
+    if (!isMobile) return trimmed;
+
+    const lower = trimmed.toLowerCase();
+    if (lower.includes("hoạt động trải nghiệm") || lower.includes("hoạt dộng trải nghiệm")) {
+      return "HĐTN";
+    }
+    if (lower.includes("tự nhiên và xã hội")) {
+      return "TN-XN";
+    }
+    if (lower.includes("giáo dục thể chất")) {
+      return "GDTC";
+    }
+    if (lower.includes("lịch sử") || lower.includes("địa lí") || lower.includes("địa lý")) {
+      return "LS-ĐL";
+    }
+    return trimmed;
+  };
+
   // Lọc chỉ lấy các lớp hợp lệ (loại bỏ chữ "username" nếu có)
   const allowedClassesFiltered = (teacherAllowedClasses || []).filter(
     (c) => !String(c).toLowerCase().includes("username")
@@ -55,7 +84,7 @@ export default function TeacherStatsView({
         sx={{
           p: 2,
           mb: 2,
-          background: "linear-gradient(135deg, #f0f7ff 0%, #e1effe 100%)", // Nền xanh nhạt chuẩn từ dialog mẫu
+          background: "linear-gradient(135deg, #f0f7ff 0%, #e1effe 100%)",
           color: "#1e293b",
           borderRadius: 2.5,
           border: "1px solid #cbd5e1",
@@ -74,30 +103,31 @@ export default function TeacherStatsView({
             <Box component="span" sx={{ color: "#1976d2", fontWeight: 700 }}>{selectedUsername || "Chưa chọn giáo viên"}</Box>
           </Typography>
 
-          <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
+          {/* Cụm 3 thẻ thống kê trên cùng một dòng trên điện thoại */}
+          <Box sx={{ display: "flex", gap: 0.8, flexWrap: "nowrap", width: { xs: "100%", sm: "auto" } }}>
             {/* Thẻ Tổng */}
-            <Box sx={{ display: "flex", alignItems: "center", gap: 0.8, px: 1.5, py: 0.6, borderRadius: 2, bgcolor: "rgba(255, 255, 255, 0.8)", border: "1px solid #cbd5e1" }}>
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5, px: 1, py: 0.6, borderRadius: 2, bgcolor: "rgba(255, 255, 255, 0.8)", border: "1px solid #cbd5e1", flex: 1, minWidth: 0 }}>
               <span>📦</span>
-              <Typography variant="body2" sx={{ color: "#475569" }}>Tổng:</Typography>
-              <Typography variant="body1" fontWeight="bold" sx={{ color: "#1976d2" }}>
+              <Typography variant="body2" sx={{ color: "#475569", fontSize: { xs: "0.75rem", sm: "0.875rem" }, whiteSpace: "nowrap" }}>Tổng:</Typography>
+              <Typography variant="body1" fontWeight="bold" sx={{ color: "#1976d2", fontSize: { xs: "0.85rem", sm: "1rem" }, whiteSpace: "nowrap" }}>
                 {grandTotal}
               </Typography>
             </Box>
 
             {/* Thẻ Môn */}
-            <Box sx={{ display: "flex", alignItems: "center", gap: 0.8, px: 1.5, py: 0.6, borderRadius: 2, bgcolor: "rgba(255, 255, 255, 0.8)", border: "1px solid #cbd5e1" }}>
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5, px: 1, py: 0.6, borderRadius: 2, bgcolor: "rgba(255, 255, 255, 0.8)", border: "1px solid #cbd5e1", flex: 1, minWidth: 0 }}>
               <span>📚</span>
-              <Typography variant="body2" sx={{ color: "#475569" }}>Môn:</Typography>
-              <Typography variant="body1" fontWeight="bold" sx={{ color: "#4f46e5" }}>
+              <Typography variant="body2" sx={{ color: "#475569", fontSize: { xs: "0.75rem", sm: "0.875rem" }, whiteSpace: "nowrap" }}>Môn:</Typography>
+              <Typography variant="body1" fontWeight="bold" sx={{ color: "#4f46e5", fontSize: { xs: "0.85rem", sm: "1rem" }, whiteSpace: "nowrap" }}>
                 {filteredStatsData.length}
               </Typography>
             </Box>
 
             {/* Thẻ Lớp */}
-            <Box sx={{ display: "flex", alignItems: "center", gap: 0.8, px: 1.5, py: 0.6, borderRadius: 2, bgcolor: "rgba(255, 255, 255, 0.8)", border: "1px solid #cbd5e1" }}>
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5, px: 1, py: 0.6, borderRadius: 2, bgcolor: "rgba(255, 255, 255, 0.8)", border: "1px solid #cbd5e1", flex: 1, minWidth: 0, overflow: "hidden" }}>
               <span>🏫</span>
-              <Typography variant="body2" sx={{ color: "#475569" }}>Lớp:</Typography>
-              <Typography variant="body1" fontWeight="bold" sx={{ color: "#16a34a" }}>
+              <Typography variant="body2" sx={{ color: "#475569", fontSize: { xs: "0.75rem", sm: "0.875rem" }, whiteSpace: "nowrap" }}>Lớp:</Typography>
+              <Typography variant="body1" fontWeight="bold" sx={{ color: "#16a34a", fontSize: { xs: "0.85rem", sm: "1rem" }, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {dynamicColumns.join(", ") || "Không có"}
               </Typography>
             </Box>
@@ -132,8 +162,7 @@ export default function TeacherStatsView({
                         color: "#475569", 
                         fontWeight: 700, 
                         fontSize: "0.95rem",
-                        minWidth: { xs: "140px", sm: "180px" },
-                        whiteSpace: "nowrap"
+                        whiteSpace: "nowrap" // Co lại vừa khít nội dung chữ
                       }}
                     >
                       Môn học
@@ -173,7 +202,7 @@ export default function TeacherStatsView({
                           "&:hover": { bgcolor: "#f8fafc" } 
                         }}
                       >
-                        {/* Cột Tên môn học */}
+                        {/* Cột Tên môn học: Tự động co giãn theo nội dung ngắn gọn */}
                         <Box 
                           component="td" 
                           sx={{ 
@@ -182,12 +211,10 @@ export default function TeacherStatsView({
                             fontWeight: "700", 
                             color: "#1e293b", 
                             fontSize: "0.95rem",
-                            maxWidth: "280px",
-                            whiteSpace: "normal",
-                            wordBreak: "break-word"
+                            whiteSpace: "nowrap" // Tránh ngắt dòng để cột tự động ôm sát chữ
                           }}
                         >
-                          📖 {row.subject}
+                          📖 {getDisplaySubjectName(row.subject)}
                         </Box>
 
                         {/* Các cột Lớp động */}

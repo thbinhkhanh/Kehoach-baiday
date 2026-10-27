@@ -58,11 +58,9 @@ export default function SchoolSummaryView({
   const activeGroupedData = getFilteredGroups();
 
   // 2. TỰ ĐỘNG LỌC CỘT MÔN HỌC ĐỘNG:
-  // Chỉ lấy những môn mà giáo viên trong nhóm HIỆN TẠI ĐANG ĐƯỢC PHÂN CÔNG hoặc CÓ BÀI NỘP > 0
   const activeSubjectNames = filteredSubjectNames.filter((sub) => {
     return Object.values(activeGroupedData).some((groupData) => {
       return groupData.rows?.some((row) => {
-        // Kiểm tra xem môn này có nằm trong môn phân công của GV hoặc có bài nộp > 0 không
         const isAssigned = row.assignedSubjects?.some(
           (as) => as.toLowerCase().trim() === sub.toLowerCase().trim()
         );
@@ -74,37 +72,52 @@ export default function SchoolSummaryView({
 
   return (
     <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      {/* THANH TIÊU ĐỀ */}
-      <Box sx={{ display: { xs: "none", sm: "flex" }, py: 1.2, px: 2, bgcolor: "#ffffff", justifyContent: "space-between", alignItems: "center", flexShrink: 0, borderBottom: "1px solid #e2e8f0" }}>
-        <Typography variant="subtitle1" fontWeight="bold" sx={{ color: "#1e293b", fontSize: "1rem" }}>
+      {/* THANH TIÊU ĐỀ - HIỂN THỊ TRÊN CẢ MOBILE VÀ DESKTOP */}
+      <Box 
+        sx={{ 
+          display: "flex", 
+          flexDirection: { xs: "column", sm: "row" }, 
+          py: 1.2, 
+          px: 2, 
+          bgcolor: "#ffffff", 
+          justifyContent: "space-between", 
+          alignItems: { xs: "stretch", sm: "center" }, 
+          gap: { xs: 1, sm: 2 },
+          flexShrink: 0, 
+          borderBottom: "1px solid #e2e8f0" 
+        }}
+      >
+        <Typography variant="subtitle1" fontWeight="bold" sx={{ color: "#1e293b", fontSize: { xs: "0.9rem", sm: "1rem" } }}>
           📊 BẢNG TỔNG HỢP TOÀN TRƯỜNG ({academicYear})
         </Typography>
 
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1, flexWrap: "wrap" }}>
           <Tabs
             value={summaryTab}
             onChange={(e, val) => setSummaryTab(val)}
             textColor="primary"
             indicatorColor="primary"
-            sx={{ minHeight: 36 }}
+            variant="scrollable"
+            scrollButtons="auto"
+            sx={{ minHeight: 36, flex: { xs: 1, sm: "unset" } }}
           >
-            <Tab label="🏫 GV CHỦ NHIỆM" value="gvcn" sx={{ minHeight: 36, fontSize: "0.85rem", fontWeight: "bold" }} />
-            <Tab label="🎨 GV BỘ MÔN - TA" value="chuyenbiet" sx={{ minHeight: 36, fontSize: "0.85rem", fontWeight: "bold" }} />
+            <Tab label="🏫 GV CHỦ NHIỆM" value="gvcn" sx={{ minHeight: 36, fontSize: { xs: "0.75rem", sm: "0.85rem" }, fontWeight: "bold", px: { xs: 1, sm: 2 } }} />
+            <Tab label="🎨 BỘ MÔN - TA" value="chuyenbiet" sx={{ minHeight: 36, fontSize: { xs: "0.75rem", sm: "0.85rem" }, fontWeight: "bold", px: { xs: 1, sm: 2 } }} />
           </Tabs>
 
           <Button 
             size="small" 
             variant="outlined" 
             onClick={() => setIsFullScreen && setIsFullScreen(!isFullScreen)} 
-            sx={{ borderColor: "#cbd5e1", color: "#475569", fontWeight: "bold" }}
+            sx={{ borderColor: "#cbd5e1", color: "#475569", fontWeight: "bold", fontSize: { xs: "0.75rem", sm: "0.8125rem" }, height: 32 }}
           >
-            {isFullScreen ? "🗗 Thu nhỏ" : "⛶ Toàn màn hình"}
+            {isFullScreen ? "🗗 Thu nhỏ" : "⛶ Phóng to"}
           </Button>
         </Box>
       </Box>
 
       {/* NỘI DUNG BẢNG */}
-      <Box sx={{ flex: 1, p: 2, overflow: "auto", bgcolor: "#fafafa" }}>
+      <Box sx={{ flex: 1, p: { xs: 1, sm: 2 }, overflow: "auto", bgcolor: "#fafafa" }}>
         {loadingSchoolSummary ? (
           <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "200px" }}>
             <CircularProgress />
@@ -137,10 +150,9 @@ export default function SchoolSummaryView({
               <Table stickyHeader size="small">
                 <TableHead>
                   <TableRow sx={{ bgcolor: "#1e293b" }}>
-                    <TableCell align="center" sx={{ fontWeight: "bold", bgcolor: "#1e293b", color: "white", minWidth: 50, fontSize: "0.85rem" }}>STT</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: "bold", bgcolor: "#1e293b", color: "white", minWidth: 230, fontSize: "0.85rem" }}>Họ và tên</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: "bold", bgcolor: "#1e293b", color: "white", minWidth: 45, fontSize: "0.85rem" }}>STT</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: "bold", bgcolor: "#1e293b", color: "white", minWidth: 200, fontSize: "0.85rem" }}>Họ và tên</TableCell>
 
-                    {/* Hiển thị chính xác danh sách môn mà nhóm này thực tế giảng dạy */}
                     {activeSubjectNames.map((sub) => (
                       <TableCell 
                         key={sub} 
@@ -159,7 +171,7 @@ export default function SchoolSummaryView({
                       </TableCell>
                     ))}
 
-                    <TableCell align="center" sx={{ fontWeight: "bold", bgcolor: "#0f172a", color: "#38bdf8", minWidth: 80, fontSize: "0.85rem", borderLeft: "1px solid #334155" }}>
+                    <TableCell align="center" sx={{ fontWeight: "bold", bgcolor: "#0f172a", color: "#38bdf8", minWidth: 70, fontSize: "0.85rem", borderLeft: "1px solid #334155" }}>
                       Tổng số
                     </TableCell>
                   </TableRow>
