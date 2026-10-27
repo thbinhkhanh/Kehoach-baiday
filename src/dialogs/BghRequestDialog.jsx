@@ -81,7 +81,7 @@ export default function BghRequestDialog({ open, onClose, content, fileInfo }) {
         </Box>
 
         <Typography sx={{ fontSize: 18, fontWeight: 700, color: "#1e293b", mb: 0.3 }}>
-          ⚠️ Yêu cầu điều chỉnh từ Ban Giám Hiệu
+          ⚠️ Yêu cầu điều chỉnh từ BGH
         </Typography>
         <Typography sx={{ fontSize: 12.5, color: "#64748b" }}>
           Nội dung chi tiết yêu cầu điều chỉnh bài dạy dành cho bạn.

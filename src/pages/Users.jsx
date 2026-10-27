@@ -181,7 +181,7 @@ export default function Users({ user }) {
   const handleCloseBghRequestView = async () => {
     // 1. Đóng Dialog và hiện Snackbar NGAY LẬP TỨC (Phản hồi siêu mượt)
     setBghRequestViewOpen(false);
-    showMessage("✅ Đã xác nhận đã hiểu yêu cầu từ BGH!", "success");
+    showMessage("✅ Xác nhận đã hiểu yêu cầu từ BGH!", "success");
 
     const reqToSave = currentRequest;
     setCurrentRequest(null);
