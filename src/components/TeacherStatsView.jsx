@@ -53,47 +53,51 @@ export default function TeacherStatsView({
       {/* Banner Tiêu đề & Thẻ chỉ số thu gọn */}
       <Card
         sx={{
-          p: 1.5,
+          p: 2,
           mb: 2,
-          background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
-          color: "white",
-          borderRadius: 2,
-          boxShadow: "0 4px 12px rgba(15, 23, 42, 0.15)",
+          background: "linear-gradient(135deg, #f0f7ff 0%, #e1effe 100%)", // Nền xanh nhạt chuẩn từ dialog mẫu
+          color: "#1e293b",
+          borderRadius: 2.5,
+          border: "1px solid #cbd5e1",
+          boxShadow: "0 4px 12px rgba(15, 23, 42, 0.05)",
         }}
       >
         <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1.5 }}>
           <Typography 
             variant="subtitle1" 
             fontWeight="bold" 
-            sx={{ display: "flex", alignItems: "center", gap: 1, fontSize: "1rem", m: 0 }}
+            sx={{ display: "flex", alignItems: "center", gap: 1, fontSize: "1rem", m: 0, color: "#1e293b" }}
           >
             <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
               👤 Tổng hợp cá nhân:
             </Box>
-            <Box component="span" sx={{ color: "#38bdf8" }}>{selectedUsername || "Chưa chọn giáo viên"}</Box>
+            <Box component="span" sx={{ color: "#1976d2", fontWeight: 700 }}>{selectedUsername || "Chưa chọn giáo viên"}</Box>
           </Typography>
 
           <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 0.8, px: 1.5, py: 0.5, borderRadius: 1.5, bgcolor: "rgba(255, 255, 255, 0.06)", border: "1px solid rgba(255, 255, 255, 0.1)" }}>
+            {/* Thẻ Tổng */}
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.8, px: 1.5, py: 0.6, borderRadius: 2, bgcolor: "rgba(255, 255, 255, 0.8)", border: "1px solid #cbd5e1" }}>
               <span>📦</span>
-              <Typography variant="body2" sx={{ color: "#94a3b8" }}>Tổng:</Typography>
-              <Typography variant="body1" fontWeight="bold" sx={{ color: "#38bdf8" }}>
+              <Typography variant="body2" sx={{ color: "#475569" }}>Tổng:</Typography>
+              <Typography variant="body1" fontWeight="bold" sx={{ color: "#1976d2" }}>
                 {grandTotal}
               </Typography>
             </Box>
 
-            <Box sx={{ display: "flex", alignItems: "center", gap: 0.8, px: 1.5, py: 0.5, borderRadius: 1.5, bgcolor: "rgba(255, 255, 255, 0.06)", border: "1px solid rgba(255, 255, 255, 0.1)" }}>
+            {/* Thẻ Môn */}
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.8, px: 1.5, py: 0.6, borderRadius: 2, bgcolor: "rgba(255, 255, 255, 0.8)", border: "1px solid #cbd5e1" }}>
               <span>📚</span>
-              <Typography variant="body2" sx={{ color: "#94a3b8" }}>Môn:</Typography>
-              <Typography variant="body1" fontWeight="bold" sx={{ color: "#818cf8" }}>
+              <Typography variant="body2" sx={{ color: "#475569" }}>Môn:</Typography>
+              <Typography variant="body1" fontWeight="bold" sx={{ color: "#4f46e5" }}>
                 {filteredStatsData.length}
               </Typography>
             </Box>
 
-            <Box sx={{ display: "flex", alignItems: "center", gap: 0.8, px: 1.5, py: 0.5, borderRadius: 1.5, bgcolor: "rgba(255, 255, 255, 0.06)", border: "1px solid rgba(255, 255, 255, 0.1)" }}>
+            {/* Thẻ Lớp */}
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.8, px: 1.5, py: 0.6, borderRadius: 2, bgcolor: "rgba(255, 255, 255, 0.8)", border: "1px solid #cbd5e1" }}>
               <span>🏫</span>
-              <Typography variant="body2" sx={{ color: "#94a3b8" }}>Lớp:</Typography>
-              <Typography variant="body1" fontWeight="bold" sx={{ color: "#4ade80" }}>
+              <Typography variant="body2" sx={{ color: "#475569" }}>Lớp:</Typography>
+              <Typography variant="body1" fontWeight="bold" sx={{ color: "#16a34a" }}>
                 {dynamicColumns.join(", ") || "Không có"}
               </Typography>
             </Box>
