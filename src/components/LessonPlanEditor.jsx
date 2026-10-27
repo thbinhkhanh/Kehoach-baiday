@@ -15,6 +15,10 @@ import {
   Tooltip,
   Alert,
   Snackbar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from "@mui/material";
 
 import { doc, getDoc, setDoc, updateDoc, deleteField } from "firebase/firestore";
@@ -65,13 +69,11 @@ const SUBJECT_TEMPLATES = {
   ],
 };
 
-// Hàm hỗ trợ loại bỏ định dạng .docx khỏi tên bài
 const cleanLessonName = (name) => {
   if (!name) return "";
   return name.replace(/\.docx$/i, "").trim();
 };
 
-// Hàm lấy số khối lớp chính
 const getCleanGrade = (grade) => {
   if (!grade) return "";
   return grade.toString().split('.')[0].trim();
@@ -82,11 +84,10 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [deleteSuccess, setDeleteSuccess] = useState(false);
 
-  // State quản lý Dialog xác nhận xóa điều chỉnh
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [emptyWarningOpen, setEmptyWarningOpen] = useState(false);
 
-  // 1. Thông tin chung
   const rawTenBai = initialData?.metadata?.tenBai || initialData?.fileName || initialData?.name || "";
   const [metadata, setMetadata] = useState({
     monHoc: initialData?.metadata?.monHoc || "Toán",
@@ -94,28 +95,23 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
     tenBai: cleanLessonName(rawTenBai),
   });
 
-  // 2. Yêu cầu cần đạt
   const [outcomes, setOutcomes] = useState({
     kienThuc: initialData?.outcomes?.kienThuc || "",
     nangLuc: initialData?.outcomes?.nangLuc || "",
     phamChat: initialData?.outcomes?.phamChat || "",
   });
 
-  // 3. Đồ dùng dạy học
   const [equipment, setEquipment] = useState({
     giaoVien: initialData?.equipment?.giaoVien || "",
     hocSinh: initialData?.equipment?.hocSinh || "",
   });
 
-  // 4. Danh sách Hoạt động dạy học
   const [activities, setActivities] = useState(
     initialData?.activities || SUBJECT_TEMPLATES[initialData?.metadata?.monHoc] || SUBJECT_TEMPLATES["Toán"]
   );
 
-  // 5. Điều chỉnh sau bài dạy
   const [adjustments, setAdjustments] = useState(initialData?.adjustments || "");
 
-  // Tự động kiểm tra và tải dữ liệu đã lưu từ Firestore ngay khi mở form
   useEffect(() => {
     async function loadSavedDataFromFirestore() {
       if (!initialData) return;
@@ -183,7 +179,6 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
     loadSavedDataFromFirestore();
   }, [initialData, teacherName]);
 
-  // Thêm hoạt động mới
   const handleAddActivity = () => {
     const newId = `act_${Date.now()}`;
     setActivities([
@@ -196,7 +191,6 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
     ]);
   };
 
-  // Xóa hoạt động
   const handleRemoveActivity = (id) => {
     if (activities.length === 1) {
       alert("Cần giữ ít nhất 1 hoạt động dạy học!");
@@ -205,14 +199,12 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
     setActivities(activities.filter((act) => act.id !== id));
   };
 
-  // Cập nhật tiêu đề hoặc nội dung hoạt động
   const handleUpdateActivity = (id, field, value) => {
     setActivities(
       activities.map((act) => (act.id === id ? { ...act, [field]: value } : act))
     );
   };
 
-  // Di chuyển thứ tự hoạt động (Lên / Xuống)
   const handleMoveActivity = (index, direction) => {
     const newIndex = direction === "up" ? index - 1 : index + 1;
     if (newIndex < 0 || newIndex >= activities.length) return;
@@ -223,8 +215,13 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
     setActivities(updated);
   };
 
-  // Hàm lưu dữ liệu trực tiếp vào Firestore
   const handleSave = async () => {
+    // 🛑 Nếu form trống thì bật Dialog cảnh báo lên và dừng lại
+    if (isFormEmpty()) {
+      setEmptyWarningOpen(true);
+      return;
+    }
+
     try {
       const payload = {
         metadata,
@@ -232,8 +229,8 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
         equipment,
         activities,
         adjustments,
-        statsChanged: true, // 👈 Bật cờ đánh dấu đã có điều chỉnh
-        updatedAt: new Date().toISOString(), // 👈 Lưu thời gian cập nhật chuẩn
+        statsChanged: true,
+        updatedAt: new Date().toISOString(),
       };
 
       const docId = initialData?.id || initialData?.fileId;
@@ -246,7 +243,7 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
       }
 
       if (onSaveToFirestore) {
-        onSaveToFirestore(payload); // Truyền payload (có sẵn statsChanged: true) ra component cha
+        onSaveToFirestore(payload);
       }
 
       setSaveSuccess(true);
@@ -257,13 +254,11 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
     }
   };
 
-  // Kiểm tra xem form có đang rỗng / ở trạng thái mặc định hay không
   const isFormEmpty = () => {
     const hasOutcomes = outcomes.kienThuc.trim() || outcomes.nangLuc.trim() || outcomes.phamChat.trim();
     const hasEquipment = equipment.giaoVien.trim() || equipment.hocSinh.trim();
     const hasAdjustments = adjustments.trim();
     
-    // Kiểm tra xem activities có khác với template mặc định ban đầu không hoặc có nội dung bên trong không
     const defaultActivities = SUBJECT_TEMPLATES[metadata.monHoc] || SUBJECT_TEMPLATES["Toán"];
     const hasActivitiesContent = activities.some((act, idx) => {
       const defaultAct = defaultActivities[idx];
@@ -273,7 +268,6 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
     return !hasOutcomes && !hasEquipment && !hasAdjustments && !hasActivitiesContent;
   };
 
-  // 🔥 HÀM XÓA PHẦN ĐIỀU CHỈNH (TRÊN GIAO DIỆN & FIRESTORE)
   const handleDeleteAdjustments = async () => {
     try {
       const docId = initialData?.id || initialData?.fileId;
@@ -287,12 +281,11 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
           equipment: deleteField(),
           activities: deleteField(),
           adjustments: deleteField(),
-          statsChanged: deleteField(), // 👈 Xóa cờ đánh dấu
-          updatedAt: deleteField(),      // 👈 Xóa mốc thời gian cũ
+          statsChanged: deleteField(),
+          updatedAt: deleteField(),
         });
       }
 
-      // Làm sạch giao diện form ngay lập tức
       setOutcomes({ kienThuc: "", nangLuc: "", phamChat: "" });
       setEquipment({ giaoVien: "", hocSinh: "" });
       setActivities(SUBJECT_TEMPLATES[sName] || SUBJECT_TEMPLATES["Toán"]);
@@ -300,7 +293,6 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
 
       setDeleteSuccess(true);
 
-      // Truyền null để component cha hoặc context biết và cập nhật lại trạng thái file
       if (onSaveToFirestore) {
         onSaveToFirestore(null);
       }
@@ -319,57 +311,24 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
       <Card elevation={1} sx={{ borderRadius: 3, bgcolor: "#ffffff" }}>
         <CardContent sx={{ p: { xs: 2, sm: 4 } }}>
           
-          <Paper
-            elevation={0}
-            sx={{
-              p: 3,
-              bgcolor: "#f8fafc",
-              borderRadius: 3,
-              border: "1px solid #e2e8f0",
-              textAlign: "center",
-            }}
-          >
-            <Typography
-              variant="h5"
-              fontWeight="bold"
-              sx={{ textTransform: "uppercase", mb: 1, color: "text.primary" }}
-            >
-              KẾ HOẠCH BÀI DẠY
-            </Typography>
-            <Typography
-              variant="subtitle1"
-              fontWeight="bold"
-              sx={{ textTransform: "none", mb: 0.5, color: "text.primary" }}
-            >
-              Môn: {metadata.monHoc} – Lớp {getCleanGrade(metadata.khoiLop)}
-            </Typography>
-            <Typography
-              variant="subtitle1"
-              sx={{ fontSize: "1.1rem", color: "primary.main", fontWeight: 600 }}
-            >
-              Bài: {metadata.tenBai || "..................................................."}
-            </Typography>
-          </Paper>
-
           {saveSuccess && (
-            <Alert severity="success" sx={{ mb: 2, mt: 2, borderRadius: 2 }}>
+            <Alert severity="success" sx={{ mb: 2, mt: 1, borderRadius: 2 }}>
               🎉 Đã lưu Kế hoạch bài dạy thành công vào hệ thống!
             </Alert>
           )}
 
           {deleteSuccess && (
-            <Alert severity="info" sx={{ mb: 2, mt: 2, borderRadius: 2 }}>
+            <Alert severity="info" sx={{ mb: 2, mt: 1, borderRadius: 2 }}>
               🗑️ Đã xóa toàn bộ nội dung điều chỉnh của bài dạy!
             </Alert>
           )}
 
-          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: 1, borderColor: "divider", my: 3, flexWrap: "wrap", gap: 1 }}>
+          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: 1, borderColor: "divider", my: 2, flexWrap: "wrap", gap: 1, mt: -3 }}>
             <Tabs value={activeTab} onChange={(e, val) => setActiveTab(val)}>
               <Tab icon={<EditNoteIcon />} iconPosition="start" label="1. Soạn thảo Form" />
-              <Tab icon={<VisibilityIcon />} iconPosition="start" label="2. Xem trước bản in" />
+              <Tab icon={<VisibilityIcon />} iconPosition="start" label="2. Xem trước" />
             </Tabs>
 
-            {/* Chỉ hiện nút Xóa điều chỉnh khi form KHÔNG RỖNG */}
             {!isFormEmpty() && (
               <Button
                 variant="outlined"
@@ -387,6 +346,39 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
           {/* TAB 1: SOẠN THẢO FORM */}
           {activeTab === 0 && (
             <Stack spacing={3}>
+              {/* KHUNG TIÊU ĐỀ ĐÃ ĐƯỢC CHUYỂN VÀO ĐÂY */}
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 3,
+                  bgcolor: "#f8fafc",
+                  borderRadius: 3,
+                  border: "1px solid #e2e8f0",
+                  textAlign: "center",
+                }}
+              >
+                <Typography
+                  variant="h5"
+                  fontWeight="bold"
+                  sx={{ textTransform: "uppercase", mb: 1, color: "text.primary" }}
+                >
+                  KẾ HOẠCH BÀI DẠY
+                </Typography>
+                <Typography
+                  variant="subtitle1"
+                  fontWeight="bold"
+                  sx={{ textTransform: "none", mb: 0.5, color: "text.primary" }}
+                >
+                  Môn: {metadata.monHoc} – Lớp {getCleanGrade(metadata.khoiLop)}
+                </Typography>
+                <Typography
+                  variant="subtitle1"
+                  sx={{ fontSize: "1.1rem", color: "primary.main", fontWeight: 600 }}
+                >
+                  Bài: {metadata.tenBai || "..................................................."}
+                </Typography>
+              </Paper>
+
               <Card variant="outlined" sx={{ borderRadius: 3 }}>
                 <CardContent sx={{ p: 2.5 }}>
                   <Typography variant="h6" fontWeight={700} color="primary" gutterBottom>
@@ -576,7 +568,7 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
           {activeTab === 1 && (
             <Paper elevation={2} sx={{ p: { xs: 2, sm: 4 }, bgcolor: "#ffffff", minHeight: "60vh", fontFamily: "Times New Roman, serif" }}>
               <Box sx={{ textAlign: "center", mb: 3 }}>
-                <Typography variant="h5" fontWeight="bold" sx={{ textTransform: "uppercase", mb: 1 }}>
+                <Typography variant="h5" fontWeight="bold" sx={{ textTransform: "uppercase", mt: -0.9, mb: 1 }}>
                   KẾ HOẠCH BÀI DẠY
                 </Typography>
                 <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 0.5 }}>
@@ -587,40 +579,70 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
                 </Typography>
               </Box>
 
-              <Typography variant="subtitle1" fontWeight="bold" sx={{ mt: 2 }}>
-                I. YÊU CẦU CẦN ĐẠT:
-              </Typography>
-              <Box sx={{ pl: 2 }}>
-                <Typography variant="body1"><b>1. Kiến thức:</b> {outcomes.kienThuc || "Chưa nhập"}</Typography>
-                <Typography variant="body1"><b>2. Năng lực:</b> {outcomes.nangLuc || "Chưa nhập"}</Typography>
-                <Typography variant="body1"><b>3. Phẩm chất:</b> {outcomes.phamChat || "Chưa nhập"}</Typography>
-              </Box>
-
-              <Typography variant="subtitle1" fontWeight="bold" sx={{ mt: 2 }}>
-                II. ĐỒ DÙNG DẠY HỌC:
-              </Typography>
-              <Box sx={{ pl: 2 }}>
-                <Typography variant="body1"><b>Giáo viên:</b> {equipment.giaoVien || "Chưa nhập"}</Typography>
-                <Typography variant="body1"><b>Học sinh:</b> {equipment.hocSinh || "Chưa nhập"}</Typography>
-              </Box>
-
-              <Typography variant="subtitle1" fontWeight="bold" sx={{ mt: 2, mb: 1 }}>
-                III. CÁC HOẠT ĐỘNG DẠY HỌC CHỦ YẾU:
-              </Typography>
-              <Stack spacing={2} sx={{ pl: 2 }}>
-                {activities.map((act) => (
-                  <Box key={act.id}>
-                    <Typography variant="body1" fontWeight="bold">
-                      {act.tieuDe}
-                    </Typography>
-                    <Typography variant="body1" sx={{ whitespace: "pre-line", pl: 2 }}>
-                      {act.noiDung || "(Chưa có nội dung)"}
-                    </Typography>
+              {/* I. YÊU CẦU CẦN ĐẠT (Chỉ hiện phần nào có nội dung thực tế) */}
+              {(outcomes.kienThuc?.trim() || outcomes.nangLuc?.trim() || outcomes.phamChat?.trim()) && (
+                <>
+                  <Typography variant="subtitle1" fontWeight="bold" sx={{ mt: 2 }}>
+                    I. YÊU CẦU CẦN ĐẠT:
+                  </Typography>
+                  <Box sx={{ pl: 2, display: "flex", flexDirection: "column", gap: 0.5 }}>
+                    {outcomes.kienThuc?.trim() && (
+                      <Typography variant="body1"><b>1. Kiến thức:</b> {outcomes.kienThuc}</Typography>
+                    )}
+                    {outcomes.nangLuc?.trim() && (
+                      <Typography variant="body1"><b>2. Năng lực:</b> {outcomes.nangLuc}</Typography>
+                    )}
+                    {outcomes.phamChat?.trim() && (
+                      <Typography variant="body1"><b>3. Phẩm chất:</b> {outcomes.phamChat}</Typography>
+                    )}
                   </Box>
-                ))}
-              </Stack>
+                </>
+              )}
 
-              {adjustments && (
+              {/* II. ĐỒ DÙNG DẠY HỌC (Chỉ hiện khi có nội dung) */}
+              {(equipment.giaoVien?.trim() || equipment.hocSinh?.trim()) && (
+                <>
+                  <Typography variant="subtitle1" fontWeight="bold" sx={{ mt: 2 }}>
+                    II. ĐỒ DÙNG DẠY HỌC:
+                  </Typography>
+                  <Box sx={{ pl: 2, display: "flex", flexDirection: "column", gap: 0.5 }}>
+                    {equipment.giaoVien?.trim() && (
+                      <Typography variant="body1"><b>Giáo viên:</b> {equipment.giaoVien}</Typography>
+                    )}
+                    {equipment.hocSinh?.trim() && (
+                      <Typography variant="body1"><b>Học sinh:</b> {equipment.hocSinh}</Typography>
+                    )}
+                  </Box>
+                </>
+              )}
+
+              {/* III. CÁC HOẠT ĐỘNG DẠY HỌC CHỦ YẾU (Chỉ hiển thị các hoạt động có nội dung) */}
+              {activities.some(act => act.noiDung?.trim()) && (
+                <>
+                  <Typography variant="subtitle1" fontWeight="bold" sx={{ mt: 2, mb: 1 }}>
+                    III. CÁC HOẠT ĐỘNG DẠY HỌC CHỦ YẾU:
+                  </Typography>
+                  <Stack spacing={2} sx={{ pl: 2 }}>
+                    {activities.map((act) => {
+                      if (!act.noiDung?.trim()) return null;
+
+                      return (
+                        <Box key={act.id}>
+                          <Typography variant="body1" fontWeight="bold">
+                            {act.tieuDe}
+                          </Typography>
+                          <Typography variant="body1" sx={{ whitespace: "pre-line", pl: 2 }}>
+                            {act.noiDung}
+                          </Typography>
+                        </Box>
+                      );
+                    })}
+                  </Stack>
+                </>
+              )}
+
+              {/* IV. ĐIỀU CHỈNH SAU BÀI DẠY (Chỉ hiện khi có nội dung) */}
+              {adjustments?.trim() && (
                 <>
                   <Typography variant="subtitle1" fontWeight="bold" sx={{ mt: 3 }}>
                     IV. ĐIỀU CHỈNH SAU BÀI DẠY:
@@ -636,7 +658,6 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
         </CardContent>
       </Card>
 
-      {/* DIALOG XÁC NHẬN XÓA ĐIỀU CHỈNH CHUYÊN NGHIỆP */}
       <ConfirmDeleteAdjustmentDialog
         open={deleteDialogOpen}
         onClose={() => setDeleteDialogOpen(false)}
@@ -650,7 +671,6 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
         }}
       />
 
-      {/* Snackbar thông báo xóa thành công ở góc dưới bên phải */}
       <Snackbar
         open={deleteSuccess}
         autoHideDuration={3000}
@@ -666,6 +686,32 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
           🗑️ Đã xóa nội dung điều chỉnh của KHBD thành công!
         </Alert>
       </Snackbar>
+      
+      {/* Dialog cảnh báo khi chưa nhập nội dung */}
+      <Dialog
+        open={emptyWarningOpen}
+        onClose={() => setEmptyWarningOpen(false)}
+        PaperProps={{ sx: { borderRadius: 3, p: 1, maxWidth: 400 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, color: "warning.main" }}>
+          ⚠️ Chưa có nội dung
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1">
+            Vui lòng nhập nội dung điều chỉnh trước khi bấm lưu!
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button
+            onClick={() => setEmptyWarningOpen(false)}
+            variant="contained"
+            color="primary"
+            sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 600, px: 3 }}
+          >
+            Đã hiểu
+          </Button>
+        </DialogActions>
+      </Dialog>
 
     </Box>
   );

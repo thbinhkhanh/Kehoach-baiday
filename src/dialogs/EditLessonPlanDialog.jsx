@@ -14,6 +14,7 @@ export default function EditLessonPlanDialog({
   setFileList,
   updateFileList,
   showMessage,
+  viewOnly = false,
 }) {
   const editorRef = useRef(null);
 
@@ -28,27 +29,29 @@ export default function EditLessonPlanDialog({
       <Box
         sx={{
           display: "flex",
-          justifyContent: "space-between",
+          justifyContent: viewOnly ? "flex-end" : "space-between", // Nếu chỉ xem thì đẩy nút Đóng sang phải
           alignItems: "center",
           p: 1,
           bgcolor: "white",
           borderBottom: "1px solid #e2e8f0",
         }}
       >
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<SaveIcon />}
-          onClick={() => {
-            // Kích hoạt hàm lưu bên trong LessonPlanEditor
-            if (editorRef.current) {
-              editorRef.current.triggerSave();
-            }
-          }}
-          sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 600 }}
-        >
-          Lưu điều chỉnh
-        </Button>
+        {/* Chỉ hiện nút Lưu khi KHÔNG phải chế độ xem */}
+        {!viewOnly && (
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<SaveIcon />}
+            onClick={() => {
+              if (editorRef.current) {
+                editorRef.current.triggerSave();
+              }
+            }}
+            sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 600 }}
+          >
+            Lưu điều chỉnh
+          </Button>
+        )}
 
         <Button
           variant="outlined"
@@ -74,13 +77,15 @@ export default function EditLessonPlanDialog({
             },
           }}
           onClose={onClose}
+          viewOnly={viewOnly}            // 👈 Truyền cờ khóa chỉnh sửa xuống editor
+          defaultTab="edit"              // 👈 Mở về Tab 1: Soạn thảo form
           onSaveToFirestore={async (updatedPayload) => {
+            if (viewOnly) return;        // Nếu đang xem thì không thực hiện lưu
             try {
               console.log("🔥 Đã xử lý dữ liệu KHBD:", updatedPayload);
 
               let updatedList = [];
 
-              // 1. Cập nhật ngay lập tức vào state fileList ngoài trang chính
               setFileList((prevList) => {
                 updatedList = prevList.map((f) => {
                   const fId = f.id || f.fileId;
@@ -88,11 +93,9 @@ export default function EditLessonPlanDialog({
 
                   if (fId === targetId) {
                     if (updatedPayload === null) {
-                      // Trường hợp XÓA ĐIỀU CHỈNH: Gỡ bỏ các trường điều chỉnh cũ ra khỏi file
                       const { outcomes, equipment, activities, adjustments, updatedAt, ...cleanFile } = f;
                       return cleanFile;
                     } else {
-                      // Trường hợp LƯU ĐIỀU CHỈNH: Gộp dữ liệu mới vào file
                       return {
                         ...f,
                         ...updatedPayload,
@@ -104,11 +107,10 @@ export default function EditLessonPlanDialog({
                 return updatedList;
               });
 
-              // 🔥 2. ĐỒNG BỘ VÀO CONTEXT / LOCALSTORAGE ĐỂ GIỮ CHIP KHI ĐỔI MÔN, ĐỔI LỚP
               const fileKey = `${academicYear}_${teacherName}_${subject}_${className}`;
               updateFileList(fileKey, updatedList);
 
-              onClose(); // Đóng form soạn thảo lại
+              onClose();
               showMessage("💾 Lưu nội dung điều chỉnh thành công!", "success");
 
             } catch (error) {

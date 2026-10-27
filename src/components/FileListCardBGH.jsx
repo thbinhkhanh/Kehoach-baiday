@@ -22,6 +22,7 @@ export default function FileListCardBGH({
   setViewMode,
   formatVNDate,
   onRequestAdjustment, // 👈 Hàm callback mở form nhập yêu cầu khi BGH bấm vào icon
+  onViewAdjusted,
 }) {
   return (
     <Card sx={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
@@ -92,12 +93,17 @@ export default function FileListCardBGH({
                     primary={
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
                         <span>{displayName}</span>
-                        
                         {/* Chip Đã điều chỉnh */}
                         {hasAdjustmentsData && (
-                          <Tooltip title="Bài đã có nội dung điều chỉnh">
+                          <Tooltip title="Bài đã có nội dung điều chỉnh - Bấm để xem">
                             <Box
                               component="span"
+                              onClick={(e) => {
+                                e.stopPropagation(); // Không cho ăn sự kiện click của cả dòng ListItem
+                                if (typeof onViewAdjusted === "function") {
+                                  onViewAdjusted(file); // 👈 Gọi callback mở chế độ xem
+                                }
+                              }}
                               sx={{
                                 fontSize: "11px",
                                 bgcolor: "#e3f2fd",
@@ -110,6 +116,8 @@ export default function FileListCardBGH({
                                 display: "inline-flex",
                                 alignItems: "center",
                                 gap: 0.5,
+                                cursor: "pointer", // Thêm trỏ tay khi rê chuột vào chip
+                                "&:hover": { bgcolor: "#bbdefb" }, // Hiệu ứng khi rê chuột
                               }}
                             >
                               <CheckCircleIcon sx={{ fontSize: 13 }} /> Đã điều chỉnh

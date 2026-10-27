@@ -22,6 +22,7 @@ export default function FileListCard({
   formatVNDate,
   onEditFile,
   onOpenBghRequest, // 👈 Hàm callback mở dialog xem nội dung yêu cầu của BGH (nếu có)
+  onOpenAdjustment, // 👈 Hàm callback mở dialog xem nội dung điều chỉnh
 }) {
   const listRef = useRef(null);
   const [hasScrollbar, setHasScrollbar] = useState(false);
@@ -127,9 +128,15 @@ export default function FileListCard({
                         
                         {/* Chip Đã điều chỉnh */}
                         {hasAdjustmentsData && (
-                          <Tooltip title="Bài đã có nội dung điều chỉnh">
+                          <Tooltip title="Bấm để xem nội dung điều chỉnh">
                             <Box
                               component="span"
+                              onClick={(e) => {
+                                e.stopPropagation(); // Ngăn không cho click lan ra ngoài (không mở xem trước file)
+                                if (onOpenAdjustment) {
+                                  onOpenAdjustment(file);
+                                }
+                              }}
                               sx={{
                                 fontSize: "11px",
                                 bgcolor: "#e3f2fd",
@@ -142,6 +149,8 @@ export default function FileListCard({
                                 display: "inline-flex",
                                 alignItems: "center",
                                 gap: 0.5,
+                                cursor: "pointer",
+                                "&:hover": { bgcolor: "#bbdefb" }
                               }}
                             >
                               <CheckCircleIcon sx={{ fontSize: 13 }} /> Đã điều chỉnh
@@ -162,7 +171,6 @@ export default function FileListCard({
                               }}
                               sx={{
                                 fontSize: "11px",
-                                // Đổi màu nền và màu chữ nhẹ nhàng hơn nếu đã đọc (read: true)
                                 bgcolor: file.bghRequestRead ? "#f1f5f9" : "#fff3e0",
                                 color: file.bghRequestRead ? "#475569" : "#e65100",
                                 px: 1,
@@ -177,7 +185,6 @@ export default function FileListCard({
                                 "&:hover": { bgcolor: file.bghRequestRead ? "#e2e8f0" : "#ffe0b2" }
                               }}
                             >
-                              {/* Hiển thị icon tick xanh nếu đã đọc, hoặc icon thông báo nếu chưa đọc */}
                               {file.bghRequestRead ? (
                                 <>
                                   <CheckCircleIcon sx={{ fontSize: 13, color: "#16a34a" }} /> BGH yêu cầu sửa (đã xem)

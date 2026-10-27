@@ -28,6 +28,7 @@ import ConfirmDeleteDialog from "../dialogs/ConfirmDeleteDialog";
 import EditLessonPlanDialog from "../dialogs/EditLessonPlanDialog";
 import TeacherStatsDialog from "../dialogs/TeacherStatsDialog";
 import BghRequestDialog from "../dialogs/BghRequestDialog";
+import TeacherAdjustmentDialog from "../dialogs/TeacherAdjustmentDialog";
 
 import {
   Box,
@@ -89,6 +90,9 @@ export default function Users({ user }) {
   const [bghRequestContent, setBghRequestContent] = useState("");
   const [currentRequest, setCurrentRequest] = useState(null);
   const [bghNotifications, setBghNotifications] = useState([]);
+
+  const [adjustmentDialogOpen, setAdjustmentDialogOpen] = useState(false);
+  const [selectedAdjustmentFile, setSelectedAdjustmentFile] = useState(null);
 
   const makeFileListKey = () =>
   `${academicYear}_${teacherName}_${subject}_${className}`;
@@ -792,16 +796,19 @@ export default function Users({ user }) {
             setEditFormOpen(true);
           }}
           onOpenBghRequest={(file) => {
-            // 🌟 1. Cần set currentRequest để Dialog nhận được Tên bài, Môn, Lớp của đúng file này
             setCurrentRequest({
               ...file,
               tenBai: file.tenBai || file.metadata?.tenBai || file.fileName || file.name || "Kế hoạch bài dạy",
               subject: file.subject || file.metadata?.monHoc || subject || "Chưa xác định",
               khoi: file.khoi || file.metadata?.khoiLop || file.lop || className || "Chưa xác định"
             });
-            // 🌟 2. Set nội dung yêu cầu và mở Dialog
             setBghRequestContent(file.bghRequest || "Không có nội dung chi tiết.");
             setBghRequestViewOpen(true);
+          }}
+          // 🌟 Thêm dòng này vào các props của FileListCard
+          onOpenAdjustment={(file) => {
+            setSelectedAdjustmentFile(file);
+            setAdjustmentDialogOpen(true);
           }}
         />
       </Box>
@@ -904,6 +911,15 @@ export default function Users({ user }) {
         onClose={handleCloseBghRequestView}
         content={bghRequestContent}
         fileInfo={currentRequest} 
+      />
+
+      <TeacherAdjustmentDialog
+        open={adjustmentDialogOpen}
+        onClose={() => setAdjustmentDialogOpen(false)}
+        fileData={selectedAdjustmentFile}
+        teacherName={teacherName}
+        subject={subject}
+        className={className}
       />
 
     </Box>

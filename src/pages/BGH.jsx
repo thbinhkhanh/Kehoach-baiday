@@ -28,6 +28,7 @@ import FileListCardBGH from "../components/FileListCardBGH";
 import { useBGHStats } from "../contexts/BGHStatsContext";
 import BghRequestManageDialog from "../dialogs/BghRequestManageDialog";
 import MobileStatsSummaryDialog from "../dialogs/MobileStatsSummaryDialog";
+import TeacherAdjustmentDialog from "../dialogs/TeacherAdjustmentDialog";
 
 import {
   SchoolRounded,
@@ -96,6 +97,10 @@ export default function BGH({ user }) {
   const [bghTargetFile, setBghTargetFile] = useState(null);
   const [bghRequestText, setBghRequestText] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // 🚀 State quản lý Dialog xem/sửa kế hoạch bài dạy của giáo viên
+  const [teacherAdjOpen, setTeacherAdjOpen] = useState(false);
+  const [selectedTeacherAdjFile, setSelectedTeacherAdjFile] = useState(null);   
 
   const [groupedTeachers, setGroupedTeachers] = useState({
     khoi1: [],
@@ -929,6 +934,39 @@ export default function BGH({ user }) {
       setSaving(false);
     }
   };
+
+  // 🚀 Hàm mở dialog và lấy nội dung điều chỉnh theo fileId từ bghNotifications
+  const handleViewAdjustedFile = async (file) => {
+    try {
+      const yearCol = `KEHOACH_DAYHOC_${academicYear}`;
+      const teacherRef = doc(db, yearCol, selectedUsername.trim().toUpperCase());
+      const teacherSnap = await getDoc(teacherRef);
+
+      let matchedContent = "";
+      if (teacherSnap.exists()) {
+        const data = teacherSnap.data();
+        const notifications = data.bghNotifications || [];
+        
+        // Tìm thông báo khớp với ID của file hiện tại
+        const targetNotif = notifications.find(
+          (n) => n.fileId === file.id || n.fileId === file.fileId
+        );
+        
+        if (targetNotif) {
+          matchedContent = targetNotif.content;
+        }
+      }
+
+      // Truyền file kèm theo nội dung điều chỉnh tìm được vào state
+      setSelectedTeacherAdjFile({
+        ...file,
+        adjustmentContent: matchedContent || "Chưa có nội dung điều chỉnh cho file này.",
+      });
+      setTeacherAdjOpen(true);
+    } catch (err) {
+      console.error("Lỗi lấy nội dung điều chỉnh:", err);
+    }
+  };
   
   return (
     <Box
@@ -1216,6 +1254,7 @@ export default function BGH({ user }) {
               setBghRequestText(file.bghRequest || ""); // Lấy lại nội dung cũ nếu có
               setBghRequestOpen(true); // 👈 Bật Dialog mở form nhập
             }}
+            onViewAdjusted={handleViewAdjustedFile} // 👈 THÊM DÒNG NÀY VÀO ĐÂY
           />
         </Box>
       )}
@@ -1324,6 +1363,19 @@ export default function BGH({ user }) {
         handleDeleteBghRequest={handleDeleteBghRequest}
         handleSaveBghRequest={handleSaveBghRequest}
       />
+
+      {/* 🚀 Dialog hiển thị form kế hoạch bài dạy của giáo viên */}
+      {teacherAdjOpen && (
+        <TeacherAdjustmentDialog
+          open={teacherAdjOpen}
+          onClose={() => {
+            setTeacherAdjOpen(false);
+            setSelectedTeacherAdjFile(null);
+          }}
+          fileData={selectedTeacherAdjFile}
+          teacherName={selectedUsername}
+        />
+      )}
 
     </Box>
   );
