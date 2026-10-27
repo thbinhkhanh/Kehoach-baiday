@@ -307,7 +307,7 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
   }));
 
   return (
-    <Box sx={{ width: "70%", maxWidth: "70%", mx: "auto", p: { xs: 1, sm: 2 } }}>
+    <Box sx={{ width: { xs: "100%", sm: "70%" }, maxWidth: { xs: "100%", sm: "70%" }, mx: "auto", p: { xs: 1, sm: 2 } }}>
       <Card elevation={1} sx={{ borderRadius: 3, bgcolor: "#ffffff" }}>
         <CardContent sx={{ p: { xs: 2, sm: 4 } }}>
           
