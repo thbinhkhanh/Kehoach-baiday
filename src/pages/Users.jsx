@@ -179,14 +179,21 @@ export default function Users({ user }) {
   };
 
   const handleCloseBghRequestView = async () => {
-    if (!currentRequest || !currentRequest.id) {
-      setBghRequestViewOpen(false);
+    // 1. Đóng Dialog và hiện Snackbar NGAY LẬP TỨC (Phản hồi siêu mượt)
+    setBghRequestViewOpen(false);
+    showMessage("✅ Đã xác nhận đã hiểu yêu cầu từ BGH!", "success");
+
+    const reqToSave = currentRequest;
+    setCurrentRequest(null);
+
+    if (!reqToSave || !reqToSave.id) {
       return;
     }
 
+    // 2. Chạy ngầm việc cập nhật Firestore phía sau không chặn giao diện
     try {
       const res = await markBghRequestAsReadService({
-        currentRequest,
+        currentRequest: reqToSave,
         academicYear,
         teacherName,
       });
@@ -199,15 +206,9 @@ export default function Users({ user }) {
         setFileList((prev) =>
           prev.map((f) => (f.id === res.docId ? { ...f, bghRequestRead: true } : f))
         );
-
-        showMessage("✅ Đã xác nhận đã hiểu yêu cầu từ BGH!", "success");
       }
-
-      setBghRequestViewOpen(false);
-      setCurrentRequest(null);
     } catch (error) {
-      console.error("❌ Lỗi khi xác nhận đã hiểu:", error);
-      setBghRequestViewOpen(false);
+      console.error("❌ Lỗi ngầm khi xác nhận đã hiểu:", error);
     }
   };
 

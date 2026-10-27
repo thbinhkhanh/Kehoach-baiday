@@ -23,17 +23,24 @@ export default function EditLessonPlanDialog({
       open={open}
       onClose={onClose}
       fullScreen
-      PaperProps={{ sx: { bgcolor: "#f8fafc" } }}
+      PaperProps={{ 
+        sx: { 
+          bgcolor: "#f8fafc",
+          display: "flex",
+          flexDirection: "column",
+        } 
+      }}
     >
       {/* Header chứa các nút hành động */}
       <Box
         sx={{
           display: "flex",
-          justifyContent: viewOnly ? "flex-end" : "space-between", // Nếu chỉ xem thì đẩy nút Đóng sang phải
+          justifyContent: viewOnly ? "flex-end" : "space-between",
           alignItems: "center",
-          p: 1,
+          p: 1.5,
           bgcolor: "white",
           borderBottom: "1px solid #e2e8f0",
+          flexShrink: 0,
         }}
       >
         {/* Chỉ hiện nút Lưu khi KHÔNG phải chế độ xem */}
@@ -63,62 +70,83 @@ export default function EditLessonPlanDialog({
         </Button>
       </Box>
 
-      {/* Nội dung trình chỉnh sửa bài dạy */}
-      <Box sx={{ flex: 1, overflowY: "auto", p: 2 }}>
-        <LessonPlanEditor
-          ref={editorRef}
-          teacherName={teacherName}
-          initialData={{
-            ...editingFile,
-            metadata: {
-              ...editingFile?.metadata,
-              monHoc: subject,
-              khoiLop: className,
-            },
+      {/* Nội dung trình chỉnh sửa bài dạy - ĐÃ MỞ RỘNG CHIỀU NGANG TỐI ĐA */}
+      <Box 
+        sx={{ 
+          flex: 1, 
+          overflowY: "auto", 
+          overflowX: "hidden",
+          p: { xs: 1, sm: 2 },
+          width: "100%",
+          display: "flex",
+          flexDirection: "column"
+        }}
+      >
+        <Box 
+          sx={{ 
+            width: "100%", 
+            maxWidth: "100% !important", // Ép không bị giới hạn chiều rộng cũ
+            mx: "0 !important",          // Bỏ căn giữa thu hẹp
+            flex: 1,
+            display: "flex",
+            flexDirection: "column"
           }}
-          onClose={onClose}
-          viewOnly={viewOnly}            // 👈 Truyền cờ khóa chỉnh sửa xuống editor
-          defaultTab="edit"              // 👈 Mở về Tab 1: Soạn thảo form
-          onSaveToFirestore={async (updatedPayload) => {
-            if (viewOnly) return;        // Nếu đang xem thì không thực hiện lưu
-            try {
-              console.log("🔥 Đã xử lý dữ liệu KHBD:", updatedPayload);
+        >
+          <LessonPlanEditor
+            ref={editorRef}
+            teacherName={teacherName}
+            initialData={{
+              ...editingFile,
+              metadata: {
+                ...editingFile?.metadata,
+                monHoc: subject,
+                khoiLop: className,
+              },
+            }}
+            onClose={onClose}
+            viewOnly={viewOnly}           // 👈 Truyền cờ khóa chỉnh sửa xuống editor
+            defaultTab="edit"             // 👈 Mở về Tab 1: Soạn thảo form
+            onSaveToFirestore={async (updatedPayload) => {
+              if (viewOnly) return;       // Nếu đang xem thì không thực hiện lưu
+              try {
+                console.log("🔥 Đã xử lý dữ liệu KHBD:", updatedPayload);
 
-              let updatedList = [];
+                let updatedList = [];
 
-              setFileList((prevList) => {
-                updatedList = prevList.map((f) => {
-                  const fId = f.id || f.fileId;
-                  const targetId = editingFile?.id || editingFile?.fileId;
+                setFileList((prevList) => {
+                  updatedList = prevList.map((f) => {
+                    const fId = f.id || f.fileId;
+                    const targetId = editingFile?.id || editingFile?.fileId;
 
-                  if (fId === targetId) {
-                    if (updatedPayload === null) {
-                      const { outcomes, equipment, activities, adjustments, updatedAt, ...cleanFile } = f;
-                      return cleanFile;
-                    } else {
-                      return {
-                        ...f,
-                        ...updatedPayload,
-                      };
+                    if (fId === targetId) {
+                      if (updatedPayload === null) {
+                        const { outcomes, equipment, activities, adjustments, updatedAt, ...cleanFile } = f;
+                        return cleanFile;
+                      } else {
+                        return {
+                          ...f,
+                          ...updatedPayload,
+                        };
+                      }
                     }
-                  }
-                  return f;
+                    return f;
+                  });
+                  return updatedList;
                 });
-                return updatedList;
-              });
 
-              const fileKey = `${academicYear}_${teacherName}_${subject}_${className}`;
-              updateFileList(fileKey, updatedList);
+                const fileKey = `${academicYear}_${teacherName}_${subject}_${className}`;
+                updateFileList(fileKey, updatedList);
 
-              onClose();
-              showMessage("💾 Lưu nội dung điều chỉnh thành công!", "success");
+                onClose();
+                showMessage("💾 Lưu nội dung điều chỉnh thành công!", "success");
 
-            } catch (error) {
-              console.error("Lỗi khi cập nhật danh sách:", error);
-              showMessage("❌ Không thể cập nhật trạng thái hiển thị.", "error");
-            }
-          }}
-        />
+              } catch (error) {
+                console.error("Lỗi khi cập nhật danh sách:", error);
+                showMessage("❌ Không thể cập nhật trạng thái hiển thị.", "error");
+              }
+            }}
+          />
+        </Box>
       </Box>
     </Dialog>
   );
