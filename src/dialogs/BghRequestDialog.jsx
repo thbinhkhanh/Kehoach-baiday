@@ -7,7 +7,7 @@ import {
   Button,
   IconButton,
   Fade,
-  Chip, // 👈 Nhớ đảm bảo đã import Chip
+  Chip,
 } from "@mui/material";
 
 import CloseIcon from "@mui/icons-material/Close";
@@ -36,11 +36,11 @@ export default function BghRequestDialog({ open, onClose, content, fileInfo }) {
         },
       }}
     >
-      {/* HEADER */}
+      {/* HEADER - Đã thu gọn kích thước gọn gàng hơn */}
       <Box
         sx={{
-          pt: 4,
-          pb: 3,
+          pt: 2.5,
+          pb: 2,
           px: 3,
           background: "linear-gradient(135deg, #f0f7ff 0%, #e1effe 100%)",
           textAlign: "center",
@@ -64,8 +64,8 @@ export default function BghRequestDialog({ open, onClose, content, fileInfo }) {
 
         <Box
           sx={{
-            width: 56,
-            height: 56,
+            width: 44,
+            height: 44,
             borderRadius: "50%",
             bgcolor: "#1976d2",
             color: "#fff",
@@ -73,28 +73,28 @@ export default function BghRequestDialog({ open, onClose, content, fileInfo }) {
             alignItems: "center",
             justifyContent: "center",
             mx: "auto",
-            mb: 2,
-            boxShadow: "0 8px 16px rgba(25, 118, 210, 0.25)",
+            mb: 1.5,
+            boxShadow: "0 6px 12px rgba(25, 118, 210, 0.2)",
           }}
         >
-          <InfoRoundedIcon sx={{ fontSize: 28 }} />
+          <InfoRoundedIcon sx={{ fontSize: 24 }} />
         </Box>
 
-        <Typography sx={{ fontSize: 20, fontWeight: 700, color: "#1e293b", mb: 0.5 }}>
+        <Typography sx={{ fontSize: 18, fontWeight: 700, color: "#1e293b", mb: 0.3 }}>
           ⚠️ Yêu cầu điều chỉnh từ Ban Giám Hiệu
         </Typography>
-        <Typography sx={{ fontSize: 13.5, color: "#64748b" }}>
+        <Typography sx={{ fontSize: 12.5, color: "#64748b" }}>
           Nội dung chi tiết yêu cầu điều chỉnh bài dạy dành cho bạn.
         </Typography>
       </Box>
 
       {/* CONTENT */}
-      <DialogContent sx={{ px: 3, py: 3, bgcolor: "#ffffff" }}>
+      <DialogContent sx={{ px: 3, py: 2.5, bgcolor: "#ffffff" }}>
         
         {/* 🌟 KHUNG HIỂN THỊ THÔNG TIN MÔN, LỚP, TÊN BÀI */}
         <Box
           sx={{
-            mb: 2.5,
+            mb: 2,
             p: 2,
             bgcolor: "#f8fafc",
             borderRadius: "12px",
@@ -112,13 +112,13 @@ export default function BghRequestDialog({ open, onClose, content, fileInfo }) {
           
           <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
             <Chip 
-              icon={<MenuBookRoundedIcon sx={{ fontSize: "16px !important" }} />}
+              icon={<MenuBookRoundedIcon sx={{ fontSize: "15px !important" }} />}
               label={`Môn: ${fileInfo?.subject || "Chưa xác định"}`} 
               size="small" 
               sx={{ bgcolor: "#e0f2fe", color: "#0369a1", fontWeight: 600, border: "none" }}
             />
             <Chip 
-              icon={<ClassRoundedIcon sx={{ fontSize: "16px !important" }} />}
+              icon={<ClassRoundedIcon sx={{ fontSize: "15px !important" }} />}
               label={`Lớp: ${fileInfo?.khoi || "Chưa xác định"}`} 
               size="small" 
               sx={{ bgcolor: "#dcfce7", color: "#15803d", fontWeight: 600, border: "none" }}
@@ -129,15 +129,15 @@ export default function BghRequestDialog({ open, onClose, content, fileInfo }) {
         {/* NỘI DUNG YÊU CẦU TỪ BGH */}
         <Box
           sx={{
-            p: 2.5,
+            p: 2,
             bgcolor: "#f8fafc",
             borderRadius: "12px",
             border: "1px solid #e2e8f0",
             color: "#334155",
-            fontSize: "14.5px",
+            fontSize: "14px",
             lineHeight: 1.6,
             whiteSpace: "pre-wrap",
-            maxHieght: "250px",
+            maxHeight: "220px", // Đã sửa lỗi chính tả maxHieght thành maxHeight
             overflowY: "auto",
           }}
         >
@@ -146,20 +146,20 @@ export default function BghRequestDialog({ open, onClose, content, fileInfo }) {
       </DialogContent>
 
       {/* ACTIONS */}
-      <Box sx={{ px: 3, pb: 4, pt: 1, display: "flex", justifyContent: "center", bgcolor: "#ffffff" }}>
+      <Box sx={{ px: 3, pb: 3, pt: 1, display: "flex", justifyContent: "center", bgcolor: "#ffffff" }}>
         <Button
           variant="contained"
           onClick={onClose}
           sx={{
             width: "100%",
-            maxWidth: 320,
-            height: 46,
-            borderRadius: "12px",
+            maxWidth: 280,
+            height: 42,
+            borderRadius: "10px",
             textTransform: "none",
             fontWeight: 700,
-            fontSize: "14.5px",
+            fontSize: "14px",
             bgcolor: "#1976d2",
-            boxShadow: "0 10px 20px rgba(25, 118, 210, 0.3)",
+            boxShadow: "0 4px 12px rgba(25, 118, 210, 0.25)",
             "&:hover": { bgcolor: "#115293" },
           }}
         >

@@ -9,10 +9,14 @@ import {
   IconButton,
   TextField,
   Fade,
+  Chip,
 } from "@mui/material";
 
 import CloseIcon from "@mui/icons-material/Close";
 import EditNoteRoundedIcon from "@mui/icons-material/EditNoteRounded";
+import PersonIcon from "@mui/icons-material/Person";
+import MenuBookRoundedIcon from "@mui/icons-material/MenuBookRounded";
+import ClassRoundedIcon from "@mui/icons-material/ClassRounded";
 
 export default function BghRequestManageDialog({
   open,
@@ -46,11 +50,11 @@ export default function BghRequestManageDialog({
         },
       }}
     >
-      {/* HEADER */}
+      {/* HEADER - Đã thu hẹp chiều cao gọn gàng hơn */}
       <Box
         sx={{
-          pt: 4,
-          pb: 3,
+          pt: 2.5,
+          pb: 2,
           px: 3,
           background: "linear-gradient(135deg, #f0f7ff 0%, #e1effe 100%)",
           textAlign: "center",
@@ -75,8 +79,8 @@ export default function BghRequestManageDialog({
 
         <Box
           sx={{
-            width: 56,
-            height: 56,
+            width: 44,
+            height: 44,
             borderRadius: "50%",
             bgcolor: "#1976d2",
             color: "#fff",
@@ -84,42 +88,58 @@ export default function BghRequestManageDialog({
             alignItems: "center",
             justifyContent: "center",
             mx: "auto",
-            mb: 2,
-            boxShadow: "0 8px 16px rgba(25, 118, 210, 0.25)",
+            mb: 1.5,
+            boxShadow: "0 6px 12px rgba(25, 118, 210, 0.2)",
           }}
         >
-          <EditNoteRoundedIcon sx={{ fontSize: 28 }} />
+          <EditNoteRoundedIcon sx={{ fontSize: 24 }} />
         </Box>
 
-        <Typography sx={{ fontSize: 20, fontWeight: 700, color: "#1e293b", mb: 0.5 }}>
+        <Typography sx={{ fontSize: 18, fontWeight: 700, color: "#1e293b", mb: 0.3 }}>
           Quản lý yêu cầu điều chỉnh
         </Typography>
-        <Typography sx={{ fontSize: 13.5, color: "#64748b" }}>
+        <Typography sx={{ fontSize: 12.5, color: "#64748b" }}>
           Gửi hoặc cập nhật yêu cầu điều chỉnh bài dạy cho giáo viên.
         </Typography>
       </Box>
 
       {/* CONTENT */}
-      <DialogContent sx={{ px: 3, py: 3.5, bgcolor: "#ffffff" }}>
-        <Stack spacing={2.5}>
-          {/* Thông tin giáo viên / môn / lớp */}
-          <Typography
-            variant="body2"
+      <DialogContent sx={{ px: 3, py: 3, bgcolor: "#ffffff" }}>
+        <Stack spacing={2}>
+          {/* Thông tin giáo viên / môn / lớp - Đã định dạng lại theo yêu cầu */}
+          <Box
             sx={{
-              fontWeight: 500,
-              fontSize: "13.5px",
-              color: "#334155",
-              textAlign: "center",
-              bgcolor: "#f1f5f9",
-              py: 1.5,
-              px: 2,
-              borderRadius: "10px",
-              lineHeight: 1.6,
+              p: 2,
+              bgcolor: "#f8fafc",
+              borderRadius: "12px",
+              border: "1px solid #e2e8f0",
+              display: "flex",
+              flexDirection: "column",
+              gap: 1.2,
             }}
           >
-            🧑‍🏫 Giáo viên: <b>{selectedUsername || "---"}</b><br />
-            📚 Môn: <b>{subject || "---"}</b> | 🏫 Lớp: <b>{className || "---"}</b>
-          </Typography>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <PersonIcon sx={{ fontSize: 18, color: "#1976d2" }} />
+              <Typography variant="body2" sx={{ fontWeight: 700, color: "#1e293b", fontSize: "14px" }}>
+                🧑‍🏫 Giáo viên: <Box component="span" sx={{ color: "#1976d2" }}>{selectedUsername || "---"}</Box>
+              </Typography>
+            </Box>
+
+            <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
+              <Chip 
+                icon={<MenuBookRoundedIcon sx={{ fontSize: "15px !important" }} />}
+                label={`Môn: ${subject || "---"}`} 
+                size="small" 
+                sx={{ bgcolor: "#e0f2fe", color: "#0369a1", fontWeight: 600, border: "none" }}
+              />
+              <Chip 
+                icon={<ClassRoundedIcon sx={{ fontSize: "15px !important" }} />}
+                label={`Lớp: ${className || "---"}`} 
+                size="small" 
+                sx={{ bgcolor: "#dcfce7", color: "#15803d", fontWeight: 600, border: "none" }}
+              />
+            </Box>
+          </Box>
 
           {/* Ô nhập nội dung */}
           <TextField
@@ -145,7 +165,7 @@ export default function BghRequestManageDialog({
       </DialogContent>
 
       {/* ACTIONS */}
-      <Box sx={{ px: 3, pb: 4, pt: 1, display: "flex", justifyContent: "space-between", alignItems: "center", bgcolor: "#ffffff" }}>
+      <Box sx={{ px: 3, pb: 3, pt: 1, display: "flex", justifyContent: "space-between", alignItems: "center", bgcolor: "#ffffff" }}>
         {/* Nút Xóa yêu cầu: Chỉ hiện nếu đã có yêu cầu */}
         {hasExistingRequest ? (
           <Button
@@ -154,12 +174,15 @@ export default function BghRequestManageDialog({
             onClick={handleDeleteBghRequest}
             disabled={saving}
             sx={{
-              height: 46,
-              borderRadius: "12px",
+              height: 42,
+              borderRadius: "10px",
               textTransform: "none",
               fontWeight: 600,
-              fontSize: "14px",
-              px: 2.5,
+              fontSize: "13.5px",
+              px: 2,
+              borderColor: "#fecaca",
+              color: "#dc2626",
+              "&:hover": { bgcolor: "#fee2e2", borderColor: "#fca5a5" },
             }}
           >
             Xóa yêu cầu
@@ -174,14 +197,14 @@ export default function BghRequestManageDialog({
             onClick={onClose}
             disabled={saving}
             sx={{
-              height: 46,
-              borderRadius: "12px",
+              height: 42,
+              borderRadius: "10px",
               textTransform: "none",
               fontWeight: 600,
-              fontSize: "14.5px",
+              fontSize: "13.5px",
               borderColor: "#cbd5e1",
               color: "#475569",
-              px: 2.5,
+              px: 2,
               "&:hover": { borderColor: "#94a3b8", bgcolor: "#f1f5f9" },
             }}
           >
@@ -192,14 +215,14 @@ export default function BghRequestManageDialog({
             onClick={handleSaveBghRequest}
             disabled={saving}
             sx={{
-              height: 46,
-              borderRadius: "12px",
+              height: 42,
+              borderRadius: "10px",
               textTransform: "none",
               fontWeight: 700,
-              fontSize: "14.5px",
+              fontSize: "13.5px",
               bgcolor: "#1976d2",
-              boxShadow: "0 10px 20px rgba(25, 118, 210, 0.3)",
-              px: 3,
+              boxShadow: "0 4px 12px rgba(25, 118, 210, 0.25)",
+              px: 2.5,
               "&:hover": { bgcolor: "#115293" },
             }}
           >
