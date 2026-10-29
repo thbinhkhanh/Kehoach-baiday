@@ -11,29 +11,24 @@ import {
   Alert,
   Paper,
   Chip,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  LinearProgress,
-  Tabs,
-  Tab,
   Snackbar,
   Checkbox,
-  FormControlLabel,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  OutlinedInput,
+  ListItemText,
+  TextField,
 } from "@mui/material";
 
-import {
+/*import {
   collection,
   getDocs,
   doc,
   getDoc,
-  setDoc,
   writeBatch,
-  serverTimestamp,
-} from "firebase/firestore";
+} from "firebase/firestore";*/
 
 import { db } from "../firebase";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -43,8 +38,13 @@ import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import { handleExcelImportService } from "../utils/excelImportService";
 import { saveTeacherAssignmentService } from "../utils/teacherAssignmentService";
 
-import TeacherAssignmentForm from "../components/TeacherAssignmentForm";
+//import TeacherAssignmentForm from "../components/TeacherAssignmentForm";
 import ExcelImportCard from "../components/ExcelImportCard";
+import BangPhanCongVaMonHoc from "../components/BangPhanCongVaMonHoc";
+
+import { fetchInitialData } from "../utils/fetchDataUtils";
+import { luuDanhSachMonHocTheoLop } from "../utils/quanLyMonHoc";
+import FormCapNhatPhanCong from "../components/FormCapNhatPhanCong";
 
 const getTextCellValue = (cell) => {
   if (!cell || cell.value == null) return "";
@@ -81,6 +81,7 @@ export default function PhanQuyen({ user, onClose }) {
     }
   };
 
+  const [selectedGrade, setSelectedGrade] = useState("");
   const [academicYear, setAcademicYear] = useState("2026-2027");
   const [teachers, setTeachers] = useState([]);
   const [allSubjects, setAllSubjects] = useState([]);
@@ -88,7 +89,7 @@ export default function PhanQuyen({ user, onClose }) {
 
   const [assignedRole, setAssignedRole] = useState("GVCN"); // "GVCN", "BM", "TA"
   const [selectedTeacher, setSelectedTeacher] = useState("");
-  const [assignedClass, setAssignedClass] = useState("1");
+  const [assignedClass, setAssignedClass] = useState("1.1");
   const [assignedSubjects, setAssignedSubjects] = useState([]);
   const [teachingClasses, setTeachingClasses] = useState(["1", "2", "3", "4", "5"]);
 
@@ -108,7 +109,8 @@ export default function PhanQuyen({ user, onClose }) {
 
   const determineTeacherRole = (teacherName, teachList, mapData) => {
     if (mapData[teacherName] && mapData[teacherName].role) {
-      return mapData[teacherName].role;
+      const r = mapData[teacherName].role;
+      return r === "GVBM" ? "BM" : r;
     }
     const tObj = teachList.find((t) => t.username === teacherName);
     const subj = (tObj?.subject || "").toUpperCase();
@@ -118,101 +120,26 @@ export default function PhanQuyen({ user, onClose }) {
   };
 
   useEffect(() => {
-    const initData = async () => {
-      try {
-        let currentYear = "2026-2027";
-        const configRef = doc(db, "CONFIG", "config");
-        const configSnap = await getDoc(configRef);
-        if (configSnap.exists() && configSnap.data().namHoc) {
-          currentYear = configSnap.data().namHoc;
-          setAcademicYear(currentYear);
-        }
-
-        const gvSnap = await getDocs(collection(db, "DANHSACH_GV"));
-        const teacherList = [];
-        gvSnap.forEach((d) => {
-          const data = d.data();
-          const name = data.username || d.id;
-          const lower = name.toLowerCase();
-          if (lower !== "admin" && lower !== "bgh" && !lower.includes("ban giám hiệu")) {
-            teacherList.push({
-              id: d.id,
-              username: name.toUpperCase(),
-              subject: data.subject || "",
-            });
-          }
-        });
-        teacherList.sort((a, b) =>
-          a.username.split(" ").slice(-1)[0].localeCompare(b.username.split(" ").slice(-1)[0], "vi")
-        );
-        setTeachers(teacherList);
-
-        const monSnap = await getDocs(collection(db, "MONHOC"));
-        const monList = [];
-        monSnap.forEach((d) => {
-          const data = d.data();
-          const subName = data.name || d.id;
-          if (subName) {
-            monList.push({
-              name: subName,
-              grades: data.grades || [],
-            });
-          }
-        });
-        monList.sort((a, b) => a.name.localeCompare(b.name, "vi"));
-        setAllSubjects(monList);
-
-        // Tải dữ liệu từ collection LOP_MONHOC (mỗi doc ID là tên lớp: "1", "2", "3", "4", "5")
-        const lopMonHocSnap = await getDocs(collection(db, "LOP_MONHOC"));
-        if (!lopMonHocSnap.empty) {
-          const savedGradeMap = {};
-          lopMonHocSnap.forEach((d) => {
-            savedGradeMap[d.id] = d.data().subjects || [];
-          });
-
-          // Chuyển đổi về cấu trúc bảng checkbox
-          const subMap = {};
-          monList.forEach((s) => {
-            const applicableGrades = [];
-            ["1", "2", "3", "4", "5"].forEach((cls) => {
-              if (savedGradeMap[cls] && savedGradeMap[cls].includes(s.name)) {
-                applicableGrades.push(cls);
-              }
-            });
-            subMap[s.name] = applicableGrades;
-          });
-          setClassSubjectMap(subMap);
-        } else {
-          // Mặc định dựa trên MONHOC hoặc tick tất cả
-          const defaultMap = {};
-          monList.forEach((s) => {
-            const defaultGrades = !s.grades || s.grades.length === 0 ? ["1", "2", "3", "4", "5"] : s.grades.map(String);
-            defaultMap[s.name] = defaultGrades;
-          });
-          setClassSubjectMap(defaultMap);
-        }
-
-        const phanQuyenColName = `PHANQUYEN_${currentYear}`;
-        const pqSnap = await getDocs(collection(db, phanQuyenColName));
-        const map = {};
-        pqSnap.forEach((d) => {
-          map[d.id] = d.data();
-        });
-        setAssignmentsMap(map);
-
-        const defaultTeachers = teacherList.filter(
-          (t) => determineTeacherRole(t.username, teacherList, map) === "GVCN"
-        );
-        if (defaultTeachers.length > 0) {
-          setSelectedTeacher(defaultTeachers[0].username);
-        }
-      } catch (err) {
-        console.error("Lỗi tải dữ liệu phân quyền:", err);
+  const initData = async () => {
+    try {
+      const data = await fetchInitialData(db, determineTeacherRole);
+      
+      setAcademicYear(data.academicYear);
+      setTeachers(data.teacherList);
+      setAllSubjects(data.monList);
+      setClassSubjectMap(data.classSubjectMap);
+      setAssignmentsMap(data.assignmentsMap);
+      
+      if (data.defaultSelectedTeacher) {
+        setSelectedTeacher(data.defaultSelectedTeacher);
       }
-    };
+    } catch (err) {
+      // Đã xử lý log lỗi ở utils, có thể thêm state hiển thị lỗi nếu muốn
+    }
+  };
 
-    initData();
-  }, []);
+  initData();
+}, []);
 
   const filteredTeachers = teachers.filter(
     (t) => determineTeacherRole(t.username, teachers, assignmentsMap) === assignedRole
@@ -234,41 +161,46 @@ export default function PhanQuyen({ user, onClose }) {
     if (newRole === "TA") {
       setAssignedSubjects(["Tiếng Anh"]);
       setTeachingClasses(["1", "2", "3", "4", "5"]);
+    } else if (newRole === "BM") {
+      setAssignedSubjects([]);
+      setTeachingClasses(["1", "2", "3", "4", "5"]);
     }
   };
 
   useEffect(() => {
     if (!selectedTeacher) return;
 
-    // Lấy thông tin lớp chuẩn từ danh sách giáo viên gốc (DANHSACH_GV tương ứng với cột LỚP/MÔN)
     const currentTeacherObj = teachers.find((t) => t.username === selectedTeacher);
-    const defaultSubj = (currentTeacherObj?.subject || "").trim(); // Ví dụ: "5.4", "4.7"
+    const defaultSubj = (currentTeacherObj?.subject || "").trim();
 
     const existing = assignmentsMap[selectedTeacher];
     if (existing) {
-      // Nếu dữ liệu cũ trong Firestore chỉ là số khối (vd: "4") nhưng dữ liệu gốc có mã lớp đầy đủ (vd: "5.4"), hãy ưu tiên lấy dữ liệu gốc
       const savedClass = existing.assignedClass || "";
-      const useClass = (savedClass.length <= 1 && defaultSubj.includes(".")) 
-        ? defaultSubj 
-        : (savedClass || defaultSubj || "1.1");
+      const useClass = savedClass ? savedClass : (defaultSubj.includes(".") ? defaultSubj : "1.1");
 
       setAssignedClass(useClass);
+      setSelectedGrade(
+        String(useClass || "").replace(/^lớp\s*/i, "").split(".")[0] || ""
+      );
 
       if (Array.isArray(existing.assignedSubjects)) {
         setAssignedSubjects(existing.assignedSubjects);
       } else if (existing.assignedSubject && existing.assignedSubject !== "Tất cả môn GVCN") {
         setAssignedSubjects(existing.assignedSubject.split(",").map((s) => s.trim()).filter(Boolean));
       } else {
-        setAssignedSubjects([]);
+        setAssignedSubjects(assignedRole === "TA" ? ["Tiếng Anh"] : []);
       }
-      setTeachingClasses(existing.teachingClasses?.length > 1 ? existing.teachingClasses : [useClass]);
+      setTeachingClasses(existing.teachingClasses?.length > 0 ? existing.teachingClasses : ["1", "2", "3", "4", "5"]);
     } else {
-      const classCode = defaultSubj || "1.1";
+      const classCode = defaultSubj.includes(".") ? defaultSubj : "1.1";
       setAssignedClass(classCode);
-      setTeachingClasses([classCode]);
-      setAssignedSubjects([]);
+      setSelectedGrade(
+        String(classCode || "").replace(/^lớp\s*/i, "").split(".")[0] || ""
+      );
+      setTeachingClasses(["1", "2", "3", "4", "5"]);
+      setAssignedSubjects(assignedRole === "TA" ? ["Tiếng Anh"] : []);
     }
-  }, [selectedTeacher, teachers, assignmentsMap]);
+  }, [selectedTeacher, teachers, assignmentsMap, assignedRole]);
 
   const getFilteredSubjects = () => {
     if (assignedRole === "TA") {
@@ -298,7 +230,6 @@ export default function PhanQuyen({ user, onClose }) {
     setAssignedSubjects(typeof value === "string" ? value.split(",") : value);
   };
 
-  // Handler tick chọn môn học theo khối lớp
   const handleToggleSubjectGrade = (subjectName, grade) => {
     setClassSubjectMap((prev) => {
       const currentGrades = prev[subjectName] || ["1", "2", "3", "4", "5"];
@@ -315,47 +246,12 @@ export default function PhanQuyen({ user, onClose }) {
     });
   };
 
-  // Lưu cấu hình Khối lớp và Môn học vào LOP_MONHOC
   const handleSaveClassSubjectMap = async () => {
     setSavingClassSubject(true);
     setMessage(null);
     try {
-      // Khởi tạo mảng môn học cho từng lớp từ 1 đến 5
-      const gradesMap = { "1": [], "2": [], "3": [], "4": [], "5": [] };
-
-      // Quy định các lớp KHÔNG ĐƯỢC PHÉP có môn đó (để chặn triệt để lỗi lệch state)
-      const invalidRules = {
-        "Công nghệ": ["1", "2"],
-        "Khoa học": ["1", "2", "3"],
-        "Lịch sử và Địa lí": ["1", "2", "3"],
-        "Tự nhiên và Xã hội": ["4", "5"]
-      };
-
-      // Gom nhóm từ Môn học -> Lớp, đồng thời lọc bỏ các trường hợp không hợp lệ
-      Object.entries(classSubjectMap).forEach(([subName, grades]) => {
-        grades.forEach((g) => {
-          const restrictedGrades = invalidRules[subName] || [];
-          // Chỉ thêm vào nếu lớp này hợp lệ và tồn tại trong gradesMap
-          if (gradesMap[g] && !restrictedGrades.includes(g)) {
-            gradesMap[g].push(subName);
-          }
-        });
-      });
-
-      // Lưu mỗi lớp thành một Document riêng biệt trong collection LOP_MONHOC
-      // Do dùng batch.set (không có merge: true), Firestore sẽ GHI ĐÈ HOÀN TOÀN,
-      // nghĩa là môn nào bị bỏ tích (không có trong mảng subjects) sẽ tự động bị XOÁ khỏi DB.
-      const batch = writeBatch(db);
-      Object.entries(gradesMap).forEach(([cls, subjects]) => {
-        const docRef = doc(db, "LOP_MONHOC", cls);
-        batch.set(docRef, {
-          subjects: subjects, // Chỉ chứa đúng danh sách các môn đang được check trên giao diện
-          updatedAt: new Date(),
-        });
-      });
-
-      await batch.commit();
-
+      await luuDanhSachMonHocTheoLop(db, classSubjectMap);
+      
       setMessage({
         type: "success",
         text: "Lưu cấu hình Môn học theo lớp thành công!",
@@ -443,7 +339,7 @@ export default function PhanQuyen({ user, onClose }) {
     });
 
   const bmList = assignmentsList
-    .filter((item) => item.role === "BM")
+    .filter((item) => item.role === "BM" || item.role === "GVBM")
     .sort((a, b) => String(a.assignedSubject || "").localeCompare(String(b.assignedSubject || ""), "vi"));
 
   return (
@@ -575,223 +471,53 @@ export default function PhanQuyen({ user, onClose }) {
             />
 
             {/* PHÂN CÔNG CHI TIẾT */}
-            <TeacherAssignmentForm
-              assignedRole={assignedRole}
-              handleRoleChange={handleRoleChange}
-              selectedTeacher={selectedTeacher}
-              setSelectedTeacher={setSelectedTeacher}
-              filteredTeachers={filteredTeachers}
-              assignedSubjects={assignedSubjects}
-              handleSubjectChange={handleSubjectChange}
-              currentAvailableSubjects={currentAvailableSubjects}
-              assignedClass={assignedClass}
-              setAssignedClass={setAssignedClass}
-              teachingClasses={teachingClasses}
-              handleClassCheck={handleClassCheck}
-              saving={saving}
-              handleSave={handleSave}
-            />
+              <Box>
+                <FormCapNhatPhanCong
+                  assignedRole={assignedRole}
+                  handleRoleChange={handleRoleChange}
+                  selectedTeacher={selectedTeacher}
+                  setSelectedTeacher={setSelectedTeacher}
+                  filteredTeachers={filteredTeachers}
+                  teachers={teachers}
+                  assignmentsMap={assignmentsMap}
+                  gvcnList={gvcnList}
+                  assignedClass={assignedClass}
+                  setAssignedClass={setAssignedClass}
+                  selectedGrade={selectedGrade}
+                  setSelectedGrade={setSelectedGrade}
+                  assignedSubjects={assignedSubjects}
+                  handleSubjectChange={handleSubjectChange}
+                  currentAvailableSubjects={currentAvailableSubjects}
+                  teachingClasses={teachingClasses}
+                  handleClassCheck={handleClassCheck}
+                  handleSave={handleSave}
+                  saving={saving}
+                />
+              </Box>
 
             {/* DANH SÁCH PHÂN CÔNG ĐÃ LƯU (TABS & TABLE) */}
-            <Box sx={{ mt: 4 }}>
-              <Typography
-                sx={{
-                  fontSize: 18,
-                  fontWeight: 750,
-                  color: "#172b4d",
-                  mb: 2,
-                }}
-              >
-                Danh sách phân công giảng dạy ({academicYear})
-              </Typography>
+       
+              <Box>
+                {/* Các nội dung khác nếu có */}
 
-              <Tabs
-                value={currentTab}
-                onChange={(e, val) => setCurrentTab(val)}
-                sx={{
-                  borderBottom: "1px solid #e8edf5",
-                  mb: 2.5,
-                  "& .MuiTab-root": {
-                    fontWeight: 700,
-                    textTransform: "none",
-                    fontSize: "0.95rem",
-                  },
-                }}
-              >
-                <Tab label={`GV Chủ nhiệm (${gvcnList.length})`} />
-                <Tab label={`Giáo viên Tiếng Anh (${taList.length})`} />
-                <Tab label={`Giáo viên Bộ môn (${bmList.length})`} />
-              </Tabs>
-
-              <TableContainer
-                component={Paper}
-                elevation={0}
-                sx={{
-                  border: "1px solid #e2e8f0",
-                  borderRadius: 2.5,
-                  maxHeight: 400,
-                }}
-              >
-                <Table stickyHeader size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 700, bgcolor: "#f8fafc" }}>STT</TableCell>
-                      <TableCell sx={{ fontWeight: 700, bgcolor: "#f8fafc" }}>Họ và tên</TableCell>
-                      <TableCell sx={{ fontWeight: 700, bgcolor: "#f8fafc" }}>
-                        {currentTab === 0 ? "Lớp chủ nhiệm" : currentTab === 1 ? "Môn học" : "Môn / Lớp phụ trách"}
-                      </TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {currentTab === 0 &&
-                      (gvcnList.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={3} align="center" sx={{ py: 3, color: "#64748b" }}>
-                            Chưa có giáo viên chủ nhiệm nào.
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        gvcnList.map((item, idx) => (
-                          <TableRow key={item.username} hover>
-                            <TableCell>{idx + 1}</TableCell>
-                            <TableCell sx={{ fontWeight: 600 }}>{item.username}</TableCell>
-                            <TableCell>Lớp {item.assignedClass || "Chưa gán"}</TableCell>
-                          </TableRow>
-                        ))
-                      ))}
-
-                    {currentTab === 1 &&
-                      (taList.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={3} align="center" sx={{ py: 3, color: "#64748b" }}>
-                            Chưa có giáo viên Tiếng Anh nào.
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        taList.map((item, idx) => (
-                          <TableRow key={item.username} hover>
-                            <TableCell>{idx + 1}</TableCell>
-                            <TableCell sx={{ fontWeight: 600 }}>{item.username}</TableCell>
-                            <TableCell>{item.assignedSubject || "Tiếng Anh"}</TableCell>
-                          </TableRow>
-                        ))
-                      ))}
-
-                    {currentTab === 2 &&
-                      (bmList.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={3} align="center" sx={{ py: 3, color: "#64748b" }}>
-                            Chưa có giáo viên bộ môn nào.
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        bmList.map((item, idx) => (
-                          <TableRow key={item.username} hover>
-                            <TableCell>{idx + 1}</TableCell>
-                            <TableCell sx={{ fontWeight: 600 }}>{item.username}</TableCell>
-                            <TableCell>{item.assignedSubject || "Chưa gán"}</TableCell>
-                          </TableRow>
-                        ))
-                      ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-
-              {/* NHÓM MỚI: KHỐI LỚP VÀ MÔN HỌC */}
-            <Box sx={{ mt: 1 }}>
-              <Typography
-                sx={{
-                  fontSize: 18,
-                  fontWeight: 750,
-                  color: "#172b4d",
-                  mb: 1.5,
-                }}
-              >
-                Khối lớp và Môn học ({academicYear})
-              </Typography>
-
-              <TableContainer
-                component={Paper}
-                elevation={0}
-                sx={{
-                  border: "1px solid #e2e8f0",
-                  borderRadius: 2.5,
-                  mb: 2,
-                }}
-              >
-                <Table stickyHeader size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 700, bgcolor: "#f8fafc", width: 60 }}>STT</TableCell>
-                      <TableCell sx={{ fontWeight: 700, bgcolor: "#f8fafc" }}>Môn học</TableCell>
-                      {["1", "2", "3", "4", "5"].map((cls) => (
-                        <TableCell key={cls} align="center" sx={{ fontWeight: 700, bgcolor: "#f8fafc", width: 80 }}>
-                          Lớp {cls}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {allSubjects.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={7} align="center" sx={{ py: 3, color: "#64748b" }}>
-                          Chưa có dữ liệu môn học.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      allSubjects.map((sub, idx) => {
-                        const activeGrades = classSubjectMap[sub.name] || ["1", "2", "3", "4", "5"];
-                        return (
-                          <TableRow key={sub.name} hover>
-                            <TableCell>{idx + 1}</TableCell>
-                            <TableCell sx={{ fontWeight: 600 }}>{sub.name}</TableCell>
-                            {["1", "2", "3", "4", "5"].map((cls) => {
-                              // Kiểm tra xem môn học có áp dụng cho khối lớp này theo MONHOC không
-                              const isGradeApplicable = !sub.grades || sub.grades.length === 0 || sub.grades.map(String).includes(cls);
-                              return (
-                                <TableCell key={cls} align="center">
-                                  {isGradeApplicable ? (
-                                    <Checkbox
-                                      checked={activeGrades.includes(cls)}
-                                      onChange={() => handleToggleSubjectGrade(sub.name, cls)}
-                                      size="small"
-                                      color="primary"
-                                    />
-                                  ) : null}
-                                </TableCell>
-                              );
-                            })}
-                          </TableRow>
-                        );
-                      })
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-
-              <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-                <Button
-                  variant="contained"
-                  onClick={handleSaveClassSubjectMap}
-                  disabled={savingClassSubject}
-                  sx={{
-                    borderRadius: 2,
-                    textTransform: "none",
-                    fontWeight: 700,
-                    bgcolor: "#2457c5",
-                    "&:hover": { bgcolor: "#1d459e" },
-                  }}
-                >
-                  {savingClassSubject ? "Đang lưu..." : "Lưu cấu hình Môn học - Lớp"}
-                </Button>
+                <BangPhanCongVaMonHoc
+                  academicYear={academicYear}
+                  currentTab={currentTab}
+                  setCurrentTab={setCurrentTab}
+                  gvcnList={gvcnList}
+                  taList={taList}
+                  bmList={bmList}
+                  allSubjects={allSubjects}
+                  classSubjectMap={classSubjectMap}
+                  handleToggleSubjectGrade={handleToggleSubjectGrade}
+                  handleSaveClassSubjectMap={handleSaveClassSubjectMap}
+                  savingClassSubject={savingClassSubject}
+                />
               </Box>
-            </Box>
-            </Box>
           </Stack>
         </CardContent>
       </Card>
 
-      {/* SNACKBAR THÔNG BÁO Ở GÓC DƯỚI PHẢI */}
       <Snackbar
         open={Boolean(message)}
         autoHideDuration={4000}

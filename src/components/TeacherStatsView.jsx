@@ -24,7 +24,6 @@ export default function TeacherStatsView({
     if (!name) return "";
     const trimmed = name.trim();
     
-    // Nếu không phải mobile (tức là máy tính/tablet lớn), giữ nguyên tên gốc
     if (!isMobile) return trimmed;
 
     const lower = trimmed.toLowerCase();
@@ -43,23 +42,34 @@ export default function TeacherStatsView({
     return trimmed;
   };
 
-  // Lọc chỉ lấy các lớp hợp lệ (loại bỏ chữ "username" nếu có)
+  // 🌟 Lọc và tổng hợp cột linh hoạt từ cả 2 nguồn (lớp chi tiết như 2.1, 4.3 và dạng khối như 2, 4)
+  // 🌟 Lọc các lớp hợp lệ và tự động quy đổi lớp chi tiết (vd: "4.3" -> "4") để khớp với dữ liệu lưu theo khối
   const allowedClassesFiltered = (teacherAllowedClasses || []).filter(
     (c) => !String(c).toLowerCase().includes("username")
   );
 
-  let dynamicColumns = allowedClassesFiltered;
+  // Thu thập thêm các khóa cột thực tế đang tồn tại bên trong statsData từ Firestore
+  const statsKeysSet = new Set();
+  statsData.forEach((row) => {
+    Object.keys(row).forEach((key) => {
+      if (key !== "subject" && key !== "total" && key !== "id" && key !== "username") {
+        statsKeysSet.add(String(key));
+      }
+    });
+  });
+
+  // Chuẩn hóa danh sách lớp phân công về dạng số Khối (vd: "4.3" -> "4")
+  const normalizedAllowedGrades = allowedClassesFiltered.map((c) => {
+    const trimmed = String(c).trim();
+    return trimmed.split(".")[0].replace(/[^0-9]/g, "") || trimmed;
+  });
+
+  // Kết hợp cả hai nguồn và loại bỏ trùng lặp
+  const combinedColumnsSet = new Set([...normalizedAllowedGrades, ...Array.from(statsKeysSet)]);
+  let dynamicColumns = Array.from(combinedColumnsSet);
 
   if (dynamicColumns.length === 0 && statsData.length > 0) {
-    const keysSet = new Set();
-    statsData.forEach((row) => {
-      Object.keys(row).forEach((key) => {
-        if (key !== "subject" && key !== "total" && key !== "id") {
-          keysSet.add(key);
-        }
-      });
-    });
-    dynamicColumns = Array.from(keysSet);
+    dynamicColumns = Array.from(statsKeysSet);
   }
 
   // Hàm tính tổng số bài theo dòng môn học
@@ -123,10 +133,10 @@ export default function TeacherStatsView({
               </Typography>
             </Box>
 
-            {/* Thẻ Lớp */}
+            {/* Thẻ Lớp/Khối */}
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5, px: 1, py: 0.6, borderRadius: 2, bgcolor: "rgba(255, 255, 255, 0.8)", border: "1px solid #cbd5e1", flex: 1, minWidth: 0, overflow: "hidden" }}>
               <span>🏫</span>
-              <Typography variant="body2" sx={{ color: "#475569", fontSize: { xs: "0.75rem", sm: "0.875rem" }, whiteSpace: "nowrap" }}>Lớp:</Typography>
+              <Typography variant="body2" sx={{ color: "#475569", fontSize: { xs: "0.75rem", sm: "0.875rem" }, whiteSpace: "nowrap" }}>Lớp/Khối:</Typography>
               <Typography variant="body1" fontWeight="bold" sx={{ color: "#16a34a", fontSize: { xs: "0.85rem", sm: "1rem" }, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {dynamicColumns.join(", ") || "Không có"}
               </Typography>
@@ -162,7 +172,7 @@ export default function TeacherStatsView({
                         color: "#475569", 
                         fontWeight: 700, 
                         fontSize: "0.95rem",
-                        whiteSpace: "nowrap" // Co lại vừa khít nội dung chữ
+                        whiteSpace: "nowrap"
                       }}
                     >
                       Môn học
@@ -181,7 +191,7 @@ export default function TeacherStatsView({
                           whiteSpace: "nowrap" 
                         }}
                       >
-                        {dynamicColumns.length === 1 ? "Số bài nộp" : (String(col).toLowerCase().includes("khối") ? col : `Lớp ${col}`)}
+                        {dynamicColumns.length === 1 ? "Số bài nộp" : (String(col).toLowerCase().includes("khối") || String(col).length === 1 ? `Khối ${col}` : `Lớp ${col}`)}
                       </Box>
                     ))}
                     <Box component="th" sx={{ p: { xs: 1, sm: 1.8 }, color: "#dc2626", fontWeight: 700, fontSize: "0.95rem", width: "14%", whiteSpace: "nowrap" }}>
@@ -202,7 +212,7 @@ export default function TeacherStatsView({
                           "&:hover": { bgcolor: "#f8fafc" } 
                         }}
                       >
-                        {/* Cột Tên môn học: Tự động co giãn theo nội dung ngắn gọn */}
+                        {/* Cột Tên môn học */}
                         <Box 
                           component="td" 
                           sx={{ 
@@ -211,13 +221,13 @@ export default function TeacherStatsView({
                             fontWeight: "700", 
                             color: "#1e293b", 
                             fontSize: "0.95rem",
-                            whiteSpace: "nowrap" // Tránh ngắt dòng để cột tự động ôm sát chữ
+                            whiteSpace: "nowrap"
                           }}
                         >
                           📖 {getDisplaySubjectName(row.subject)}
                         </Box>
 
-                        {/* Các cột Lớp động */}
+                        {/* Các cột Lớp/Khối động */}
                         {dynamicColumns.map((col) => {
                           const count = row[col] || 0;
                           return (

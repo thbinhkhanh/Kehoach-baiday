@@ -20,6 +20,9 @@ import { db } from "../firebase";
 import { collection, getDocs, doc, getDoc, query, where, updateDoc, serverTimestamp } from "firebase/firestore";
 import { fetchSchoolSummaryData, fetchTeacherStatsData } from "../utils/thongKe";
 import { saveBghRequestService, deleteBghRequestService } from "../utils/bghNotificationService";
+import { fetchPhanQuyen } from "../utils/phanQuyenHelper";
+import { tinhToanMonHocChoGiaoVien } from "../utils/monHocHelper";
+import { taiThongKeGiaoVien } from "../utils/thongKeGiaoVien";
 
 import TeacherStatsView from "../components/TeacherStatsView";
 import SchoolSummaryView from "../components/SchoolSummaryView";
@@ -82,8 +85,13 @@ export default function BGH({ user }) {
   const [statsData, setStatsData] = useState([]);
   const [loadingStats, setLoadingStats] = useState(false);
 
-  // Context chỉ quản lý dữ liệu thống kê dùng chung
-  const { updateTeacherStats, getTeacherStats } = useBGHStats();
+  // Context quản lý dữ liệu thống kê dùng chung và cache tổng hợp toàn trường
+  const { 
+    updateTeacherStats, 
+    getTeacherStats, 
+    getSchoolSummary,      // 🌟 Thêm hàm lấy cache tổng hợp
+    updateSchoolSummary    // 🌟 Thêm hàm lưu cache tổng hợp
+  } = useBGHStats();
 
   const [teacherAllowedSubjects, setTeacherAllowedSubjects] = useState([]);
   const [teacherAllowedClasses, setTeacherAllowedClasses] = useState([]);
@@ -101,6 +109,9 @@ export default function BGH({ user }) {
   // 🚀 State quản lý Dialog xem/sửa kế hoạch bài dạy của giáo viên
   const [teacherAdjOpen, setTeacherAdjOpen] = useState(false);
   const [selectedTeacherAdjFile, setSelectedTeacherAdjFile] = useState(null);   
+
+  // State theo dõi cờ tổng hợp toàn trường từ CONFIG
+  const [flagSchoolSummary, setFlagSchoolSummary] = useState(false);
 
   const [groupedTeachers, setGroupedTeachers] = useState({
     khoi1: [],
@@ -124,6 +135,30 @@ export default function BGH({ user }) {
     lowerUsername.includes("chuyên môn") ||
     user?.role === "bgh";
   const isAdmin = isBGH;
+
+  // 3. Kiểm tra cờ flagSchoolSummary từ CONFIG để tự động tổng hợp toàn trường nếu cần
+  useEffect(() => {
+    const checkSchoolSummaryFlag = async () => {
+      if (!isBGH) return;
+      try {
+        const configRef = doc(db, "CONFIG", "config");
+        const configSnap = await getDoc(configRef);
+        if (configSnap.exists()) {
+          const data = configSnap.data();
+          if (data.flagSchoolSummary === true) {
+            setFlagSchoolSummary(true);
+            setViewMode("schoolSummary");
+            // 🌟 Ép làm mới (forceRefresh = true) vì trên Server vừa có dữ liệu mới do giáo viên nộp bài
+            await fetchSchoolSummary(true); 
+          }
+        }
+      } catch (err) {
+        console.error("❌ Lỗi kiểm tra flagSchoolSummary:", err);
+      }
+    };
+
+    checkSchoolSummaryFlag();
+  }, [isBGH, academicYear, phanQuyenMap, allMonHoc]);
 
   // 1. Lấy CONFIG, MONHOC & LOP_MONHOC
   useEffect(() => {
@@ -166,137 +201,26 @@ export default function BGH({ user }) {
     }
   }, [isBGH]);
 
-  // 2. Phân quyền giáo viên
+  // 2. Phân quyền giáo viên (Sử dụng tiện ích)
   useEffect(() => {
-      const fetchPhanQuyen = async () => {
-        try {
-          const phanQuyenColName = `PHANQUYEN_${academicYear}`;
-          const querySnapshot = await getDocs(collection(db, phanQuyenColName));
- 
-          const groups = {
-            khoi1: [],
-            khoi2: [],
-            khoi3: [],
-            khoi4: [],
-            khoi5: [],
-            tiengAnh: [],
-            boMon: [],
-          };
-          const map = {};
-          let firstAvailableTeacher = "";
- 
-          querySnapshot.forEach((docSnap) => {
-            const data = docSnap.data();
-            const name = data.username || docSnap.id;
-            const lowerName = name.toLowerCase();
- 
-            if (
-              lowerName !== "admin" &&
-              lowerName !== "bgh" &&
-              !lowerName.includes("ban giám hiệu") &&
-              !lowerName.includes("thbinhkhanh")
-            ) {
-              const upperName = name.toUpperCase();
- 
-              let subs = [];
-              if (
-                Array.isArray(data.assignedSubjects) &&
-                data.assignedSubjects.length > 0
-              ) {
-                subs = data.assignedSubjects;
-              } else if (data.assignedSubject) {
-                subs = data.assignedSubject
-                  .split(",")
-                  .map((s) => s.trim())
-                  .filter(Boolean);
-              }
- 
-              let cls = [];
-              if (data.assignedClass) {
-                cls = [String(data.assignedClass)];
-              } else if (
-                Array.isArray(data.teachingClasses) &&
-                data.teachingClasses.length > 0
-              ) {
-                cls = data.teachingClasses.map(String);
-              } else {
-                cls = ["1", "2", "3", "4", "5"];
-              }
- 
-              const teacherObj = {
-                username: upperName,
-                role: data.role || "GVCN",
-                assignedSubjects: subs,
-                teachingClasses: cls,
-                grade: data.grade || "", // Đọc thêm trường grade từ Firestore
-              };
- 
-              map[upperName] = teacherObj;
- 
-              const role = teacherObj.role;
-              const subString = subs.join(" ").toLowerCase();
- 
-              if (role === "TA" || subString.includes("tiếng anh")) {
-                groups.tiengAnh.push(upperName);
-              } else if (
-                role === "BM" ||
-                subString.includes("tin học") ||
-                subString.includes("mĩ thuật") ||
-                subString.includes("mỹ thuật") ||
-                subString.includes("âm nhạc") ||
-                subString.includes("thể dục")
-              ) {
-                groups.boMon.push(upperName);
-              } else {
-                // Xác định chính xác khối dựa vào field grade hoặc ký tự đầu tiên của lớp (VD: "5.4" -> "5")
-                const gradeVal = teacherObj.grade || String(cls[0] || "").charAt(0);
- 
-                if (gradeVal === "1") groups.khoi1.push(upperName);
-                else if (gradeVal === "2") groups.khoi2.push(upperName);
-                else if (gradeVal === "3") groups.khoi3.push(upperName);
-                else if (gradeVal === "4") groups.khoi4.push(upperName);
-                else if (gradeVal === "5") groups.khoi5.push(upperName);
-                else {
-                  groups.boMon.push(upperName);
-                }
-              }
-            }
-          });
- 
-          const sortByName = (arr) => {
-            return arr.sort((a, b) => {
-              const getLastName = (fullName) =>
-                fullName?.trim().split(" ").slice(-1)[0]?.toLowerCase() || "";
-              return getLastName(a).localeCompare(getLastName(b), "vi");
-            });
-          };
- 
-          Object.keys(groups).forEach((key) => {
-            sortByName(groups[key]);
-          });
- 
-          setGroupedTeachers(groups);
-          setPhanQuyenMap(map);
- 
-          for (const key of Object.keys(groups)) {
-            if (groups[key].length > 0) {
-              firstAvailableTeacher = groups[key][0];
-              break;
-            }
-          }
- 
-          if (firstAvailableTeacher && !selectedUsername) {
-            setSelectedUsername(firstAvailableTeacher);
-          }
-        } catch (err) {
-          console.error("❌ Lỗi khi tải dữ liệu phân quyền:", err);
-        }
-      };
- 
-      if (isBGH) {
-        fetchPhanQuyen();
+    const loadPhanQuyenData = async () => {
+      if (!isBGH) return;
+
+      const result = await fetchPhanQuyen(academicYear);
+      if (result) {
+        setGroupedTeachers(result.groups);
+        setPhanQuyenMap(result.map);
+
+        setSelectedUsername((prevSelected) =>
+          !prevSelected && result.firstAvailableTeacher
+            ? result.firstAvailableTeacher
+            : prevSelected
+        );
       }
-    }, [isBGH, academicYear]);
+    };
+
+    loadPhanQuyenData();
+  }, [isBGH, academicYear]);
 
   const getFilteredTeacherList = () => {
     let list = [];
@@ -375,107 +299,24 @@ export default function BGH({ user }) {
   }, [selectedUsername, phanQuyenMap]);
 
   // Lọc danh sách môn học phù hợp với giáo viên và lớp được chọn (đồng bộ logic với Users.jsx)
+  // Lọc danh sách môn học phù hợp với giáo viên và lớp được chọn (Sử dụng tiện ích)
   useEffect(() => {
-    if (
-      !selectedUsername ||
-      !phanQuyenMap[selectedUsername] ||
-      !className ||
-      allMonHoc.length === 0
-    )
-      return;
-
-    const teacherInfo = phanQuyenMap[selectedUsername];
-    const rawSubs = teacherInfo.assignedSubjects || [];
-    const teacherRole = teacherInfo.role || "GVCN";
-
-    // Lấy khối từ mã lớp đầy đủ, ví dụ 5.4 -> 5
-    const gradeFromClass = String(className).split(".")[0].trim();
-
-    let finalSubjects = [];
-
-    if (teacherRole === "TA") {
-      const taSub = allMonHoc.find((s) => s.name.toLowerCase().includes("tiếng anh"));
-      if (taSub) {
-        if (!taSub.grades || taSub.grades.length === 0 || taSub.grades.includes(String(className))) {
-          finalSubjects = [taSub.name];
-        }
-      }
-      if (finalSubjects.length === 0) finalSubjects = ["Tiếng Anh"];
-    } else if (teacherRole === "BM") {
-      const filtered = allMonHoc
-        .filter((sub) => {
-          const matchesAssigned = rawSubs.some(
-            (as) => as.toLowerCase().trim() === sub.name.toLowerCase().trim()
-          );
-          if (!matchesAssigned) return false;
-          if (!sub.grades || sub.grades.length === 0) return true;
-          return sub.grades.includes(String(className));
-        })
-        .map((sub) => sub.name);
-
-      finalSubjects = filtered.length > 0 ? filtered : rawSubs;
-    } else if (teacherRole === "GVCN") {
-      const gradeFromClass = String(className).split(".")[0];
-      const subjectsForClass = lopMonHocMap[String(className)] || lopMonHocMap[gradeFromClass];
-
-      if (Array.isArray(subjectsForClass) && subjectsForClass.length > 0) {
-        const hasSpecificAssigned =
-          rawSubs.length > 0 &&
-          !rawSubs.some((sub) => sub.toLowerCase().includes("tất cả"));
-
-        if (hasSpecificAssigned) {
-          finalSubjects = subjectsForClass.filter((subName) =>
-            rawSubs.some((as) => as.toLowerCase() === subName.toLowerCase())
-          );
-        } else {
-          const specialistKeywords = ["tiếng anh", "tin học"];
-          finalSubjects = subjectsForClass.filter(
-            (subName) =>
-              !specialistKeywords.some((kw) => subName.toLowerCase().includes(kw))
-          );
-        }
-      } else {
-        const hasSpecificAssigned =
-          rawSubs.length > 0 &&
-          !rawSubs.some((sub) => sub.toLowerCase().includes("tất cả"));
-
-        finalSubjects = allMonHoc
-          .filter((sub) => {
-            const subLower = sub.name.toLowerCase();
-            if (hasSpecificAssigned) {
-              const matchesAssigned = rawSubs.some((as) => as.toLowerCase() === subLower);
-              if (!matchesAssigned) return false;
-            } else {
-              const strictSpecialistKeywords = ["tiếng anh", "tin học"];
-              const isStrictSpecialist = strictSpecialistKeywords.some((kw) =>
-                subLower.includes(kw)
-              );
-              if (isStrictSpecialist) return false;
-            }
-
-            if (!sub.grades || sub.grades.length === 0) return true;
-            return (
-              sub.grades.map(String).includes(gradeFromClass) ||
-              sub.grades.map(String).includes(String(className))
-            );
-          })
-          .map((sub) => sub.name);
-      }
-    } else {
-      finalSubjects = allMonHoc.map((sub) => sub.name);
-    }
+    const { finalSubjects, newSubject } = tinhToanMonHocChoGiaoVien({
+      selectedUsername,
+      phanQuyenMap,
+      className,
+      allMonHoc,
+      lopMonHocMap,
+      currentSubject: subject,
+    });
 
     setTeacherAllowedSubjects(finalSubjects);
-
-    if (finalSubjects.length > 0 && !finalSubjects.includes(subject)) {
-      setSubject(finalSubjects[0]);
-    } else if (finalSubjects.length === 0) {
-      setSubject("");
-    }
+    setSubject(newSubject);
   }, [selectedUsername, className, phanQuyenMap, allMonHoc, lopMonHocMap]);
 
   // Truy vấn danh sách file từ Firestore
   
+  // 🌟 Hàm quét và đồng bộ danh sách file chuẩn theo cả 2 cấu trúc (Khối mới và Lớp cũ như 4.3)
   const fetchFileList = async () => {
     if (!selectedUsername || !className || !subject || !academicYear) {
       setFileList([]);
@@ -495,10 +336,15 @@ export default function BGH({ user }) {
       const teacherData = teacherSnap.exists() ? teacherSnap.data() : {};
       const notifications = teacherData.bghNotifications || [];
 
-      // Tạo một map tra cứu nhanh nội dung thông báo theo fileId
       const notificationMap = {};
       notifications.forEach((n) => {
-        notificationMap[n.fileId] = n;
+        const fId = typeof n === "string" ? n : n.fileId;
+        const fContent = typeof n === "string" ? "Yêu cầu từ BGH" : (n.content || "Yêu cầu từ BGH");
+        const fRead = typeof n === "string" ? false : Boolean(n.read);
+
+        if (fId) {
+          notificationMap[fId] = { content: fContent, read: fRead };
+        }
       });
 
       const filesRef = collection(db, yearCol, teacherId, subject);
@@ -506,42 +352,57 @@ export default function BGH({ user }) {
       const files = [];
 
       const selectedClass = String(className).trim();
-      const selectedGrade = selectedClass.split(".")[0];
+      const gradeKey = selectedClass.split(".")[0].replace(/[^0-9]/g, "") || selectedClass;
 
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
         const docId = docSnap.id;
 
-        const notifItem = notificationMap[docId];
-        const hasNotification = Boolean(notifItem);
+        const notifInfo = notificationMap[docId];
+        const hasNotification = Boolean(notifInfo);
 
-        // Logic lọc lớp/khối cũ của thầy...
-        const escapedClass = selectedClass.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        const exactClassPattern = new RegExp(`^Khoi_${escapedClass}_`, "i");
-        const idMatchesExactClass = exactClassPattern.test(docId);
-        const oldIdMatch = docId.match(/^Khoi_(\d+)_/i);
-        const idMatchesOldGrade = oldIdMatch !== null && oldIdMatch[1] === selectedGrade;
+        const idMatch = docId.match(/^Khoi_(\d+)_/i);
+        const khoiValue = String(data.khoi || data.className || data.lop || "").trim();
+        const khoiMatch = khoiValue.match(/^(?:khối|khoi|lớp|lop)\s*(\d+)/i);
+        const documentGrade = idMatch?.[1] || khoiMatch?.[1];
 
-        const classValues = [
-          data.lop, data.lopHoc, data.maLop, data.className, data.class, data.khoi, data.grade,
-        ]
-          .filter((v) => v !== undefined && v !== null)
-          .map((v) => String(v).trim().replace(/^(khối|khoi|lớp|lop)\s*/i, "").replace(/^Khoi_/i, ""));
+        const rawClassValue = String(data.className || data.lop || data.khoi || "").trim();
+        const rawClassGrade = rawClassValue.split(".")[0].replace(/[^0-9]/g, "");
 
-        const dataMatchesClass = classValues.some((v) => v === selectedClass);
-        const dataMatchesGrade = classValues.some((v) => v === selectedGrade);
+        // 🌟 Điều kiện quét gộp cả 2 nguồn (Khối mới và lớp cũ) để không bị sót số liệu
+        const matchesClass =
+          documentGrade === gradeKey || 
+          rawClassGrade === gradeKey ||
+          rawClassValue === gradeKey || 
+          rawClassValue === `Khối ${gradeKey}` || 
+          rawClassValue === selectedClass ||
+          rawClassValue.startsWith(`${gradeKey}.`) || 
+          rawClassValue.toLowerCase().startsWith(`khối ${gradeKey}.`) || 
+          khoiValue === String(gradeKey) ||
+          docId.includes(`Khoi_${gradeKey}_`) ||
+          docId.includes(`_${selectedClass}_`);
 
-        if (idMatchesExactClass || idMatchesOldGrade || dataMatchesClass || dataMatchesGrade) {
+        if (matchesClass) {
           files.push({
             id: docId,
             ...data,
-            // Nếu giáo viên đã đọc (read: true) thì hiện chip "Đã điều chỉnh", chưa đọc hiện "BGH yêu cầu sửa"
-            bghRequest: hasNotification 
-              ? (notifItem.content || "Yêu cầu từ BGH") 
-              : undefined,
-            bghRequestRead: hasNotification ? notifItem.read : undefined,
+            bghRequest: hasNotification ? notifInfo.content : undefined,
+            bghRequestRead: hasNotification ? notifInfo.read : undefined,
           });
         }
+      });
+
+      // Sắp xếp danh sách file theo thời gian mới nhất
+      files.sort((a, b) => {
+        const timeA = a.createdAt?.toMillis
+          ? a.createdAt.toMillis()
+          : new Date(a.createdAt || 0).getTime();
+
+        const timeB = b.createdAt?.toMillis
+          ? b.createdAt.toMillis()
+          : new Date(b.createdAt || 0).getTime();
+
+        return timeB - timeA;
       });
 
       setFileList(files);
@@ -606,8 +467,19 @@ export default function BGH({ user }) {
 
   const filteredSubjectNames = getFilteredSubjectNames();
 
-  // 🔹 THỐNG KÊ BÀI NỘP TOÀN TRƯỜNG PHÂN THEO CÁC NHÓM/TỔ
-  const fetchSchoolSummary = async () => {
+  // 🔹 THỐNG KÊ BÀI NỘP TOÀN TRƯỜNG (Có tích hợp Cache từ Context)
+  const fetchSchoolSummary = async (isForceRefresh = false) => {
+    // 1. Nếu không bắt buộc làm mới (isForceRefresh = false), thử lấy từ Cache trước
+    if (!isForceRefresh) {
+      const cachedSummary = getSchoolSummary(academicYear);
+      if (cachedSummary && Object.keys(cachedSummary).length > 0) {
+        console.log("⚡ Đang sử dụng dữ liệu Tổng hợp toàn trường từ Cache (Context/LocalStorage)");
+        setSchoolSummaryGrouped(cachedSummary);
+        return; // Dừng lại, không cần gọi Firebase giúp load tức thì!
+      }
+    }
+
+    // 2. Nếu chưa có cache hoặc có yêu cầu làm mới, gọi hàm fetch từ file thongKe.js
     await fetchSchoolSummaryData({
       isAdmin,
       phanQuyenMap,
@@ -616,168 +488,40 @@ export default function BGH({ user }) {
       groupedTeachers,
       filteredSubjectNames,
       setLoadingSchoolSummary,
-      setSchoolSummaryGrouped,
+      setSchoolSummaryGrouped: (groupedResult) => {
+        // Cập nhật State hiển thị lên giao diện
+        setSchoolSummaryGrouped(groupedResult);
+        // 🌟 Lưu ngược lại vào Context và LocalStorage để lần sau dùng luôn
+        updateSchoolSummary(academicYear, groupedResult);
+      },
+      forceRefresh: isForceRefresh,
     });
   };
 
   // Thống kê cá nhân theo giáo viên và năm học
   
+  // Thống kê cá nhân theo giáo viên và năm học (Sử dụng tiện ích)
   useEffect(() => {
     let cancelled = false;
+    const isCancelled = () => cancelled;
 
-    const loadTeacherStats = async () => {
-      if (
-        !isBGH ||
-        !selectedUsername ||
-        !academicYear ||
-        !subject ||
-        !className ||
-        Object.keys(phanQuyenMap).length === 0 ||
-        allMonHoc.length === 0
-      ) {
-        return;
-      }
-
-      const teacherName = selectedUsername.trim().toUpperCase();
-      const cacheKey = `${academicYear}_${teacherName}`;
-
-      const teacherRef = doc(
-        db,
-        `KEHOACH_DAYHOC_${academicYear}`,
-        teacherName
-      );
-
-      setLoadingFiles(true);
-      setLoadingStats(true);
-
-      try {
-        // BƯỚC 1: Đọc cờ cập nhật trên Firestore
-        const teacherSnap = await getDoc(teacherRef);
-
-        if (cancelled) return;
-
-        const teacherExists = teacherSnap.exists();
-        const teacherData = teacherExists
-          ? teacherSnap.data()
-          : {};
-
-        const statsChanged = teacherData.statsChanged === true;
-
-        // BƯỚC 2: Tải danh sách file trước
-        const filesLoaded = await fetchFileList();
-
-        if (cancelled) return;
-
-        // Nếu cờ đang true mà danh sách file tải lỗi,
-        // không tải thống kê và không tắt cờ.
-        if (statsChanged && !filesLoaded) {
-          console.error(
-            "Tải danh sách file thất bại. Giữ statsChanged = true."
-          );
-          return;
-        }
-
-        // BƯỚC 3: Nếu cờ false và Context có dữ liệu,
-        // sử dụng dữ liệu đã lưu trong Context.
-        const cachedStats = getTeacherStats(cacheKey);
-        const hasCache =
-          Array.isArray(cachedStats) && cachedStats.length > 0;
-
-        if (teacherExists && !statsChanged && hasCache) {
-          setStatsData(cachedStats);
-          return;
-        }
-
-        // BƯỚC 4: Tải thống kê từ Firestore
-        let statsLoaded = false;
-
-        await fetchTeacherStatsData({
-          isAdmin,
-          selectedUsername,
-          academicYear,
-          phanQuyenMap,
-          allMonHoc,
-
-          setLoadingStats: (loading) => {
-            if (!cancelled) {
-              setLoadingStats(loading);
-            }
-          },
-
-          setStatsData: (data) => {
-            if (cancelled || !Array.isArray(data)) {
-              return;
-            }
-
-            setStatsData(data);
-            updateTeacherStats(cacheKey, data);
-            statsLoaded = true;
-          },
-        });
-
-        if (cancelled) return;
-
-        // BƯỚC 5: Chỉ tắt cờ khi cả hai thao tác thành công        
-        if (teacherExists && statsChanged) {
-          console.log("Kiểm tra trước khi cập nhật statsChanged:", {
-            teacherName,
-            filesLoaded,
-            statsLoaded,
-          });
-
-          if (!filesLoaded || !statsLoaded) {
-            console.error(
-              "Không thể cập nhật statsChanged = false:",
-              {
-                filesLoaded,
-                statsLoaded,
-                lyDo: !filesLoaded
-                  ? "Tải danh sách file chưa thành công"
-                  : "Chưa nhận được dữ liệu thống kê qua setStatsData",
-              }
-            );
-            return;
-          }
-
-          try {
-            await updateDoc(teacherRef, {
-              statsChanged: false,
-              updatedAt: serverTimestamp(),
-            });
-
-            const verifySnap = await getDoc(teacherRef);
-
-            if (
-              verifySnap.exists() &&
-              verifySnap.data().statsChanged === false
-            ) {
-              /*console.log(
-                `Đã cập nhật statsChanged = false cho ${teacherName}.`
-              );*/
-            } else {
-              /*console.warn(
-                "Đã gọi updateDoc nhưng cờ chưa xác nhận là false.",
-                verifySnap.exists() ? verifySnap.data().statsChanged : "Không tìm thấy tài liệu"
-              );*/
-            }
-          } catch (error) {
-            console.error("Lỗi cập nhật statsChanged:", error);
-          }
-        }
-
-      } catch (error) {
-        if (!cancelled) {
-          console.error("Lỗi tải dữ liệu BGH:", error);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoadingFiles(false);
-          setLoadingStats(false);
-        }
-      }
-    };
-
-    loadTeacherStats();
+    taiThongKeGiaoVien({
+      isBGH,
+      isAdmin,
+      selectedUsername,
+      academicYear,
+      subject,
+      className,
+      phanQuyenMap,
+      allMonHoc,
+      getTeacherStats,
+      updateTeacherStats,
+      fetchFileListFn: fetchFileList, // 🌟 Truyền hàm fetchFileList gốc đang nằm trong component vào
+      setStatsData,
+      setLoadingFiles,
+      setLoadingStats,
+      isCancelled,
+    });
 
     return () => {
       cancelled = true;
@@ -998,7 +742,7 @@ export default function BGH({ user }) {
           <Card sx={{ width: "100%", flexShrink: 0 }}>
             <CardContent sx={{ display: "flex", flexDirection: "column", gap: 1.5, pt: 1.5, pb: "16px !important" }}>
               <Typography variant="h6" color="primary" sx={{ mb: 0, fontWeight: "bold" }}>
-                📚 QUẢN LÍ KẾ HOẠCH BÀI DẠY
+                📚 QUẢN LÍ KHBD
               </Typography>
 
               {/* 2 nút Tổng hợp cá nhân và Tổng hợp toàn trường */}

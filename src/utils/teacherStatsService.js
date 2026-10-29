@@ -25,7 +25,7 @@ export async function fetchTeacherStatsService({
     "1"
   );
 
-  const selectedGrade = classCode.split(".")[0];
+  const selectedGrade = classCode.split(".")[0].replace(/[^0-9]/g, "") || "1";
 
   let subjectsToQuery = [];
 
@@ -36,7 +36,7 @@ export async function fetchTeacherStatsService({
       : (allMonHoc || [])
           .filter((sub) => {
             const grades = (sub.grades || []).map((g) =>
-              String(g).split(".")[0]
+              String(g).split(".")[0].replace(/[^0-9]/g, "")
             );
 
             return (
@@ -82,11 +82,11 @@ export async function fetchTeacherStatsService({
         const data = docSnap.data();
         const docId = docSnap.id;
 
-        // Ví dụ ID: Khoi_4_DKgac1qsvC7YxRLA2BXz
+        // 1. Lấy thông tin khối từ ID document (vd: Khoi_4_...)
         const idMatch = docId.match(/^Khoi_(\d+)_/i);
         let grade = idMatch?.[1];
 
-        // Dự phòng với tài liệu không có ID dạng Khoi_<khối>_<mã>.
+        // 2. Dự phòng lấy từ thuộc tính khoi hoặc className trong document
         if (!grade) {
           const khoiValue = String(
             data.khoi || data.className || ""
@@ -97,6 +97,12 @@ export async function fetchTeacherStatsService({
           );
 
           grade = valueMatch?.[1];
+        }
+
+        // 3. Nếu vẫn chưa có, cắt lấy phần số trước dấu chấm từ className hoặc classCode (vd: "4.3" -> "4")
+        if (!grade) {
+          const rawCls = data.className || classCode;
+          grade = String(rawCls).split(".")[0].replace(/[^0-9]/g, "");
         }
 
         const hasFile =
@@ -111,16 +117,12 @@ export async function fetchTeacherStatsService({
 
         if (!hasFile) return;
 
-        if (isGVCN) {
-          // GVCN: đưa số lượng vào cột mã lớp chủ nhiệm.
-          entry[classCode] = (entry[classCode] || 0) + 1;
-        } else if (grade) {
-          // Giáo viên bộ môn: cộng riêng theo khối 1–5.
-          entry[grade] = (entry[grade] || 0) + 1;
-        }
+        // Ép chuẩn targetKey về dạng số Khối (ví dụ: "4") để khớp với cấu trúc cột thống kê
+        const targetKey = grade || selectedGrade;
+
+        entry[targetKey] = (entry[targetKey] || 0) + 1;
       });
 
-      // Giữ cả môn chưa có file để danh sách môn theo phân quyền không bị mất
       stats.push(entry);
     } catch (error) {
       console.error(

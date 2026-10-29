@@ -1,8 +1,6 @@
-import { collection, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
-/**
- * Hàm tổng hợp dữ liệu toàn trường theo các khối và tổ
- */
+import { collection, getDocs, doc, updateDoc, serverTimestamp } from "firebase/firestore";
+
 export const fetchSchoolSummaryData = async ({
   isAdmin,
   phanQuyenMap,
@@ -12,6 +10,7 @@ export const fetchSchoolSummaryData = async ({
   filteredSubjectNames,
   setLoadingSchoolSummary,
   setSchoolSummaryGrouped,
+  forceRefresh = false,
 }) => {
   if (!isAdmin || Object.keys(phanQuyenMap).length === 0 || allMonHoc.length === 0) return;
   
@@ -30,50 +29,89 @@ export const fetchSchoolSummaryData = async ({
     ];
 
     const groupedResult = {};
+    const queryOptions = forceRefresh ? { source: 'server' } : {};
 
-    for (const groupDef of groupDefinitions) {
-      const teacherList = groupedTeachers[groupDef.key] || [];
-      if (teacherList.length === 0) continue;
+    // 🚀 Chạy song song toàn bộ các nhóm thay vì dùng vòng lặp for...of tuần tự
+    await Promise.all(
+      groupDefinitions.map(async (groupDef) => {
+        const teacherList = groupedTeachers[groupDef.key] || [];
+        if (teacherList.length === 0) return;
 
-      const teacherPromises = teacherList.map(async (username) => {
-        const teacherInfo = phanQuyenMap[username] || {};
-        const subjectCounts = {};
-        let totalCount = 0;
+        const teacherPromises = teacherList.map(async (username) => {
+          const teacherInfo = phanQuyenMap[username] || {};
+          const subjectCounts = {};
+          let totalCount = 0;
 
-        const subPromises = filteredSubjectNames.map(async (subName) => {
-          try {
-            const subColRef = collection(db, yearCol, username, subName);
-            const subSnap = await getDocs(subColRef);
-            return { subName, count: subSnap.size };
-          } catch (e) {
-            return { subName, count: 0 };
-          }
+          // Chỉ lấy các môn mà giáo viên thực sự được phân công hoặc các môn chung để tránh query thừa
+          const assignedSubs = teacherInfo.assignedSubjects || [];
+          const isAllSubject = assignedSubs.some(s => s.toLowerCase().includes("tất cả"));
+          
+          const targetSubjects = filteredSubjectNames.filter(subName => {
+            if (isAllSubject) return true;
+            return assignedSubs.some(as => as.toLowerCase().trim() === subName.toLowerCase().trim());
+          });
+
+          // Nếu giáo viên không có môn nào khớp, gán mặc định 0 mà không cần query
+          const subPromises = filteredSubjectNames.map(async (subName) => {
+            // Tối ưu: Nếu giáo viên không dạy môn này (và không phải dạy tất cả), trả về 0 luôn không cần gọi Firebase
+            const isAssigned = isAllSubject || assignedSubs.some(as => as.toLowerCase().trim() === subName.toLowerCase().trim());
+            if (!isAssigned) {
+              return { subName, count: 0 };
+            }
+
+            try {
+              const subColRef = collection(db, yearCol, username, subName);
+              let subSnap;
+              try {
+                subSnap = await getDocs(subColRef, queryOptions);
+              } catch (netErr) {
+                subSnap = await getDocs(subColRef, { source: 'cache' });
+              }
+              return { subName, count: subSnap.size };
+            } catch (e) {
+              return { subName, count: 0 };
+            }
+          });
+
+          const subResults = await Promise.all(subPromises);
+          subResults.forEach(({ subName, count }) => {
+            subjectCounts[subName] = count;
+            totalCount += count;
+          });
+
+          return {
+            username,
+            role: teacherInfo.role || "GVCN",
+            assignedSubjects: teacherInfo.assignedSubjects || [],
+            teachingClasses: teacherInfo.teachingClasses || [],
+            subjectCounts,
+            totalCount,
+          };
         });
 
-        const subResults = await Promise.all(subPromises);
-        subResults.forEach(({ subName, count }) => {
-          subjectCounts[subName] = count;
-          totalCount += count;
-        });
-
-        return {
-          username,
-          role: teacherInfo.role || "GVCN",
-          assignedSubjects: teacherInfo.assignedSubjects || [],
-          teachingClasses: teacherInfo.teachingClasses || [],
-          subjectCounts,
-          totalCount,
+        const rows = await Promise.all(teacherPromises);
+        groupedResult[groupDef.key] = {
+          title: groupDef.title,
+          rows,
         };
-      });
-
-      const rows = await Promise.all(teacherPromises);
-      groupedResult[groupDef.key] = {
-        title: groupDef.title,
-        rows,
-      };
-    }
+      })
+    );
 
     setSchoolSummaryGrouped(groupedResult);
+
+    // 🌟 Hạ cờ flagSchoolSummary trong CONFIG/config về false sau khi hoàn tất
+    if (forceRefresh) {
+      try {
+        const configRef = doc(db, "CONFIG", "config");
+        await updateDoc(configRef, {
+          flagSchoolSummary: false,
+          updatedAt: serverTimestamp(),
+        });
+      } catch (err) {
+        console.error("❌ Không thể hạ cờ flagSchoolSummary trong CONFIG:", err);
+      }
+    }
+
   } catch (err) {
     console.error("❌ Lỗi khi tổng hợp toàn trường:", err);
   } finally {

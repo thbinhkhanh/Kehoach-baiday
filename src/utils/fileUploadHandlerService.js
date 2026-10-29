@@ -78,7 +78,10 @@ export async function handleUploadService({
     setUploadProgress(0);
     setCurrentFileMsg(`${files.length} file...`);
 
-    let groupFolder = `Khối ${className}`;
+    // 🌟 Bóc tách lấy phần khối từ className (Ví dụ: "2.4" -> "2", "1.6" -> "1")
+    const gradeKey = String(className).split(".")[0].replace(/[^0-9]/g, "") || className;
+
+    let groupFolder = `Khối ${gradeKey}`;
 
     if (teacherRole === "TA") {
       groupFolder = "Tiếng Anh";
@@ -88,7 +91,7 @@ export async function handleUploadService({
 
     const metadata = {
       giaoVien: teacherName,
-      khoi: `Khối ${className}`,
+      khoi: `Khối ${gradeKey}`, // Lưu chuẩn thành Khối 2, Khối 1... thay vì Khối 2.4
       monHoc: subject,
       academicYear,
       nhomPhanLoai: groupFolder,
@@ -121,12 +124,28 @@ export async function handleUploadService({
         teacherRef,
         {
           statsChanged: true,
+          statsBGHChanged: true,
           updatedAt: new Date(),
         },
         { merge: true }
       );
     } catch (flagError) {
       console.error("Lỗi bật cờ thống kê:", flagError);
+    }
+    
+    // 🌟 2. Bật cờ toàn trường trong CONFIG/config để báo hiệu bảng Tổng hợp toàn trường cần làm mới
+    try {
+      const configRef = doc(db, "CONFIG", "config");
+      await setDoc(
+        configRef,
+        {
+          flagSchoolSummary: true,
+          updatedAt: new Date(),
+        },
+        { merge: true }
+      );
+    } catch (configFlagErr) {
+      console.error("Lỗi bật cờ tổng hợp toàn trường trong CONFIG:", configFlagErr);
     }
 
     setUploadProgress(100);

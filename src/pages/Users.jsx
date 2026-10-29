@@ -94,14 +94,18 @@ export default function Users({ user }) {
   const [adjustmentDialogOpen, setAdjustmentDialogOpen] = useState(false);
   const [selectedAdjustmentFile, setSelectedAdjustmentFile] = useState(null);
 
+  // Lấy phần khối từ className (Ví dụ: "2.4" -> "2", "1.6" -> "1")
+  const gradeKey = String(className).split(".")[0].replace(/[^0-9]/g, "") || className;
+
+  // Khóa lưu file sẽ dùng gradeKey thay vì className để gom chung vào khối
   const makeFileListKey = () =>
-  `${academicYear}_${teacherName}_${subject}_${className}`;
+    `${academicYear}_${teacherName}_${subject}_Khối_${gradeKey}`;
 
   const makeStatsKey = () =>
     `${academicYear}_${teacherName}`;
 
   // Đánh dấu thống kê cần được BGH tải lại
-  const markTeacherStatsChanged = async () => {
+  /*const markTeacherStatsChanged = async () => {
     if (!teacherName || !academicYear) return;
 
     const teacherRef = doc(
@@ -114,11 +118,12 @@ export default function Users({ user }) {
       teacherRef,
       {
         statsChanged: true,
+        statsBGHChanged: true, // 🌟 Thêm cờ riêng cho BGH
         updatedAt: new Date(),
       },
       { merge: true }
     );
-  };
+  };*/
 
   // 🌟 Lấy mảng bghNotifications trực tiếp từ document gốc của giáo viên khi tải trang hoặc đổi năm học
   useEffect(() => {
@@ -364,13 +369,16 @@ export default function Users({ user }) {
   }, [className, teacherRole, lopMonHocMap, allMonHoc]);
   
   // ✅ Lấy danh sách file từ Firestore và map trạng thái chip từ bghNotifications
+  // ✅ Lấy danh sách file từ Firestore và map trạng thái chip từ bghNotifications
   const fetchFileList = async () => {
     if (!teacherName || !className || !subject || !academicYear) {
       setFileList([]);
       return;
     }
 
-    const fileKey = `${academicYear}_${teacherName}_${subject}_${className}`;
+    // Bóc tách lấy phần khối từ className (Ví dụ: "2.4" -> "2") để dùng làm khóa lưu trữ chung
+    const gradeKey = String(className).split(".")[0].replace(/[^0-9]/g, "") || className;
+    const fileKey = `${academicYear}_${teacherName}_${subject}_Khối_${gradeKey}`;
 
     try {
       const yearCol = `KEHOACH_DAYHOC_${academicYear}`;
@@ -404,7 +412,6 @@ export default function Users({ user }) {
       );
 
       const querySnapshot = await getDocs(filesRef);
-      const selectedGrade = String(className).split(".")[0];
       const files = [];
 
       querySnapshot.forEach((docSnap) => {
@@ -422,10 +429,16 @@ export default function Users({ user }) {
 
         const documentGrade = idMatch?.[1] || khoiMatch?.[1];
 
+        // Xử lý linh hoạt quét cả 2 dạng: dạng khối (ví dụ: "4") và dạng lớp chi tiết cũ (ví dụ: "4.3")
+        const rawClassValue = String(data.className || data.khoi || "").trim();
+        
         const matchesClass =
-          documentGrade === selectedGrade ||
-          khoiValue === `Khối ${className}` ||
-          khoiValue === String(className);
+          documentGrade === gradeKey || 
+          rawClassValue === gradeKey || 
+          rawClassValue === `Khối ${gradeKey}` || 
+          rawClassValue.startsWith(`${gradeKey}.`) || // Khớp dữ liệu cũ dạng "4.3"
+          rawClassValue.toLowerCase().startsWith(`khối ${gradeKey}.`) || // Khớp dữ liệu cũ dạng "Khối 4.3"
+          khoiValue === String(gradeKey);
 
         if (matchesClass) {
           const notifInfo = notificationMap[docId];
@@ -454,7 +467,7 @@ export default function Users({ user }) {
 
       setFileList(files);
 
-      // Cập nhật lại danh sách file mới nhất vào Context/Cache
+      // Cập nhật lại danh sách file mới nhất vào Context/Cache theo khóa Khối
       updateFileList(fileKey, files);
 
       // 👉 3. SAU KHI TẢI XONG THÀNH CÔNG, ĐẶT CỜ VỀ FALSE TRÊN FIRESTORE
@@ -531,13 +544,17 @@ export default function Users({ user }) {
   ]);
 
   // ✅ Xử lý tải file lên
+  // ✅ Xử lý tải file lên (gom lưu trữ theo khối nhưng vẫn giữ className trên giao diện)
   const handleUpload = async (e) => {
+    // Bóc tách lấy phần khối từ className (Ví dụ: "2.4" -> "2")
+    const gradeKey = String(className).split(".")[0].replace(/[^0-9]/g, "") || className;
+
     await handleUploadService({
       e,
       teacherName,
       academicYear,
       subject,
-      className,
+      className: gradeKey, // Truyền giá trị Khối vào service lưu file
       teacherRole,
       statsData,
       setUploading,
