@@ -13,35 +13,46 @@ export default function TeacherStatsDialog({
   loadingStats,
   academicYear,
   isMobile,
+  activeTeacher,
+  activeTab,
+  className,
+  teacherRole,
 }) {
   return (
     <Dialog
       open={open}
       onClose={onClose}
       fullScreen={isMobile} 
-      maxWidth={false} // 👈 Tắt giới hạn chuẩn (md, sm...) của Material-UI
+      maxWidth="md" // 👉 Cho phép giới hạn kích thước dialog trên desktop thay vì trải rộng 100%
       fullWidth
       PaperProps={{
         sx: {
-          width: "100%",       // 👈 Ép chiều rộng ngang lấp đầy 100%
-          maxWidth: "100%",    // 👈 Xóa bỏ hoàn toàn giới hạn chiều rộng tối đa
-          height: isMobile ? "100%" : "85vh",
-          margin: isMobile ? 0 : "16px",
-          borderRadius: isMobile ? 0 : "16px",
+          // 👉 CĂN GIỮA TUYỆT ĐỐI THEO NGANG VÀ DỌC TRÊN MÁY TÍNH
+          m: "auto", 
           display: "flex",
           flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "stretch",
+          
+          width: isMobile ? "100%" : "90vw",
+          maxWidth: "1000px", // 👉 Giới hạn độ rộng tối đa để dialog gọn gàng ở giữa màn hình
+          height: isMobile ? "100%" : "85vh",
+          borderRadius: isMobile ? 0 : "16px",
           backgroundColor: "#ffffff",
+          overflow: "hidden",
         },
       }}
     >
+      {/* Thanh tiêu đề với đường gạch ngăn cách */}
       <Box
         sx={{
           p: 2,
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          borderBottom: "1px solid #eee",
-          backgroundColor: "#fff",
+          borderBottom: "2px solid #e2e8f0",
+          backgroundColor: "#ffffff",
+          flexShrink: 0,
         }}
       >
         <Typography variant="h6" fontWeight="bold" color="primary">
@@ -52,22 +63,32 @@ export default function TeacherStatsDialog({
         </IconButton>
       </Box>
 
+      {/* Vùng chứa nội dung */}
       <DialogContent 
         sx={{ 
-          p: isMobile ? 1 : 2, 
+          p: 0, 
           overflowY: "auto",
-          backgroundColor: isMobile ? "#f8f9fa" : "background.default",
+          backgroundColor: "#ffffff", 
           flex: 1,
+          display: "flex",
+          flexDirection: "column",
         }}
       >
-        <TeacherStatsView
-          selectedUsername={teacherName}
-          statsData={statsData}
-          teacherAllowedSubjects={teacherAssignedSubjects}
-          teacherAllowedClasses={assignedClassesList}
-          loadingStats={loadingStats}
-          academicYear={academicYear}
-        />
+        {/* Bọc TeacherStatsView trong Box nền trắng để khử hẳn nền xám bên trong */}
+        <Box sx={{ p: 2, backgroundColor: "#ffffff", flex: 1, height: "100%" }}>
+          <TeacherStatsView
+            selectedUsername={teacherName}
+            statsData={statsData}
+            teacherAllowedSubjects={teacherAssignedSubjects}
+            teacherAllowedClasses={assignedClassesList}
+            loadingStats={loadingStats}
+            academicYear={academicYear}
+            activeTeacher={activeTeacher}
+            activeTab={activeTab}
+            className={className}
+            teacherRole={teacherRole}
+          />
+        </Box>
       </DialogContent>
     </Dialog>
   );

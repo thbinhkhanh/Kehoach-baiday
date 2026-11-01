@@ -29,9 +29,8 @@ export const fetchSchoolSummaryData = async ({
     ];
 
     const groupedResult = {};
-    const queryOptions = forceRefresh ? { source: 'server' } : {};
 
-    // 🚀 Chạy song song toàn bộ các nhóm thay vì dùng vòng lặp for...of tuần tự
+    // 🚀 Chạy song song toàn bộ các nhóm, quét trọn vẹn toàn bộ môn học trong hệ thống và luôn tải mới từ server
     await Promise.all(
       groupDefinitions.map(async (groupDef) => {
         const teacherList = groupedTeachers[groupDef.key] || [];
@@ -42,31 +41,16 @@ export const fetchSchoolSummaryData = async ({
           const subjectCounts = {};
           let totalCount = 0;
 
-          // Chỉ lấy các môn mà giáo viên thực sự được phân công hoặc các môn chung để tránh query thừa
-          const assignedSubs = teacherInfo.assignedSubjects || [];
-          const isAllSubject = assignedSubs.some(s => s.toLowerCase().includes("tất cả"));
-          
-          const targetSubjects = filteredSubjectNames.filter(subName => {
-            if (isAllSubject) return true;
-            return assignedSubs.some(as => as.toLowerCase().trim() === subName.toLowerCase().trim());
-          });
+          // 🌟 Lấy tất cả tên môn học chuẩn từ allMonHoc để không bị sót môn (như Tin học, Công nghệ...) do lệch phân công
+          const allSystemSubjects = allMonHoc.map(m => (typeof m === "object" ? m.name : m)).filter(Boolean);
 
-          // Nếu giáo viên không có môn nào khớp, gán mặc định 0 mà không cần query
-          const subPromises = filteredSubjectNames.map(async (subName) => {
-            // Tối ưu: Nếu giáo viên không dạy môn này (và không phải dạy tất cả), trả về 0 luôn không cần gọi Firebase
-            const isAssigned = isAllSubject || assignedSubs.some(as => as.toLowerCase().trim() === subName.toLowerCase().trim());
-            if (!isAssigned) {
-              return { subName, count: 0 };
-            }
-
+          const subPromises = allSystemSubjects.map(async (subName) => {
             try {
               const subColRef = collection(db, yearCol, username, subName);
-              let subSnap;
-              try {
-                subSnap = await getDocs(subColRef, queryOptions);
-              } catch (netErr) {
-                subSnap = await getDocs(subColRef, { source: 'cache' });
-              }
+              
+              // 🌟 Luôn tải mới trực tiếp từ Server, loại bỏ cache để dữ liệu luôn realtime chuẩn xác 100%
+              const subSnap = await getDocs(subColRef, { source: 'server' });
+              
               return { subName, count: subSnap.size };
             } catch (e) {
               return { subName, count: 0 };
@@ -75,8 +59,10 @@ export const fetchSchoolSummaryData = async ({
 
           const subResults = await Promise.all(subPromises);
           subResults.forEach(({ subName, count }) => {
-            subjectCounts[subName] = count;
-            totalCount += count;
+            if (count > 0) {
+              subjectCounts[subName] = count;
+              totalCount += count;
+            }
           });
 
           return {
@@ -100,16 +86,14 @@ export const fetchSchoolSummaryData = async ({
     setSchoolSummaryGrouped(groupedResult);
 
     // 🌟 Hạ cờ flagSchoolSummary trong CONFIG/config về false sau khi hoàn tất
-    if (forceRefresh) {
-      try {
-        const configRef = doc(db, "CONFIG", "config");
-        await updateDoc(configRef, {
-          flagSchoolSummary: false,
-          updatedAt: serverTimestamp(),
-        });
-      } catch (err) {
-        console.error("❌ Không thể hạ cờ flagSchoolSummary trong CONFIG:", err);
-      }
+    try {
+      const configRef = doc(db, "CONFIG", "config");
+      await updateDoc(configRef, {
+        flagSchoolSummary: false,
+        updatedAt: serverTimestamp(),
+      });
+    } catch (err) {
+      console.error("❌ Không thể hạ cờ flagSchoolSummary trong CONFIG:", err);
     }
 
   } catch (err) {
@@ -297,7 +281,7 @@ export const fetchTeacherStatsData = async ({
         }
       } catch (error) {
         console.error(
-          `Lỗi thống kê môn ${subject} của ${selectedUsername}:`,
+          `Lỗi thống kê môn ${subject} of ${selectedUsername}:`,
           error
         );
       }

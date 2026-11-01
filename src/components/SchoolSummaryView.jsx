@@ -13,7 +13,14 @@ import {
   Paper,
   Tabs,
   Tab,
+  IconButton,
+  Tooltip,
 } from "@mui/material";
+import FileDownloadIcon from "@mui/icons-material/FileDownload";
+import CloseIcon from "@mui/icons-material/Close";
+import FullscreenIcon from "@mui/icons-material/Fullscreen";
+import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
+import { handleExportExcel } from "../utils/exportSchoolSummary";
 
 export default function SchoolSummaryView({
   academicYear,
@@ -27,6 +34,7 @@ export default function SchoolSummaryView({
   setSelectedFile,
   isFullScreen,
   setIsFullScreen,
+  setSnackbar, // Đảm bảo component cha truyền hàm setSnackbar này xuống nếu có
 }) {
   const [summaryTab, setSummaryTab] = useState("gvcn");
 
@@ -87,7 +95,15 @@ export default function SchoolSummaryView({
           borderBottom: "1px solid #e2e8f0" 
         }}
       >
-        <Typography variant="subtitle1" fontWeight="bold" sx={{ color: "#1e293b", fontSize: { xs: "0.9rem", sm: "1rem" } }}>
+        <Typography 
+          variant="subtitle1" 
+          fontWeight="bold" 
+          sx={{ 
+            color: "#1e293b", 
+            fontSize: { xs: "0.9rem", sm: "1rem" },
+            display: { xs: "none", sm: "block" } // 🌟 Ẩn trên điện thoại, hiển thị từ máy tính bảng trở lên
+          }}
+        >
           📊 BẢNG TỔNG HỢP TOÀN TRƯỜNG ({academicYear})
         </Typography>
 
@@ -105,14 +121,79 @@ export default function SchoolSummaryView({
             <Tab label="🎨 BỘ MÔN - TA" value="chuyenbiet" sx={{ minHeight: 36, fontSize: { xs: "0.75rem", sm: "0.85rem" }, fontWeight: "bold", px: { xs: 1, sm: 2 } }} />
           </Tabs>
 
-          <Button 
-            size="small" 
-            variant="outlined" 
-            onClick={() => setIsFullScreen && setIsFullScreen(!isFullScreen)} 
-            sx={{ borderColor: "#cbd5e1", color: "#475569", fontWeight: "bold", fontSize: { xs: "0.75rem", sm: "0.8125rem" }, height: 32 }}
-          >
-            {isFullScreen ? "🗗 Thu nhỏ" : "⛶ Phóng to"}
-          </Button>
+          {/* ⛶ NÚT PHÓNG TO / THU NHỎ (CHỈ HIỆN TRÊN MÁY TÍNH, ẨN TRÊN ĐIỆN THOẠI) */}
+          <Tooltip title={isFullScreen ? "Thu nhỏ màn hình" : "Phóng to toàn màn hình"}>
+            <IconButton 
+              color="primary" 
+              onClick={() => setIsFullScreen && setIsFullScreen(!isFullScreen)} 
+              sx={{ 
+                // Thêm dòng này để ẩn trên mobile (xs) và hiện trên máy tính (sm trở lên)
+                display: { xs: "none", sm: "flex" },
+
+                bgcolor: "#f8fafc", 
+                border: "1px solid #cbd5e1",
+                "&:hover": { bgcolor: "#f1f5f9", borderColor: "#94a3b8" },
+                height: 32,
+                width: 32,
+                p: 0.5 
+              }}
+            >
+              {isFullScreen ? (
+                <FullscreenExitIcon sx={{ color: "#475569", fontSize: "1.2rem" }} />
+              ) : (
+                <FullscreenIcon sx={{ color: "#475569", fontSize: "1.2rem" }} />
+              )}
+            </IconButton>
+          </Tooltip>
+
+          {/* 🌟 NÚT XUẤT EXCEL DẠNG ICON */}
+          <Tooltip title="Xuất Báo Cáo Excel Toàn Trường">
+            <IconButton 
+              color="primary" 
+              onClick={() => handleExportExcel({
+                schoolSummaryGrouped,
+                academicYear,
+                filteredSubjectNames,
+                setSnackbar: setSnackbar || (() => {})
+              })}
+              sx={{ 
+                bgcolor: "#eff6ff", 
+                border: "1px solid #bae6fd",
+                "&:hover": { bgcolor: "#dbeafe" },
+                height: 32,
+                width: 32,
+                p: 0.5 
+              }}
+            >
+              <FileDownloadIcon sx={{ color: "#2563eb", fontSize: "1.1rem" }} />
+            </IconButton>
+          </Tooltip>
+
+          {/* ❌ NÚT ĐÓNG BẢNG THỐNG KÊ (CHỈ HIỆN TRÊN MÁY TÍNH, ẨN TRÊN ĐIỆN THOẠI) */}
+          <Tooltip title="Đóng bảng thống kê">
+            <IconButton 
+              size="small" 
+              onClick={() => {
+                if (typeof setViewMode === "function") {
+                  setViewMode("single");
+                }
+              }}
+              sx={{ 
+                // Thêm dòng này để ẩn trên mobile (xs) và hiện trên từ tablet/desktop (sm trở lên)
+                display: { xs: "none", sm: "flex" }, 
+
+                color: "#64748b", 
+                border: "1px solid #cbd5e1", 
+                borderRadius: "8px",
+                bgcolor: "#f8fafc",
+                "&:hover": { bgcolor: "#fee2e2", color: "#dc2626", borderColor: "#fca5a5" },
+                height: 32,
+                width: 32
+              }}
+            >
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
         </Box>
       </Box>
 

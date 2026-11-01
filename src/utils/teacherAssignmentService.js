@@ -21,6 +21,7 @@ export async function saveTeacherAssignmentService({
   teachingClasses = [],
   academicYear,
   taoMaGiaoVien,
+  isTTCM = false, // 🌟 Thêm tham số nhận trạng thái Tổ trưởng chuyên môn
 }) {
   // 1. Kiểm tra dữ liệu đầu vào.
   if (!selectedTeacher) {
@@ -82,8 +83,6 @@ export async function saveTeacherAssignmentService({
   );
 
   // 5. Xác định danh sách teachingClasses CHỈ LẤY ĐÚNG GIÁ TRỊ MỚI NHẤT.
-  // Nếu là GVCN thì teachingClasses sẽ là mảng chứa đúng 1 lớp hiện tại: [normalizedClass] (ví dụ: ["2.3"]).
-  // Nếu là Bộ môn/TA thì lấy từ mảng teachingClasses truyền lên từ giao diện.
   const rawClasses = assignedRole === "GVCN"
     ? (normalizedClass ? [normalizedClass] : [])
     : (Array.isArray(teachingClasses) ? teachingClasses : []);
@@ -118,6 +117,9 @@ export async function saveTeacherAssignmentService({
 
     // Chỉ lưu danh sách lớp mới nhất sau khi thay đổi.
     teachingClasses: normalizedTeachingClasses,
+
+    // 🌟 Lưu trạng thái Tổ trưởng chuyên môn
+    isTTCM: Boolean(isTTCM),
 
     academicYear,
     updatedAt: serverTimestamp(),

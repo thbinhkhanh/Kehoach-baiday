@@ -11,6 +11,8 @@ export async function handleConfirmDeleteService({
   teacherName,
   subject,
   className,
+  activeTab = 0,     // 👈 activeTab (mặc định là 0 nếu không truyền)
+  teacherRole = "GVCN", // 👈 teacherRole để xác định nhóm phân loại
   setFileList,
   setStatsData,
   setDeleteDialogOpen,
@@ -34,7 +36,7 @@ export async function handleConfirmDeleteService({
     const newList = prevList.filter((f) => !fileIdsToDelete.has(f.id));
 
     updateFileList(
-      `${academicYear}_${teacherName}_${subject}_Khối_${gradeKey}`,
+      `${academicYear}_${teacherName}_${subject}_Khối_${gradeKey}_tab_${activeTab}`,
       newList
     );
 
@@ -71,9 +73,20 @@ export async function handleConfirmDeleteService({
 
   // 3. Xóa file trên Google Drive và Firestore ở tiến trình nền (Background)
   (async () => {
-    const yearCol = `KEHOACH_DAYHOC_${academicYear}`;
+    const yearStr = academicYear;
     let firestoreChanged = false;
     let deletedCount = 0;
+
+    // 🌟 Sửa lại logic xác định docIdentifier theo đúng thứ tự ưu tiên vai trò (TA -> BM -> GVCN)
+    let docIdentifier = "Chung";
+    if (teacherRole === "TA" || subject.toLowerCase().includes("tiếng anh")) {
+      docIdentifier = "Tieng_Anh";
+    } else if (teacherRole === "BM") {
+      docIdentifier = "Bo_mon";
+    } else if (teacherRole === "GVCN" && gradeKey) {
+      docIdentifier = `Khối_${gradeKey}`;
+    }
+    docIdentifier = docIdentifier.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "_");
 
     for (const file of filesDeleted) {
       try {
@@ -82,13 +95,25 @@ export async function handleConfirmDeleteService({
           await deleteGoogleDriveFile(file.fileId);
         }
 
-        // Xóa tài liệu trên Firestore
-        await deleteDoc(
-          doc(db, yearCol, teacherName, subject, file.id)
-        );
+        // 🌟 Định nghĩa chuẩn xác đường dẫn doc Firestore theo từng activeTab khi xóa
+        let fileDocRef;
+        if (activeTab === 0) {
+          // Tab 0: KHBD (KEHOACH_DAYHOC_{year} -> teacherName -> subject -> fileId)
+          fileDocRef = doc(db, `KEHOACH_DAYHOC_${yearStr}`, teacherName, subject, file.id);
+        } else if (activeTab === 1) {
+          // Tab 1: Đề KTĐK (DE_KTDK_{year} -> docIdentifier -> subjectName -> fileId)
+          const subjectName = (subject || "Chung").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "_");
+          fileDocRef = doc(db, `DE_KTDK_${yearStr}`, docIdentifier, subjectName, file.id);
+        } else if (activeTab === 2) {
+          // Tab 2: Biên bản (BIEN_BAN_{year} -> docIdentifier -> FILES_LIST -> fileId)
+          fileDocRef = doc(db, `BIEN_BAN_${yearStr}`, docIdentifier, "FILES_LIST", file.id);
+        }
 
-        firestoreChanged = true;
-        deletedCount++;
+        if (fileDocRef) {
+          await deleteDoc(fileDocRef);
+          firestoreChanged = true;
+          deletedCount++;
+        }
       } catch (err) {
         console.error(
           `Lỗi khi xóa file ${file.fileName || file.id}:`,
@@ -100,7 +125,7 @@ export async function handleConfirmDeleteService({
     // 🌟 Bật đồng thời cả hai cờ thay đổi (cho User và cho BGH) nếu xóa thành công trên Firestore
     if (firestoreChanged) {
       try {
-        const teacherRef = doc(db, yearCol, teacherName);
+        const teacherRef = doc(db, `KEHOACH_DAYHOC_${yearStr}`, teacherName);
         await setDoc(
           teacherRef,
           {

@@ -1,10 +1,8 @@
 import { collection, doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase";
 
-// URL Google Apps Script mới của bạn
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzr9uLXSaFvkG5D2NTf_lGmi5s-0K8_lRBFlSl5O2eNKmSta3XfqNiasCuSCtRcag5/exec";
 
-// Hàm chuyển đổi file sang Base64
 const fileToBase64 = (file) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -14,10 +12,8 @@ const fileToBase64 = (file) => {
   });
 };
 
-// Hàm upload hàng loạt giúp gom chung thư mục, không bị trùng lặp
 export async function uploadBatchKeHoachDayHoc(files, metadata) {
   try {
-    // 1. Chuyển tất cả file sang định dạng base64 đồng thời
     const formattedFiles = await Promise.all(
       files.map(async (file) => ({
         filename: file.name,
@@ -26,7 +22,10 @@ export async function uploadBatchKeHoachDayHoc(files, metadata) {
       }))
     );
 
-    const payload = {
+    const activeTab = metadata.activeTab ?? 0;
+
+    // 1. Payload gửi lên Google Drive (Giữ nguyên gọn gàng)
+    let payload = {
       files: formattedFiles,
       academicYear: metadata.academicYear,
       nhomPhanLoai: metadata.nhomPhanLoai,
@@ -35,7 +34,16 @@ export async function uploadBatchKeHoachDayHoc(files, metadata) {
       khoi: metadata.khoi
     };
 
-    // 2. Gửi MỘT REQUEST duy nhất lên Google Apps Script
+    if (activeTab === 1) {
+      payload.giaoVien = "Đề KTĐK";
+      delete payload.monHoc;
+      delete payload.khoi;
+    } else if (activeTab === 2) {
+      payload.giaoVien = "BIÊN BẢN";
+      delete payload.monHoc;
+      delete payload.khoi;
+    }
+
     const response = await fetch(GOOGLE_SCRIPT_URL, {
       method: "POST",
       body: JSON.stringify(payload)
@@ -46,28 +54,76 @@ export async function uploadBatchKeHoachDayHoc(files, metadata) {
       throw new Error(result.message || "Lỗi khi lưu file lên Google Drive");
     }
 
-    // 3. Ghi đồng loạt các document vào Firestore
-    const yearCol = `KEHOACH_DAYHOC_${metadata.academicYear || "2026-2027"}`;
-    const teacherDoc = metadata.giaoVien || "Chua_ro_GV";
-    const subjectSubCol = metadata.monHoc || "Chung";
+    // 2. 🌟 Cấu trúc lưu trữ trên Firestore chuẩn gọn gàng như KHBD
+    const yearStr = metadata.academicYear || "2026-2027";
+    let mainColName = `KEHOACH_DAYHOC_${yearStr}`;
+    
+    // Xác định Document nhóm chính (Bo_mon, Tieng_Anh, hoặc Khối X)
+    let docIdentifier = "Chung";
+    if (metadata.nhomPhanLoai === "Tiếng Anh" || metadata.teacherRole === "TA") {
+      docIdentifier = "Tieng_Anh";
+    } else if (metadata.teacherRole === "BM" || metadata.nhomPhanLoai === "Bộ môn") {
+      docIdentifier = "Bo_mon";
+    } else if (metadata.khoi) {
+      docIdentifier = metadata.khoi;
+    } else {
+      docIdentifier = metadata.nhomPhanLoai || "Chung";
+    }
+    docIdentifier = docIdentifier.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "_");
 
-    const parentColRef = collection(db, yearCol, teacherDoc, subjectSubCol);
+    let parentColRef;
+
+    if (activeTab === 1) {
+      // Tab Đề KTĐK: DE_KTDK_{year} -> [Nhóm: Bo_mon/Tieng_Anh] -> [Tên môn học]
+      mainColName = `DE_KTDK_${yearStr}`;
+      const subjectName = (metadata.monHoc || "Chung").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "_");
+      
+      parentColRef = collection(db, mainColName, docIdentifier, subjectName);
+    } else if (activeTab === 2) {
+      // Tab Biên bản: BIEN_BAN_{year} -> [Nhóm: Bo_mon/Tieng_Anh] -> FILES_LIST
+      mainColName = `BIEN_BAN_${yearStr}`;
+      
+      parentColRef = collection(db, mainColName, docIdentifier, "FILES_LIST");
+    } else {
+      // Tab KHBD (Tab 0)
+      parentColRef = collection(db, mainColName, metadata.giaoVien || "Chua_ro_GV", metadata.monHoc || "Chung");
+    }
 
     const firestorePromises = result.files.map(async (fileRes) => {
-      const tempDocRef = doc(parentColRef);
-      const khoiRaw = metadata.khoi || "Khac";
-      const khoiPrefix = khoiRaw
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/\s+/g, "_");
+      let customDocId = "";
 
-      const customDocId = `${khoiPrefix}_${tempDocRef.id}`;
-      const finalDocRef = doc(db, yearCol, teacherDoc, subjectSubCol, customDocId);
+      // 🌟 Nếu là Tab KHBD (activeTab === 0), tạo ID chuẩn Khoi_<Số Khối>_<Mã ngẫu nhiên>
+      if (activeTab === 0) {
+        const gradeKey = String(metadata.khoi || "").replace(/[^0-9]/g, "") || "1";
+        const randomString = Math.random().toString(36).substring(2, 12) + Math.random().toString(36).substring(2, 12);
+        customDocId = `Khoi_${gradeKey}_${randomString}`;
+      } else {
+        // 🌟 Nếu là Tab Đề KTĐK (activeTab === 1), thêm tiền tố LOP_{grade}_ vào trước ID
+        let prefix = "";
+        if (activeTab === 1 && metadata.khoi) {
+          const gradeKey = String(metadata.khoi).split(".")[0].replace(/[^0-9]/g, "") || metadata.khoi;
+          prefix = `LOP_${gradeKey}_`;
+        }
+
+        const rawName = fileRes.fileName.substring(0, fileRes.fileName.lastIndexOf(".")) || fileRes.fileName;
+        customDocId = (prefix + rawName)
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "") 
+          .replace(/[^a-zA-Z0-9_]/g, "_")  
+          .replace(/_+/g, "_")             
+          .toUpperCase();                 
+      }
+
+      const finalDocRef = doc(parentColRef, customDocId);
 
       const docData = {
         fileName: fileRes.fileName,
-        khoi: metadata.khoi,
+        giaoVien: metadata.giaoVien || "",
+        // 🌟 Nếu là tab Biên bản (activeTab === 2), không lưu hoặc để trống thông tin khối
+        khoi: activeTab === 2 ? "" : (metadata.khoi || ""),
+        monHoc: metadata.monHoc || "",
         tuan: metadata.tuan || "",
+        tabIndex: activeTab,
         fileId: fileRes.fileId,
         fileUrl: fileRes.fileUrl,
         downloadUrl: fileRes.downloadUrl,
@@ -88,7 +144,6 @@ export async function uploadBatchKeHoachDayHoc(files, metadata) {
   }
 }
 
-// 🌟 Hàm mới: Xóa file trên Google Drive thông qua Apps Script
 export async function deleteGoogleDriveFile(fileId) {
   try {
     const response = await fetch(GOOGLE_SCRIPT_URL, {

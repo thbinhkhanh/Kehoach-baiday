@@ -12,6 +12,7 @@ export async function handleUploadService({
   subject,
   className,
   teacherRole,
+  activeTab, // 👈 1. Nhận thêm activeTab từ component Users.jsx truyền lên
   statsData,
   setUploading,
   setUploadMode,
@@ -62,9 +63,16 @@ export async function handleUploadService({
     }
   }
 
-  if (!subject || !className || !teacherName) {
+  // 🌟 Nếu ở tab Biên bản (activeTab === 2), ta cho phép bỏ qua kiểm tra bắt buộc chọn Môn học
+  if (activeTab !== 2 && (!subject || !className || !teacherName)) {
     showMessage(
       "⚠️ Thiếu thông tin Môn học, Lớp hoặc Tên giáo viên!",
+      "warning"
+    );
+    return;
+  } else if (activeTab === 2 && (!className || !teacherName)) {
+    showMessage(
+      "⚠️ Thiếu thông tin Lớp hoặc Tên giáo viên!",
       "warning"
     );
     return;
@@ -78,7 +86,7 @@ export async function handleUploadService({
     setUploadProgress(0);
     setCurrentFileMsg(`${files.length} file...`);
 
-    // 🌟 Bóc tách lấy phần khối từ className (Ví dụ: "2.4" -> "2", "1.6" -> "1")
+    // Bóc tách lấy phần khối từ className (Ví dụ: "2.4" -> "2", "1.6" -> "1")
     const gradeKey = String(className).split(".")[0].replace(/[^0-9]/g, "") || className;
 
     let groupFolder = `Khối ${gradeKey}`;
@@ -89,12 +97,22 @@ export async function handleUploadService({
       groupFolder = "Bộ môn";
     }
 
+    // 🌟 Kiểm tra năm học: Nếu là năm học 2026-2027 và đang ở tab KHBD (activeTab === 0),
+    // ta sinh tiền tố ID dạng "Khoi_X_..." để đồng bộ với định dạng chuẩn cũ.
+    let customDocIdPrefix = undefined;
+    if (academicYear === "2026-2027" && activeTab === 0) {
+      const randomString = Math.random().toString(36).substring(2, 12) + Math.random().toString(36).substring(2, 12);
+      customDocIdPrefix = `Khoi_${gradeKey}_${randomString}`;
+    }
+
     const metadata = {
       giaoVien: teacherName,
-      khoi: `Khối ${gradeKey}`, // Lưu chuẩn thành Khối 2, Khối 1... thay vì Khối 2.4
-      monHoc: subject,
+      khoi: `Khối ${gradeKey}`,
+      monHoc: subject || "Biên bản",
       academicYear,
       nhomPhanLoai: groupFolder,
+      activeTab: activeTab ?? 0, // 👈 2. Đưa activeTab vào metadata truyền xuống service upload file
+      customDocIdPrefix, // Truyền tiền tố ID chuẩn định dạng Khoi_X_... xuống service ghi dữ liệu
     };
 
     let currentProgress = 0;
@@ -133,7 +151,7 @@ export async function handleUploadService({
       console.error("Lỗi bật cờ thống kê:", flagError);
     }
     
-    // 🌟 2. Bật cờ toàn trường trong CONFIG/config để báo hiệu bảng Tổng hợp toàn trường cần làm mới
+    // Bật cờ toàn trường trong CONFIG/config để báo hiệu bảng Tổng hợp toàn trường cần làm mới
     try {
       const configRef = doc(db, "CONFIG", "config");
       await setDoc(

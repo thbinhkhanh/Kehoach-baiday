@@ -106,6 +106,7 @@ export default function PhanQuyen({ user, onClose }) {
 
   // State quản lý tab đang chọn (0: GVCN, 1: Tiếng Anh, 2: Bộ môn)
   const [currentTab, setCurrentTab] = useState(0);
+  const [isTTCM, setIsTTCM] = useState(false);
 
   const determineTeacherRole = (teacherName, teachList, mapData) => {
     if (mapData[teacherName] && mapData[teacherName].role) {
@@ -191,6 +192,9 @@ export default function PhanQuyen({ user, onClose }) {
         setAssignedSubjects(assignedRole === "TA" ? ["Tiếng Anh"] : []);
       }
       setTeachingClasses(existing.teachingClasses?.length > 0 ? existing.teachingClasses : ["1", "2", "3", "4", "5"]);
+      
+      // 🌟 Đọc trạng thái TTCM đã lưu trước đó (hỗ trợ thuộc tính isTTCM hoặc isT_T_C_M)
+      setIsTTCM(Boolean(existing.isTTCM));
     } else {
       const classCode = defaultSubj.includes(".") ? defaultSubj : "1.1";
       setAssignedClass(classCode);
@@ -199,6 +203,7 @@ export default function PhanQuyen({ user, onClose }) {
       );
       setTeachingClasses(["1", "2", "3", "4", "5"]);
       setAssignedSubjects(assignedRole === "TA" ? ["Tiếng Anh"] : []);
+      setIsTTCM(false); // Mặc định không check nếu chưa có dữ liệu
     }
   }, [selectedTeacher, teachers, assignmentsMap, assignedRole]);
 
@@ -283,6 +288,7 @@ export default function PhanQuyen({ user, onClose }) {
         teachingClasses,
         academicYear,
         taoMaGiaoVien,
+        isTTCM,
       });
 
       setAssignmentsMap((prev) => ({
@@ -492,6 +498,8 @@ export default function PhanQuyen({ user, onClose }) {
                   handleClassCheck={handleClassCheck}
                   handleSave={handleSave}
                   saving={saving}
+                  isTTCM={isTTCM}
+                  setIsTTCM={setIsTTCM}
                 />
               </Box>
 

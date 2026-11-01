@@ -12,6 +12,7 @@ import {
   OutlinedInput,
   Button,
   ListSubheader,
+  FormControlLabel,
 } from "@mui/material";
 
 export default function FormCapNhatPhanCong({
@@ -34,11 +35,13 @@ export default function FormCapNhatPhanCong({
   handleClassCheck,
   handleSave,
   saving,
+  // 🌟 Nhận thêm props quản lý trạng thái Tổ trưởng chuyên môn
+  isTTCM,
+  setIsTTCM,
 }) {
 
   useEffect(() => {
     if (teachers.length > 0 && Object.keys(assignmentsMap).length > 0) {
-      // Nếu chưa chọn giáo viên hoặc muốn ép mặc định lớp 1.1 khi vừa load trang
       const gvcn11 = Object.values(assignmentsMap).find(
         (item) => item.role === "GVCN" && String(item.assignedClass || "").replace(/^lớp\s*/i, "").trim() === "1.1"
       );
@@ -50,7 +53,7 @@ export default function FormCapNhatPhanCong({
       }
     }
   }, [assignmentsMap, teachers]);
-    // Hàm phân nhóm GVCN theo khối và sắp xếp theo thứ tự lớp
+
   const renderTeacherOptions = () => {
     if (assignedRole === "GVCN") {
       const groups = { "1": [], "2": [], "3": [], "4": [], "5": [] };
@@ -62,7 +65,6 @@ export default function FormCapNhatPhanCong({
         groups[grade].push(t);
       });
 
-      // Sắp xếp giáo viên trong từng khối theo thứ tự lớp (1.1, 1.2, ...)
       Object.keys(groups).forEach((grade) => {
         groups[grade].sort((a, b) => {
           const classA = assignmentsMap[a.username]?.assignedClass || "";
@@ -85,7 +87,7 @@ export default function FormCapNhatPhanCong({
           groups[grade].forEach((t) => {
             items.push(
               <MenuItem key={t.id || t.username} value={t.username} sx={{ pl: 3 }}>
-                {t.username} {/* Chỉ hiển thị tên giáo viên gọn gàng */}
+                {t.username}
               </MenuItem>
             );
           });
@@ -94,7 +96,6 @@ export default function FormCapNhatPhanCong({
       return items;
     }
 
-    // Đối với vai trò khác (TA, BM)
     return filteredTeachers.map((t) => (
       <MenuItem key={t.id || t.username} value={t.username}>
         {t.username}
@@ -296,27 +297,6 @@ export default function FormCapNhatPhanCong({
               </Select>
             </FormControl>
           )}
-
-          {/* Nút Lưu */}
-          <Button
-            variant="contained"
-            onClick={handleSave}
-            disabled={saving}
-            sx={{
-              width: { xs: "100%", md: "auto" },
-              height: "40px",
-              px: 2.5,
-              borderRadius: 2,
-              textTransform: "none",
-              fontWeight: 700,
-              whiteSpace: "nowrap",
-              bgcolor: "#2457c5",
-              flexShrink: 0,
-              "&:hover": { bgcolor: "#1d459e" },
-            }}
-          >
-            {saving ? "Đang lưu..." : "Lưu"}
-          </Button>
         </Stack>
 
         {/* Chọn khối lớp giảng dạy (Dành cho BM hoặc TA) */}
@@ -339,6 +319,54 @@ export default function FormCapNhatPhanCong({
             </Stack>
           </Box>
         )}
+
+        {/* 🌟 Hàng ngang chứa Checkbox TTCM và Nút Lưu */}
+        <Box 
+          sx={{ 
+            display: "flex", 
+            justifyContent: "space-between", 
+            alignItems: "center", 
+            mt: 1, 
+            flexWrap: "wrap", 
+            gap: 2 
+          }}
+        >
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={Boolean(isTTCM)}
+                onChange={(e) => setIsTTCM && setIsTTCM(e.target.checked)}
+                color="primary"
+                size="small"
+              />
+            }
+            label={
+              <Typography variant="body2" sx={{ fontWeight: 600, color: "#334155" }}>
+                Tổ trưởng chuyên môn (TTCM)
+              </Typography>
+            }
+          />
+
+          <Button
+            variant="contained"
+            onClick={handleSave}
+            disabled={saving}
+            sx={{
+              width: { xs: "100%", md: "auto" },
+              height: "40px",
+              px: 3,
+              borderRadius: 2,
+              textTransform: "none",
+              fontWeight: 700,
+              whiteSpace: "nowrap",
+              bgcolor: "#2457c5",
+              boxShadow: "0 4px 12px rgba(36, 87, 197, 0.25)",
+              "&:hover": { bgcolor: "#1d459e" },
+            }}
+          >
+            {saving ? "Đang lưu..." : "Cập nhật phân công"}
+          </Button>
+        </Box>
       </Stack>
     </Box>
   );
