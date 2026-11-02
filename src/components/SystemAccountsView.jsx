@@ -46,6 +46,7 @@ export default function SystemAccountsView({ accountsList, formatDate }) {
             color: "#64748b",
             mb: 2,
             fontSize: "0.9rem",
+            fontWeight: 400, // 🌟 Đảm bảo không in đậm
           }}
         >
           Tổng số: <strong>{accountsList.length}</strong> tài khoản trong cơ sở dữ liệu.
@@ -66,12 +67,12 @@ export default function SystemAccountsView({ accountsList, formatDate }) {
             stickyHeader
             size="small"
             sx={{
-              minWidth: 560,
-              tableLayout: "fixed",
+              width: "auto",
+              tableLayout: "auto",
               "& th, & td": {
                 boxSizing: "border-box",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                px: 2,
               },
             }}
           >
@@ -79,12 +80,10 @@ export default function SystemAccountsView({ accountsList, formatDate }) {
               <TableRow>
                 <TableCell
                   sx={{
-                    width: 55,
                     fontWeight: 700,
                     backgroundColor: "#f1f5f9",
                     fontSize: "0.85rem",
                     color: "#334155",
-                    whiteSpace: "nowrap",
                   }}
                 >
                   STT
@@ -92,12 +91,10 @@ export default function SystemAccountsView({ accountsList, formatDate }) {
 
                 <TableCell
                   sx={{
-                    width: 200,
                     fontWeight: 700,
                     backgroundColor: "#f1f5f9",
                     fontSize: "0.85rem",
                     color: "#334155",
-                    whiteSpace: "nowrap",
                   }}
                 >
                   Tài khoản
@@ -105,12 +102,10 @@ export default function SystemAccountsView({ accountsList, formatDate }) {
 
                 <TableCell
                   sx={{
-                    width: 100,
                     fontWeight: 700,
                     backgroundColor: "#f1f5f9",
                     fontSize: "0.85rem",
                     color: "#334155",
-                    whiteSpace: "nowrap",
                   }}
                 >
                   Mật khẩu
@@ -118,12 +113,10 @@ export default function SystemAccountsView({ accountsList, formatDate }) {
 
                 <TableCell
                   sx={{
-                    width: 150,
                     fontWeight: 700,
                     backgroundColor: "#f1f5f9",
                     fontSize: "0.85rem",
                     color: "#334155",
-                    whiteSpace: "nowrap",
                   }}
                 >
                   Ngày cập nhật mật khẩu
@@ -141,6 +134,7 @@ export default function SystemAccountsView({ accountsList, formatDate }) {
                       py: 4,
                       color: "#64748b",
                       fontSize: "0.9rem",
+                      fontWeight: 400,
                     }}
                   >
                     Chưa có dữ liệu tài khoản trong hệ thống.
@@ -153,7 +147,7 @@ export default function SystemAccountsView({ accountsList, formatDate }) {
                       sx={{
                         fontSize: "0.85rem",
                         color: "#64748b",
-                        whiteSpace: "nowrap",
+                        fontWeight: 400, // 🌟 Chữ thường không in đậm
                       }}
                     >
                       {index + 1}
@@ -162,9 +156,8 @@ export default function SystemAccountsView({ accountsList, formatDate }) {
                     <TableCell
                       sx={{
                         fontSize: "0.85rem",
-                        fontWeight: 600,
                         color: "#0f172a",
-                        whiteSpace: "nowrap",
+                        fontWeight: 400, // 🌟 Đã bỏ in đậm tên tài khoản
                       }}
                     >
                       {acc.username}
@@ -174,9 +167,8 @@ export default function SystemAccountsView({ accountsList, formatDate }) {
                       sx={{
                         fontSize: "0.85rem",
                         fontFamily: "monospace",
-                        fontWeight: 700,
                         color: "#2563eb",
-                        whiteSpace: "nowrap",
+                        fontWeight: 400, // 🌟 Đã bỏ in đậm mật khẩu (giữ màu xanh đặc trưng)
                       }}
                     >
                       {acc.pass}
@@ -186,7 +178,7 @@ export default function SystemAccountsView({ accountsList, formatDate }) {
                       sx={{
                         fontSize: "0.85rem",
                         color: "#64748b",
-                        whiteSpace: "nowrap",
+                        fontWeight: 400, // 🌟 Chữ thường không in đậm
                       }}
                     >
                       {formatDate ? formatDate(acc.updatedAt) : acc.updatedAt}

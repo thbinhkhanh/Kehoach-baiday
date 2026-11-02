@@ -12,51 +12,132 @@ import {
   Paper,
 } from "@mui/material";
 
-/**
- * 🌟 Hàm hỗ trợ tính toán tổng hợp dữ liệu theo từng Nhóm (Khối hoặc Tổ)
- */
-export function getGroupTotals(groupData, activeSubjectNames = []) {
-  if (!groupData || !groupData.rows || groupData.rows.length === 0) {
-    return {
-      subjectTotals: {},
-      groupGrandTotal: 0,
-      teacherCount: 0,
-      processedRows: [],
-    };
+// ======================================================
+// HÀM HỖ TRỢ
+// ======================================================
+
+const getTeachers = (groupData) => {
+  if (Array.isArray(groupData)) return groupData;
+  if (Array.isArray(groupData?.rows)) {
+    return groupData.rows;
+  }
+  return [];
+};
+
+const getTeacherName = (teacher) =>
+  teacher?.teacherName ||
+  teacher?.username ||
+  teacher?.name ||
+  teacher?.teacherId ||
+  "Chưa có tên";
+
+const getSubjectTotal = (teacher, subject) => {
+  const subjectValue = Number(teacher?.subjects?.[subject]);
+  if (
+    teacher?.subjects &&
+    Object.prototype.hasOwnProperty.call(teacher.subjects, subject) &&
+    Number.isFinite(subjectValue)
+  ) {
+    return subjectValue;
   }
 
+  const oldValue = Number(teacher?.subjectCounts?.[subject]);
+  if (
+    teacher?.subjectCounts &&
+    Object.prototype.hasOwnProperty.call(teacher.subjectCounts, subject) &&
+    Number.isFinite(oldValue)
+  ) {
+    return oldValue;
+  }
+
+  const gradeData = teacher?.classBreakdown?.[subject] || {};
+  if (
+    gradeData &&
+    typeof gradeData === "object" &&
+    !Array.isArray(gradeData)
+  ) {
+    return Object.values(gradeData).reduce(
+      (sum, count) => sum + (Number(count) || 0),
+      0
+    );
+  }
+
+  return 0;
+};
+
+const getTeacherTotal = (teacher, subjects) => {
+  if (teacher?.subjects && typeof teacher.subjects === "object") {
+    return subjects.reduce(
+      (sum, subject) => sum + getSubjectTotal(teacher, subject),
+      0
+    );
+  }
+
+  if (teacher?.subjectCounts && typeof teacher.subjectCounts === "object") {
+    return subjects.reduce(
+      (sum, subject) => sum + getSubjectTotal(teacher, subject),
+      0
+    );
+  }
+
+  return Number(teacher?.totalFiles) || 0;
+};
+
+const getGroupTitle = (groupKey, groupData) => {
+  if (groupData?.title) return groupData.title;
+
+  const titles = {
+    khoi1: "KHỐI 1",
+    khoi2: "KHỐI 2",
+    khoi3: "KHỐI 3",
+    khoi4: "KHỐI 4",
+    khoi5: "KHỐI 5",
+    tiengAnh: "TỔ TIẾNG ANH",
+    boMon: "TỔ BỘ MÔN",
+  };
+
+  return titles[groupKey] || groupKey;
+};
+
+export function getGroupTotals(groupData, activeSubjectNames = []) {
+  const teachers = getTeachers(groupData);
   const subjectTotals = {};
-  activeSubjectNames.forEach((sub) => {
-    subjectTotals[sub] = 0;
+
+  activeSubjectNames.forEach((subject) => {
+    subjectTotals[subject] = 0;
   });
 
   let groupGrandTotal = 0;
 
-  const processedRows = groupData.rows.map((row, index) => {
-    const assignedSubjects = (row.assignedSubjects || []).map((sub) =>
-      sub === "Giáo dục thể chất" ? "GDTC" : sub
-    );
-
-    let teacherRowTotal = 0;
+  const processedRows = teachers.map((teacher, index) => {
     const teacherSubjectCounts = {};
 
-    activeSubjectNames.forEach((sub) => {
-      const count = Number(row.subjectCounts?.[sub] || 0);
-      teacherSubjectCounts[sub] = count;
-      subjectTotals[sub] += count;
-      teacherRowTotal += count;
+    activeSubjectNames.forEach((subject) => {
+      const count = getSubjectTotal(teacher, subject);
+      teacherSubjectCounts[subject] = count;
+      subjectTotals[subject] += count;
     });
 
+    const teacherRowTotal = getTeacherTotal(teacher, activeSubjectNames);
     groupGrandTotal += teacherRowTotal;
 
+    const assignedSubjects = (teacher.assignedSubjects || []).map((subject) =>
+      subject === "Giáo dục thể chất" ? "GDTC" : subject
+    );
+
     const displaySubjects =
-      assignedSubjects.length > 2
-        ? `${assignedSubjects[0]}...`
-        : assignedSubjects.join(", ") || row.role;
+      assignedSubjects.length > 0
+        ? assignedSubjects.length > 3
+          ? `${assignedSubjects.slice(0, 3).join(", ")}...`
+          : assignedSubjects.join(", ")
+        : activeSubjectNames
+            .filter((subject) => getSubjectTotal(teacher, subject) > 0)
+            .join(", ");
 
     return {
-      ...row,
+      ...teacher,
       index: index + 1,
+      username: getTeacherName(teacher),
       displaySubjects,
       teacherSubjectCounts,
       teacherRowTotal,
@@ -66,7 +147,7 @@ export function getGroupTotals(groupData, activeSubjectNames = []) {
   return {
     subjectTotals,
     groupGrandTotal,
-    teacherCount: groupData.rows.length,
+    teacherCount: teachers.length,
     processedRows,
   };
 }
@@ -80,12 +161,41 @@ export default function TeamSummaryView({
   setSelectedUsername,
   setSelectedFile,
   isFullScreen,
-  setIsFullScreen,
+  onTitleDetected,
 }) {
   const activeGroupedData = schoolSummaryGrouped || {};
 
-  // 2. TỰ ĐỘNG LỌC CỘT MÔN HỌC ĐỘNG
-  // 🌟 Bảng thứ tự ưu tiên hiển thị các cột môn học từ trái sang phải
+  const groupEntries = Object.entries(activeGroupedData).filter(
+    ([groupKey, groupData]) =>
+      groupKey !== "toBoMon" &&
+      (Array.isArray(groupData) || Array.isArray(groupData?.rows))
+  );
+
+  // 🌟 Lấy chính xác tên nhóm đang hiển thị trong bảng (ví dụ: KHỐI 2) để truyền ra ngoài
+  // 🌟 Chỉ lấy tên của các nhóm thực sự có giáo viên/dữ liệu để hiển thị lên tiêu đề
+  React.useEffect(() => {
+    if (onTitleDetected && groupEntries.length > 0) {
+      const activeTitles = groupEntries
+        .map(([groupKey, groupData]) => {
+          const teachers = getTeachers(groupData);
+          if (teachers.length > 0) {
+            const rawTitle = getGroupTitle(groupKey, groupData);
+            return rawTitle.replace("📌 ", "").trim();
+          }
+          return null;
+        })
+        .filter(Boolean);
+
+      if (activeTitles.length > 0) {
+        onTitleDetected(activeTitles.join(" - "));
+      }
+    }
+  }, [schoolSummaryGrouped]);
+
+  const allTeachers = groupEntries.flatMap(([, groupData]) =>
+    getTeachers(groupData)
+  );
+
   const subjectPriority = {
     TA: 1,
     TH: 2,
@@ -98,42 +208,44 @@ export default function TeamSummaryView({
     ĐĐ: 9,
     TNXH: 10,
     KH: 11,
-    "LSĐL": 12,
+    LSĐL: 12,
     HĐTN: 13,
   };
 
-  // 🌟 Lấy danh sách cột môn học đầy đủ, gộp chung các nguồn và sắp xếp theo đúng thứ tự ưu tiên
   const activeSubjectNames = React.useMemo(() => {
-    let subSet = new Set(filteredSubjectNames || []);
+    const subjectSet = new Set();
 
-    Object.values(activeGroupedData).forEach((groupData) => {
-      groupData.rows?.forEach((row) => {
-        row.assignedSubjects?.forEach((s) => {
-          if (s && !s.toLowerCase().includes("tất cả")) subSet.add(s);
-        });
-        if (row.subjectCounts) {
-          Object.keys(row.subjectCounts).forEach((s) => {
-            if (s) subSet.add(s);
-          });
-        }
+    (filteredSubjectNames || []).forEach((subject) => {
+      if (subject) subjectSet.add(subject);
+    });
+
+    allTeachers.forEach((teacher) => {
+      Object.keys(teacher.subjects || {}).forEach((subject) => {
+        if (subject) subjectSet.add(subject);
+      });
+      Object.keys(teacher.classBreakdown || {}).forEach((subject) => {
+        if (subject) subjectSet.add(subject);
+      });
+      (teacher.assignedSubjects || []).forEach((subject) => {
+        if (subject) subjectSet.add(subject);
+      });
+      Object.keys(teacher.subjectCounts || {}).forEach((subject) => {
+        if (subject) subjectSet.add(subject);
       });
     });
 
-    let uniqueSubjects = Array.from(subSet).filter(
-      (subName) => subName && !subName.toLowerCase().includes("tất cả")
-    );
+    return Array.from(subjectSet)
+      .filter((subject) => subject && !subject.toLowerCase().includes("tất cả"))
+      .sort((a, b) => {
+        const shortA = getShortSubjectName ? getShortSubjectName(a) : a;
+        const shortB = getShortSubjectName ? getShortSubjectName(b) : b;
+        const priorityA = subjectPriority[shortA] || 99;
+        const priorityB = subjectPriority[shortB] || 99;
+        return priorityA - priorityB;
+      });
+  }, [filteredSubjectNames, allTeachers, getShortSubjectName]);
 
-    // Sắp xếp các cột môn học theo đúng bảng thứ tự ưu tiên
-    uniqueSubjects.sort((a, b) => {
-      const shortA = getShortSubjectName ? getShortSubjectName(a) : a;
-      const shortB = getShortSubjectName ? getShortSubjectName(b) : b;
-      const prioA = subjectPriority[shortA] || 99;
-      const prioB = subjectPriority[shortB] || 99;
-      return prioA - prioB;
-    });
-
-    return uniqueSubjects;
-  }, [filteredSubjectNames, activeGroupedData, getShortSubjectName]);
+  const totalColumns = activeSubjectNames.length + 3;
 
   return (
     <Box
@@ -158,311 +270,284 @@ export default function TeamSummaryView({
         >
           <CircularProgress />
         </Box>
-      ) : Object.keys(activeGroupedData).length === 0 ? (
+      ) : allTeachers.length === 0 ? (
         <Typography color="text.secondary" align="center" sx={{ mt: 4 }}>
           Không có dữ liệu tổng hợp cho nhóm này.
         </Typography>
       ) : (
-        (() => {
-          const grandSchoolTotals = {};
-          let grandSchoolTotalCount = 0;
+        <TableContainer
+          component={Paper}
+          sx={{
+            maxHeight: isFullScreen
+              ? "calc(100vh - 80px)"
+              : "calc(100vh - 120px)",
+            overflow: "auto",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+            borderRadius: 2.5,
+            border: "1px solid #e2e8f0",
+          }}
+        >
+          <Table stickyHeader size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell
+                  align="center"
+                  sx={{
+                    bgcolor: "#1e293b",
+                    color: "white",
+                    fontWeight: "bold",
+                    minWidth: 45,
+                    fontSize: "0.85rem",
+                  }}
+                >
+                  STT
+                </TableCell>
+                <TableCell
+                  align="center"
+                  sx={{
+                    bgcolor: "#1e293b",
+                    color: "white",
+                    fontWeight: "bold",
+                    minWidth: 220,
+                    fontSize: "0.85rem",
+                  }}
+                >
+                  Họ và tên
+                </TableCell>
+                {activeSubjectNames.map((subject) => (
+                  <TableCell
+                    key={subject}
+                    align="center"
+                    sx={{
+                      bgcolor: "#1e293b",
+                      color: "white",
+                      fontWeight: "bold",
+                      minWidth: 65,
+                      fontSize: "0.85rem",
+                      borderLeft: "1px solid #334155",
+                    }}
+                  >
+                    {getShortSubjectName ? getShortSubjectName(subject) : subject}
+                  </TableCell>
+                ))}
+                <TableCell
+                  align="center"
+                  sx={{
+                    bgcolor: "#0f172a",
+                    color: "#38bdf8",
+                    fontWeight: "bold",
+                    minWidth: 80,
+                    fontSize: "0.85rem",
+                    borderLeft: "1px solid #334155",
+                  }}
+                >
+                  Tổng số
+                </TableCell>
+              </TableRow>
+            </TableHead>
 
-          activeSubjectNames.forEach((sub) => {
-            grandSchoolTotals[sub] = 0;
-          });
+            <TableBody>
+              {groupEntries.map(([groupKey, groupData]) => {
+                const {
+                  subjectTotals,
+                  groupGrandTotal,
+                  processedRows,
+                } = getGroupTotals(groupData, activeSubjectNames);
 
-          Object.values(activeGroupedData).forEach((groupData) => {
-            const { subjectTotals, groupGrandTotal } = getGroupTotals(
-              groupData,
-              activeSubjectNames
-            );
-            activeSubjectNames.forEach((sub) => {
-              grandSchoolTotals[sub] += subjectTotals[sub] || 0;
-            });
-            grandSchoolTotalCount += groupGrandTotal;
-          });
+                if (processedRows.length === 0) return null;
 
-          return (
-            <TableContainer
-              component={Paper}
-              sx={{
-                maxHeight: isFullScreen
-                  ? "calc(100vh - 80px)"
-                  : "calc(100vh - 120px)",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-                borderRadius: 2.5,
-                border: "1px solid #e2e8f0",
-              }}
-            >
-              <Table stickyHeader size="small">
-                <TableHead>
-                  <TableRow sx={{ bgcolor: "#1e293b" }}>
-                    <TableCell
-                      align="center"
-                      sx={{
-                        fontWeight: "bold",
-                        bgcolor: "#1e293b",
-                        color: "white",
-                        minWidth: 45,
-                        fontSize: "0.85rem",
-                      }}
-                    >
-                      STT
-                    </TableCell>
-                    <TableCell
-                      align="center"
-                      sx={{
-                        fontWeight: "bold",
-                        bgcolor: "#1e293b",
-                        color: "white",
-                        minWidth: 200,
-                        fontSize: "0.85rem",
-                      }}
-                    >
-                      Họ và tên
-                    </TableCell>
+                const groupTitle = getGroupTitle(groupKey, groupData);
 
-                    {activeSubjectNames.map((sub) => (
+                return (
+                  <React.Fragment key={groupKey}>
+                    <TableRow>
                       <TableCell
-                        key={sub}
-                        align="center"
+                        colSpan={totalColumns}
                         sx={{
+                          bgcolor: "#f1f5f9",
+                          color: "#1e293b",
                           fontWeight: "bold",
-                          bgcolor: "#1e293b",
-                          color: "white",
-                          minWidth: 60,
-                          fontSize: "0.85rem",
-                          borderLeft: "1px solid #334155",
-                          borderRight: "1px solid #334155",
+                          fontSize: "0.9rem",
+                          py: 1.2,
+                          borderTop: "2px solid #e2e8f0",
+                          borderBottom: "1px solid #e2e8f0",
                         }}
                       >
-                        {getShortSubjectName ? getShortSubjectName(sub) : sub}
+                        {groupTitle} ({processedRows.length} giáo viên)
                       </TableCell>
-                    ))}
+                    </TableRow>
 
-                    <TableCell
-                      align="center"
-                      sx={{
-                        fontWeight: "bold",
-                        bgcolor: "#0f172a",
-                        color: "#38bdf8",
-                        minWidth: 70,
-                        fontSize: "0.85rem",
-                        borderLeft: "1px solid #334155",
-                      }}
-                    >
-                      Tổng số
-                    </TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {Object.entries(activeGroupedData).map(
-                    ([groupKey, groupData]) => {
-                      if (
-                        !groupData.rows ||
-                        groupData.rows.length === 0
-                      )
-                        return null;
-
-                      const {
-                        subjectTotals,
-                        groupGrandTotal,
-                        processedRows,
-                      } = getGroupTotals(groupData, activeSubjectNames);
+                    {processedRows.map((row) => {
+                      const teacherName = getTeacherName(row);
 
                       return (
-                        <React.Fragment key={groupKey}>
-                          <TableRow>
-                            <TableCell
-                              colSpan={activeSubjectNames.length + 3}
+                        <TableRow
+                          key={row.teacherId || row.username || teacherName}
+                          hover
+                          onClick={() => {
+                            if (setSelectedUsername) {
+                              setSelectedUsername(row.teacherId || teacherName);
+                            }
+                            if (setViewMode) {
+                              setViewMode("single");
+                            }
+                            if (typeof setSelectedFile === "function") {
+                              setSelectedFile(null);
+                            }
+                          }}
+                          sx={{
+                            cursor: "pointer",
+                            "&:hover": { bgcolor: "#eff6ff" },
+                          }}
+                        >
+                          <TableCell
+                            align="center"
+                            sx={{ color: "#64748b", fontSize: "0.85rem" }}
+                          >
+                            {row.index}
+                          </TableCell>
+                          <TableCell sx={{ py: 1.2 }}>
+                            <Typography
+                              variant="subtitle2"
+                              fontWeight="700"
                               sx={{
-                                bgcolor: "#f1f5f9",
-                                color: "#1e293b",
-                                fontWeight: "bold",
+                                color: "#2563eb",
                                 fontSize: "0.9rem",
-                                py: 1.2,
-                                borderTop: "2px solid #e2e8f0",
-                                borderBottom: "1px solid #e2e8f0",
+                                textDecoration: "underline",
                               }}
                             >
-                              {groupData.title} ({processedRows.length} giáo viên)
-                            </TableCell>
-                          </TableRow>
+                              {teacherName}
+                            </Typography>
+                          </TableCell>
 
-                          {processedRows.map((row) => (
-                            <TableRow
-                              key={row.username}
-                              hover
-                              onClick={() => {
-                                setSelectedUsername(row.username);
-                                if (setIsFullScreen)
-                                  setIsFullScreen(false);
-                                if (setViewMode) setViewMode("single");
-                                if (
-                                  typeof setSelectedFile === "function"
-                                )
-                                  setSelectedFile(null);
-                              }}
-                              sx={{
-                                cursor: "pointer",
-                                "&:hover": { bgcolor: "#eff6ff" },
-                              }}
-                            >
+                          {activeSubjectNames.map((subject) => {
+                            const count =
+                              row.teacherSubjectCounts[subject] || 0;
+                            const hasData = count > 0;
+
+                            return (
                               <TableCell
+                                key={subject}
                                 align="center"
-                                sx={{
-                                  color: "#64748b",
-                                  fontSize: "0.85rem",
-                                }}
+                                sx={{ borderLeft: "1px solid #e2e8f0" }}
                               >
-                                {row.index}
-                              </TableCell>
-                              <TableCell sx={{ py: 1.2 }}>
-                                <Typography
-                                  variant="subtitle2"
-                                  fontWeight="700"
+                                <Box
                                   sx={{
-                                    color: "#2563eb",
-                                    fontSize: "0.9rem",
-                                    textDecoration: "underline",
+                                    display: "inline-block",
+                                    px: 1.2,
+                                    py: 0.4,
+                                    borderRadius: 1.5,
+                                    fontWeight: 800,
+                                    fontSize: "0.85rem",
+                                    bgcolor: hasData
+                                      ? "#f0f9ff"
+                                      : "transparent",
+                                    color: hasData ? "#0284c7" : "#cbd5e1",
+                                    border: hasData
+                                      ? "1px solid #bae6fd"
+                                      : "none",
                                   }}
                                 >
-                                  {row.username}
-                                </Typography>
-                                <Typography
-                                  variant="caption"
-                                  sx={{
-                                    color: "#64748b",
-                                    display: "block",
-                                  }}
-                                >
-                                  Lớp:{" "}
-                                  {row.teachingClasses?.join(", ") ||
-                                    "Chưa gán"}{" "}
-                                  | Môn: {row.displaySubjects}
-                                </Typography>
+                                  {hasData ? count : "—"}
+                                </Box>
                               </TableCell>
+                            );
+                          })}
 
-                              {activeSubjectNames.map((sub) => {
-                                const count =
-                                  row.teacherSubjectCounts[sub] || 0;
-                                const hasData = count > 0;
-                                return (
-                                  <TableCell
-                                    key={sub}
-                                    align="center"
-                                    sx={{
-                                      borderLeft:
-                                        "1px solid #e2e8f0",
-                                      borderRight:
-                                        "1px solid #e2e8f0",
-                                    }}
-                                  >
-                                    <Box
-                                      sx={{
-                                        display: "inline-block",
-                                        px: 1.2,
-                                        py: 0.4,
-                                        borderRadius: 1.5,
-                                        fontWeight: "800",
-                                        fontSize: "0.85rem",
-                                        bgcolor: hasData
-                                          ? "#f0f9ff"
-                                          : "transparent",
-                                        color: hasData
-                                          ? "#0284c7"
-                                          : "#cbd5e1",
-                                        border: hasData
-                                          ? "1px solid #bae6fd"
-                                          : "none",
-                                      }}
-                                    >
-                                      {hasData ? count : "—"}
-                                    </Box>
-                                  </TableCell>
-                                );
-                              })}
-                              <TableCell
-                                align="center"
-                                sx={{
-                                  borderLeft: "1px solid #e2e8f0",
-                                }}
-                              >
-                                <Typography
-                                  variant="subtitle2"
-                                  fontWeight="800"
-                                  sx={{
-                                    color:
-                                      row.teacherRowTotal > 0
-                                        ? "#dc2626"
-                                        : "#94a3b8",
-                                    fontSize: "0.9rem",
-                                  }}
-                                >
-                                  {row.teacherRowTotal}
-                                </Typography>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-
-                          {/* Dòng tổng nhóm */}
-                          <TableRow
+                          <TableCell
+                            align="center"
                             sx={{
+                              borderLeft: "1px solid #e2e8f0",
                               bgcolor: "#f8fafc",
-                              borderTop: "1px solid #e2e8f0",
                             }}
                           >
-                            <TableCell
-                              align="center"
-                              colSpan={2}
+                            <Typography
+                              variant="subtitle2"
+                              fontWeight="800"
                               sx={{
-                                fontWeight: "700",
-                                color: "#334155",
-                                fontSize: "0.85rem",
+                                color:
+                                  row.teacherRowTotal > 0
+                                    ? "#dc2626"
+                                    : "#94a3b8",
+                                fontSize: "0.9rem",
                               }}
                             >
-                              Tổng {groupData.title.replace("📌 ", "")}:
-                            </TableCell>
-
-                            {activeSubjectNames.map((sub) => (
-                              <TableCell
-                                key={sub}
-                                align="center"
-                                sx={{
-                                  fontWeight: "800",
-                                  color:
-                                    subjectTotals[sub] > 0
-                                      ? "#dc2626"
-                                      : "#cbd5e1",
-                                  fontSize: "0.9rem",
-                                  borderLeft: "1px solid #e2e8f0",
-                                  borderRight: "1px solid #e2e8f0",
-                                }}
-                              >
-                                {subjectTotals[sub] > 0
-                                  ? subjectTotals[sub]
-                                  : "—"}
-                              </TableCell>
-                            ))}
-                            <TableCell
-                              align="center"
-                              sx={{
-                                fontWeight: "800",
-                                color: "#1d4ed8",
-                                fontSize: "0.95rem",
-                                bgcolor: "#eff6ff",
-                                borderLeft: "1px solid #e2e8f0",
-                              }}
-                            >
-                              {groupGrandTotal}
-                            </TableCell>
-                          </TableRow>
-                        </React.Fragment>
+                              {row.teacherRowTotal}
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
                       );
-                    }
-                  )}
+                    })}
 
-                  {/* DÒNG TỔNG TOÀN TRƯỜNG */}
+                    <TableRow
+                      sx={{ bgcolor: "#f8fafc", borderTop: "1px solid #e2e8f0" }}
+                    >
+                      <TableCell
+                        align="center"
+                        colSpan={2}
+                        sx={{
+                          fontWeight: "700",
+                          color: "#334155",
+                          fontSize: "0.85rem",
+                        }}
+                      >
+                        Tổng {groupTitle.replace("📌 ", "")}:
+                      </TableCell>
+
+                      {activeSubjectNames.map((subject) => (
+                        <TableCell
+                          key={subject}
+                          align="center"
+                          sx={{
+                            fontWeight: "800",
+                            color:
+                              subjectTotals[subject] > 0
+                                ? "#dc2626"
+                                : "#cbd5e1",
+                            fontSize: "0.9rem",
+                            borderLeft: "1px solid #e2e8f0",
+                          }}
+                        >
+                          {subjectTotals[subject] > 0
+                            ? subjectTotals[subject]
+                            : "—"}
+                        </TableCell>
+                      ))}
+
+                      <TableCell
+                        align="center"
+                        sx={{
+                          fontWeight: "800",
+                          color: "#1d4ed8",
+                          fontSize: "0.95rem",
+                          bgcolor: "#eff6ff",
+                          borderLeft: "1px solid #e2e8f0",
+                        }}
+                      >
+                        {groupGrandTotal}
+                      </TableCell>
+                    </TableRow>
+                  </React.Fragment>
+                );
+              })}
+
+              {(() => {
+                const grandSubjectTotals = {};
+                activeSubjectNames.forEach((subject) => {
+                  grandSubjectTotals[subject] = allTeachers.reduce(
+                    (sum, teacher) =>
+                      sum + getSubjectTotal(teacher, subject),
+                    0
+                  );
+                });
+
+                const grandTotal = allTeachers.reduce(
+                  (sum, teacher) =>
+                    sum + getTeacherTotal(teacher, activeSubjectNames),
+                  0
+                );
+
+                return (
                   <TableRow
                     sx={{
                       bgcolor: "#0f172a",
@@ -481,26 +566,27 @@ export default function TeamSummaryView({
                     >
                       🏆 TỔNG TỔ / KHỐI
                     </TableCell>
-                    {activeSubjectNames.map((sub) => (
+
+                    {activeSubjectNames.map((subject) => (
                       <TableCell
-                        key={sub}
+                        key={subject}
                         align="center"
                         sx={{
                           fontWeight: "bold",
                           color:
-                            grandSchoolTotals[sub] > 0
+                            grandSubjectTotals[subject] > 0
                               ? "#38bdf8"
                               : "#64748b",
                           fontSize: "0.95rem",
                           borderLeft: "1px solid #1e293b",
-                          borderRight: "1px solid #1e293b",
                         }}
                       >
-                        {grandSchoolTotals[sub] > 0
-                          ? grandSchoolTotals[sub]
+                        {grandSubjectTotals[subject] > 0
+                          ? grandSubjectTotals[subject]
                           : "—"}
                       </TableCell>
                     ))}
+
                     <TableCell
                       align="center"
                       sx={{
@@ -511,14 +597,14 @@ export default function TeamSummaryView({
                         borderLeft: "1px solid #1e293b",
                       }}
                     >
-                      {grandSchoolTotalCount}
+                      {grandTotal}
                     </TableCell>
                   </TableRow>
-                </TableBody>
-              </Table>
-            </TableContainer>
-          );
-        })()
+                );
+              })()}
+            </TableBody>
+          </Table>
+        </TableContainer>
       )}
     </Box>
   );

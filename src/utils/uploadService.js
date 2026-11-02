@@ -1,4 +1,4 @@
-import { collection, doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { collection, doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase";
 
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzr9uLXSaFvkG5D2NTf_lGmi5s-0K8_lRBFlSl5O2eNKmSta3XfqNiasCuSCtRcag5/exec";
@@ -111,7 +111,7 @@ export async function uploadBatchKeHoachDayHoc(files, metadata) {
           .replace(/[\u0300-\u036f]/g, "") 
           .replace(/[^a-zA-Z0-9_]/g, "_")  
           .replace(/_+/g, "_")             
-          .toUpperCase();                 
+          .toUpperCase();                
       }
 
       const finalDocRef = doc(parentColRef, customDocId);
@@ -135,6 +135,65 @@ export async function uploadBatchKeHoachDayHoc(files, metadata) {
     });
 
     const savedFiles = await Promise.all(firestorePromises);
+
+    // 🌟 3. CẬP NHẬT TĂNG SỐ LIỆU TRỰC TIẾP VÀO THONGKE_{academicYear} (CHỈ LƯU "Khối X", BỎ KHÓA SỐ ĐƠN ĐỘC)
+    if (activeTab === 0 && metadata.giaoVien) {
+      const teacherKey = metadata.giaoVien.trim().toUpperCase();
+      const thongKeRef = doc(db, `THONGKE_${yearStr}`, teacherKey);
+      const thongKeSnap = await getDoc(thongKeRef);
+
+      const existingData = thongKeSnap.exists() ? thongKeSnap.data() : {};
+      const uploadCount = savedFiles.length;
+      const newTotalFiles = (Number(existingData.totalFiles) || 0) + uploadCount;
+
+      const subjectName = metadata.monHoc || "Chung";
+      const gradeNum = String(metadata.khoi || "").replace(/[^0-9]/g, "") || "4";
+      const gradeLabel = `Khối ${gradeNum}`;
+
+      // Cộng dồn tổng số file theo môn (subjects)
+      const subjectsMap = { ...(existingData.subjects || {}) };
+      subjectsMap[subjectName] = (Number(subjectsMap[subjectName]) || 0) + uploadCount;
+
+      // Cộng dồn chi tiết theo môn và khối (classBreakdown - CHỈ cập nhật vào gradeLabel "Khối X")
+      const classBreakdownMap = { ...(existingData.classBreakdown || {}) };
+      if (!classBreakdownMap[subjectName]) {
+        classBreakdownMap[subjectName] = {};
+      }
+      const subBreakdown = { ...classBreakdownMap[subjectName] };
+      
+      // Chỉ tăng cho "Khối X", không thêm khóa số thuần túy (như "4")
+      subBreakdown[gradeLabel] = (Number(subBreakdown[gradeLabel]) || 0) + uploadCount;
+      
+      classBreakdownMap[subjectName] = subBreakdown;
+
+      // Cập nhật recentFiles (giữ tối đa 10 file gần nhất)
+      const currentRecent = Array.isArray(existingData.recentFiles) ? existingData.recentFiles : [];
+      const newRecentItems = savedFiles.map((file) => ({
+        class: gradeLabel,
+        fileId: file.fileId || "",
+        fileUrl: file.fileUrl || "",
+        name: file.fileName || "",
+        subject: subjectName,
+        updatedAt: new Date().toISOString(),
+      }));
+      const updatedRecentFiles = [...newRecentItems, ...currentRecent].slice(0, 10);
+
+      await setDoc(
+        thongKeRef,
+        {
+          teacherId: teacherKey,
+          teacherName: metadata.giaoVien,
+          group: metadata.teacherRole || existingData.group || "BM",
+          totalFiles: newTotalFiles,
+          subjects: subjectsMap,
+          classBreakdown: classBreakdownMap,
+          recentFiles: updatedRecentFiles,
+          lastUpdated: new Date().toISOString(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    }
 
     return { success: true, files: savedFiles };
 

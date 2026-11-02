@@ -44,7 +44,7 @@ export default function FileListCard({
   return (
     <Card sx={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
       <CardContent sx={{ p: 1, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <Typography variant="h6">📂 Danh sách file</Typography>
+        <Typography variant="subtitle1" fontWeight="bold">📂 Danh sách file ({fileList.length})</Typography>
         {fileList.length > 0 && (
           <Box sx={{ display: "flex", alignItems: "center", mr: hasScrollbar ? 3 : 1 }}>
             <Typography variant="body2" sx={{ mr: 1 }}>Chọn tất cả</Typography>

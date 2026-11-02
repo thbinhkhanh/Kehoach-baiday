@@ -31,12 +31,11 @@ import {
 
 import { db } from "../firebase";
 import { collection, getDocs, doc, getDoc, query, where, updateDoc, serverTimestamp } from "firebase/firestore";
-import { fetchSchoolSummaryData, fetchTeacherStatsData } from "../utils/thongKe";
 import { saveBghRequestService, deleteBghRequestService } from "../utils/bghNotificationService";
 import { fetchPhanQuyen } from "../utils/phanQuyenHelper";
 import { tinhToanMonHocChoGiaoVien } from "../utils/monHocHelper";
-import { taiThongKeGiaoVien } from "../utils/thongKeGiaoVien";
-import { handleExportExcel } from "../utils/exportSchoolSummary";
+import { fetchTeacherStatsData } from "../utils/teacherStatsUtils";
+import { fetchSchoolSummaryDataService } from "../utils/schoolSummaryUtils";
 
 import TeacherStatsView from "../components/TeacherStatsView";
 import SchoolSummaryView from "../components/SchoolSummaryView";
@@ -49,6 +48,7 @@ import TeacherAdjustmentDialog from "../dialogs/TeacherAdjustmentDialog";
 
 import PersonRounded from "@mui/icons-material/PersonRounded";
 import BarChartRounded from "@mui/icons-material/BarChartRounded";
+import DownloadRounded from "@mui/icons-material/DownloadRounded";
 
 // Hàm chuyển đổi tên môn học sang dạng viết tắt trên tiêu đề
 const getShortSubjectName = (name) => {
@@ -99,8 +99,8 @@ export default function BGH({ user }) {
   const { 
     updateTeacherStats, 
     getTeacherStats, 
-    getSchoolSummary,      // 🌟 Thêm hàm lấy cache tổng hợp
-    updateSchoolSummary    // 🌟 Thêm hàm lưu cache tổng hợp
+    getSchoolSummary,      
+    updateSchoolSummary    
   } = useBGHStats();
 
   const [teacherAllowedSubjects, setTeacherAllowedSubjects] = useState([]);
@@ -531,8 +531,6 @@ export default function BGH({ user }) {
     }
   };
 
-  // Sắp xếp danh sách môn học theo thứ tự: Tổ bộ môn trước, GVCN sau
-  // 🌟 Lấy danh sách môn học chuẩn xác theo đúng cấu hình phân bổ môn học của lớp/khối (giống hệt Tab 0)
   // 🌟 Lấy danh sách toàn bộ các môn học để hiển thị đầy đủ mọi cột cho tất cả các nhóm (GVCN, Tiếng Anh, Bộ môn)
   const getFilteredSubjectNames = () => {
     let allowedSubjects = new Set();
@@ -595,39 +593,41 @@ export default function BGH({ user }) {
 
   const filteredSubjectNames = getFilteredSubjectNames();
 
-  // 🔹 THỐNG KÊ BÀI NỘP TOÀN TRƯỜNG (Có tích hợp Cache từ Context)
+  // 🔹 THỐNG KÊ BÀI NỘP TOÀN TRƯỜNG TRỰC TIẾP TỪ THONGKE_{academicYear}
   const fetchSchoolSummary = async (isForceRefresh = false) => {
-    // 1. Nếu không bắt buộc làm mới (isForceRefresh = false), thử lấy từ Cache trước
+    // 1. Kiểm tra cache nếu không bắt buộc làm mới
     if (!isForceRefresh) {
       const cachedSummary = getSchoolSummary(academicYear);
       if (cachedSummary && Object.keys(cachedSummary).length > 0) {
-        console.log("⚡ Đang sử dụng dữ liệu Tổng hợp toàn trường từ Cache (Context/LocalStorage)");
+        console.log("⚡ Đang sử dụng dữ liệu Tổng hợp toàn trường từ Cache");
         setSchoolSummaryGrouped(cachedSummary);
-        return; // Dừng lại, không cần gọi Firebase giúp load tức thì!
+        return;
       }
     }
 
-    // 2. Nếu chưa có cache hoặc có yêu cầu làm mới, gọi hàm fetch từ file thongKe.js
-    await fetchSchoolSummaryData({
-      isAdmin,
-      phanQuyenMap,
-      allMonHoc,
-      academicYear,
-      groupedTeachers,
-      filteredSubjectNames,
-      setLoadingSchoolSummary,
-      setSchoolSummaryGrouped: (groupedResult) => {
-        // Cập nhật State hiển thị lên giao diện
-        setSchoolSummaryGrouped(groupedResult);
-        // 🌟 Lưu ngược lại vào Context và LocalStorage để lần sau dùng luôn
-        updateSchoolSummary(academicYear, groupedResult);
-      },
-      forceRefresh: isForceRefresh,
-    });
+    setLoadingSchoolSummary(true);
+
+    try {
+      const groupedSummary = await fetchSchoolSummaryDataService({
+        academicYear,
+        groupedTeachers,
+        phanQuyenMap,
+        db,
+      });
+
+      // Cập nhật State và Cache
+      setSchoolSummaryGrouped(groupedSummary);
+      updateSchoolSummary(academicYear, groupedSummary);
+
+      console.log("🎯 KẾT QUẢ TỔNG HỢP TOÀN TRƯỜNG:", groupedSummary);
+    } catch (error) {
+      console.error("❌ Lỗi tổng hợp dữ liệu toàn trường:", error);
+    } finally {
+      setLoadingSchoolSummary(false);
+    }
   };
 
   // 🔹 Thống kê linh hoạt: Tab 0 theo Cá nhân giáo viên, Tab 1 theo Khối / Tổ CM
-  // 🔹 Thống kê linh hoạt: Tab 0 theo Cá nhân giáo viên, Tab 1 theo Đề KTĐK, Tab 2 theo Biên bản
   useEffect(() => {
     const fetchStatsForBGH = async () => {
       if (!academicYear) return;
@@ -639,34 +639,26 @@ export default function BGH({ user }) {
         let stats = [];
 
         if (activeTab === 0) {
-          // 📊 Tab 0: Thống kê KHBD cá nhân giáo viên
+          // 📊 Tab 0: Thống kê Kế hoạch bài dạy (Tab 0) - Truy vấn trực tiếp từ THONGKE_{academicYear}
           if (!selectedUsername) {
             setStatsData([]);
             setLoadingStats(false);
             return;
           }
 
-          let cancelled = false;
-          const isCancelled = () => cancelled;
-
-          taiThongKeGiaoVien({
-            isBGH,
-            isAdmin,
-            selectedUsername,
+          stats = await fetchTeacherStatsData({
             academicYear,
-            subject,
-            className,
-            phanQuyenMap,
+            activeTab: 0,
+            activeTeacher: selectedUsername,
+            teacherName: selectedUsername,
+            teacherRole: phanQuyenMap[selectedUsername]?.role || "GVCN",
+            className: className,
+            assignedSubjectsList: teacherAllowedSubjects,
             allMonHoc,
-            getTeacherStats,
-            updateTeacherStats,
-            fetchFileListFn: fetchFileList,
-            setStatsData,
-            setLoadingFiles,
-            setLoadingStats,
-            isCancelled,
+            db,
           });
-          return;
+
+          setStatsData(stats);
 
         } else if (activeTab === 1) {
           // 📋 Tab 1: Thống kê Đề KTĐK theo Khối / Tổ chuyên môn (selectedGrade)
@@ -743,16 +735,13 @@ export default function BGH({ user }) {
           const mainColName = `BIEN_BAN_${yearStr}`;
 
           try {
-            // Đối với Biên bản, cấu trúc lưu trữ thường nằm trong collection con FILES_LIST hoặc trực tiếp theo nhóm
             const filesListRef = collection(db, mainColName, docIdentifier, "FILES_LIST");
             const filesSnap = await getDocs(filesListRef);
 
-            // Gom nhóm thống kê Biên bản theo loại biên bản hoặc tên hiển thị tương ứng
             let rowData = { subject: "Biên bản sinh hoạt chuyên môn", total: 0 };
 
             filesSnap.forEach((docSnap) => {
               const data = docSnap.data();
-              // Xác định khối hoặc lớp từ dữ liệu biên bản
               const khoiVal = String(data.khoi || data.grade || selectedGrade || "1").trim();
               const gradeMatch = khoiVal.match(/(\d+)/);
               const grade = gradeMatch ? gradeMatch[1] : String(selectedGrade).replace(/[^0-9]/g, "") || "1";
@@ -794,6 +783,7 @@ export default function BGH({ user }) {
     phanQuyenMap,
     allMonHoc,
     isAdmin,
+    teacherAllowedSubjects,
   ]);
 
   if (!isBGH) {
@@ -1415,7 +1405,6 @@ export default function BGH({ user }) {
               )}
 
               {/* 📋 TAB 1: ĐỀ KTĐK -> Sử dụng subjectTab1 độc lập */}
-              {/* 📋 TAB 1: ĐỀ KTĐK -> Sử dụng subjectTab1 độc lập */}
               {activeTab === 1 && (
                 <Box sx={{ display: "flex", gap: 1.5, mt: 0.5 }}>
                   <FormControl size="small" sx={{ flex: 1 }}>
@@ -1492,6 +1481,7 @@ export default function BGH({ user }) {
               setBghRequestOpen(true); 
             }}
             onViewAdjusted={handleViewAdjustedFile} 
+            activeTab={activeTab}
           />
         </Box>
       )}

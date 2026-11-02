@@ -37,6 +37,7 @@ import ConfirmResetDialog from "../dialogs/ConfirmResetDialog";
 import { handleSubjectFileSelectService } from "../utils/subjectImportService";
 import { handleFileSelectService } from "../utils/teacherImportService";
 import { resetTeacherPasswordService, resetAllTeachersPasswordService } from "../utils/passwordResetService";
+import { chayTongHopDuLieuToanTruong } from "../utils/chuyenDoiDuLieu";
 
 const getTextCellValue = (cell) => {
   if (!cell || cell.value == null) return "";
@@ -120,6 +121,9 @@ export default function Admin({ user }) {
   const [confirmResetAllOpen, setConfirmResetAllOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
 
+  const [migratingData, setMigratingData] = useState(false);
+  const [migrationMessage, setMigrationMessage] = useState(null);
+
   const fetchTeachersAndAccountsData = async () => {
     try {
       const querySnapshot = await getDocs(collection(db, "DANHSACH_GV"));
@@ -162,6 +166,26 @@ export default function Admin({ user }) {
       setAccountsList(tableList);
     } catch (err) {
       console.error("Lỗi tải danh sách tài khoản:", err);
+    }
+  };
+
+  const handleRunMigration = async () => {
+    setMigratingData(true);
+    setMigrationMessage(null);
+    try {
+      await chayTongHopDuLieuToanTruong(db, academicYear);
+      setMigrationMessage({
+        type: "success",
+        text: `Đã tổng hợp dữ liệu thành công cho năm học ${academicYear}!`,
+      });
+    } catch (error) {
+      console.error("Lỗi tổng hợp dữ liệu:", error);
+      setMigrationMessage({
+        type: "error",
+        text: "Lỗi khi tổng hợp dữ liệu. Vui lòng kiểm tra Console.",
+      });
+    } finally {
+      setMigratingData(false);
     }
   };
 
@@ -769,6 +793,82 @@ return (
                     />
                   </Button>
                 </Box>
+
+                {/* ================================================== */}
+              {/* NÚT GỌI HÀM TỔNG HỢP DỮ LIỆU (MIGRATION) */}
+              {/* ================================================== */}
+              <Box
+                sx={{
+                  p: 2,
+                  borderRadius: 2,
+                  backgroundColor: "#f0fdf4",
+                  border: "1px solid #bbf7d0",
+                  minWidth: 0,
+                  boxSizing: "border-box",
+                }}
+              >
+                <Typography
+                  variant="subtitle1"
+                  sx={{
+                    fontWeight: 800,
+                    color: "#166534",
+                    mb: 0.5,
+                    fontSize: "0.95rem",
+                  }}
+                >
+                  📊 Tổng hợp Số liệu
+                </Typography>
+
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: "#15803d",
+                    mb: 1.5,
+                    fontSize: "0.85rem",
+                  }}
+                >
+                  Đồng bộ dữ liệu sang Thongke-namhoc ({academicYear}).
+                </Typography>
+
+                <Button
+                  variant="contained"
+                  size="small"
+                  fullWidth
+                  disabled={migratingData}
+                  onClick={handleRunMigration}
+                  sx={{
+                    borderRadius: 1.5,
+                    textTransform: "none",
+                    fontWeight: 700,
+                    fontSize: "0.85rem",
+                    backgroundColor: "#16a34a",
+                    boxShadow: "none",
+                    py: 1,
+                    "&:hover": { backgroundColor: "#15803d" },
+                  }}
+                >
+                  {migratingData ? "Đang tổng hợp..." : "Chạy Tổng Hợp Dữ Liệu"}
+                </Button>
+
+                {migrationMessage && (
+                  <Alert
+                    severity={migrationMessage.type}
+                    sx={{
+                      mt: 1.5,
+                      borderRadius: 1.5,
+                      py: 0,
+                      alignItems: "center",
+                      minWidth: 0,
+                      "& .MuiAlert-message": {
+                        fontSize: "0.8rem",
+                        overflowWrap: "anywhere",
+                      },
+                    }}
+                  >
+                    {migrationMessage.text}
+                  </Alert>
+                )}
+              </Box>
 
                 {importingSubject && (
                   <Box sx={{ mb: 1, minWidth: 0 }}>

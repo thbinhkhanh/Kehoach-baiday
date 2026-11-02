@@ -34,28 +34,42 @@ export default function SchoolSummaryView({
   setSelectedFile,
   isFullScreen,
   setIsFullScreen,
-  setSnackbar, // Đảm bảo component cha truyền hàm setSnackbar này xuống nếu có
+  setSnackbar,
 }) {
   const [summaryTab, setSummaryTab] = useState("gvcn");
 
-  // 1. Lọc nhóm giáo viên theo Tab
+  // 1. Lọc nhóm giáo viên theo Tab (Chỉ lấy các khối 1-5 cho GVCN, và Tiếng Anh, Bộ môn cho Chuyên biệt)
   const getFilteredGroups = () => {
     if (!schoolSummaryGrouped) return {};
     const filtered = {};
 
-    Object.entries(schoolSummaryGrouped).forEach(([groupKey, groupData]) => {
-      const titleLower = (groupData.title || "").toLowerCase();
-      const isKhoiGroup =
-        titleLower.includes("khối") ||
-        groupKey.startsWith("khoi");
+    const groupTitles = {
+      khoi1: "Khối 1",
+      khoi2: "Khối 2",
+      khoi3: "Khối 3",
+      khoi4: "Khối 4",
+      khoi5: "Khối 5",
+      tiengAnh: "Tiếng Anh",
+      boMon: "Bộ Môn",
+    };
+
+    Object.entries(schoolSummaryGrouped).forEach(([groupKey, teachersList]) => {
+      if (!Array.isArray(teachersList)) return;
+      const isKhoiGroup = groupKey.startsWith("khoi");
 
       if (summaryTab === "gvcn") {
         if (isKhoiGroup) {
-          filtered[groupKey] = groupData;
+          filtered[groupKey] = {
+            title: groupTitles[groupKey] || groupKey,
+            teachers: teachersList,
+          };
         }
       } else {
-        if (!isKhoiGroup || titleLower.includes("tiếng anh") || titleLower.includes("bộ môn")) {
-          filtered[groupKey] = groupData;
+        if (!isKhoiGroup && groupKey !== "toBoMon") {
+          filtered[groupKey] = {
+            title: groupKey === "tiengAnh" ? "Tiếng Anh" : "Bộ Môn",
+            teachers: teachersList,
+          };
         }
       }
     });
@@ -65,22 +79,19 @@ export default function SchoolSummaryView({
 
   const activeGroupedData = getFilteredGroups();
 
-  // 2. TỰ ĐỘNG LỌC CỘT MÔN HỌC ĐỘNG:
+  // 2. Tự động lọc các cột môn học động có dữ liệu
   const activeSubjectNames = filteredSubjectNames.filter((sub) => {
     return Object.values(activeGroupedData).some((groupData) => {
-      return groupData.rows?.some((row) => {
-        const isAssigned = row.assignedSubjects?.some(
-          (as) => as.toLowerCase().trim() === sub.toLowerCase().trim()
-        );
-        const hasCount = (row.subjectCounts[sub] || 0) > 0;
-        return isAssigned || hasCount;
+      return groupData.teachers?.some((teacher) => {
+        const hasSubjectInMap = (teacher.subjects?.[sub] || 0) > 0;
+        return hasSubjectInMap;
       });
     });
   });
 
   return (
     <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      {/* THANH TIÊU ĐỀ - HIỂN THỊ TRÊN CẢ MOBILE VÀ DESKTOP */}
+      {/* THANH TIÊU ĐỀ */}
       <Box 
         sx={{ 
           display: "flex", 
@@ -101,7 +112,7 @@ export default function SchoolSummaryView({
           sx={{ 
             color: "#1e293b", 
             fontSize: { xs: "0.9rem", sm: "1rem" },
-            display: { xs: "none", sm: "block" } // 🌟 Ẩn trên điện thoại, hiển thị từ máy tính bảng trở lên
+            display: { xs: "none", sm: "block" }
           }}
         >
           📊 BẢNG TỔNG HỢP TOÀN TRƯỜNG ({academicYear})
@@ -121,15 +132,13 @@ export default function SchoolSummaryView({
             <Tab label="🎨 BỘ MÔN - TA" value="chuyenbiet" sx={{ minHeight: 36, fontSize: { xs: "0.75rem", sm: "0.85rem" }, fontWeight: "bold", px: { xs: 1, sm: 2 } }} />
           </Tabs>
 
-          {/* ⛶ NÚT PHÓNG TO / THU NHỎ (CHỈ HIỆN TRÊN MÁY TÍNH, ẨN TRÊN ĐIỆN THOẠI) */}
+          {/* NÚT PHÓNG TO / THU NHỎ */}
           <Tooltip title={isFullScreen ? "Thu nhỏ màn hình" : "Phóng to toàn màn hình"}>
             <IconButton 
               color="primary" 
               onClick={() => setIsFullScreen && setIsFullScreen(!isFullScreen)} 
               sx={{ 
-                // Thêm dòng này để ẩn trên mobile (xs) và hiện trên máy tính (sm trở lên)
                 display: { xs: "none", sm: "flex" },
-
                 bgcolor: "#f8fafc", 
                 border: "1px solid #cbd5e1",
                 "&:hover": { bgcolor: "#f1f5f9", borderColor: "#94a3b8" },
@@ -146,7 +155,7 @@ export default function SchoolSummaryView({
             </IconButton>
           </Tooltip>
 
-          {/* 🌟 NÚT XUẤT EXCEL DẠNG ICON */}
+          {/* NÚT XUẤT EXCEL */}
           <Tooltip title="Xuất Báo Cáo Excel Toàn Trường">
             <IconButton 
               color="primary" 
@@ -169,19 +178,21 @@ export default function SchoolSummaryView({
             </IconButton>
           </Tooltip>
 
-          {/* ❌ NÚT ĐÓNG BẢNG THỐNG KÊ (CHỈ HIỆN TRÊN MÁY TÍNH, ẨN TRÊN ĐIỆN THOẠI) */}
+          {/* NÚT ĐÓNG */}
+          {/* ❌ NÚT ĐÓNG BẢNG THỐNG KÊ */}
           <Tooltip title="Đóng bảng thống kê">
             <IconButton 
               size="small" 
               onClick={() => {
+                if (typeof setIsFullScreen === "function") {
+                  setIsFullScreen(false); // 👈 Tắt chế độ toàn màn hình
+                }
                 if (typeof setViewMode === "function") {
-                  setViewMode("single");
+                  setViewMode("single");   // 👈 Trở về giao diện ban đầu
                 }
               }}
               sx={{ 
-                // Thêm dòng này để ẩn trên mobile (xs) và hiện trên từ tablet/desktop (sm trở lên)
                 display: { xs: "none", sm: "flex" }, 
-
                 color: "#64748b", 
                 border: "1px solid #cbd5e1", 
                 borderRadius: "8px",
@@ -216,12 +227,12 @@ export default function SchoolSummaryView({
           });
 
           Object.values(activeGroupedData).forEach((groupData) => {
-            if (groupData.rows && groupData.rows.length > 0) {
-              groupData.rows.forEach((row) => {
+            if (groupData.teachers && groupData.teachers.length > 0) {
+              groupData.teachers.forEach((teacher) => {
                 activeSubjectNames.forEach((sub) => {
-                  grandSchoolTotals[sub] += row.subjectCounts[sub] || 0;
+                  grandSchoolTotals[sub] += teacher.subjects?.[sub] || 0;
                 });
-                grandSchoolTotalCount += row.totalCount || 0;
+                grandSchoolTotalCount += teacher.totalFiles || 0;
               });
             }
           });
@@ -259,18 +270,18 @@ export default function SchoolSummaryView({
                 </TableHead>
                 <TableBody>
                   {Object.entries(activeGroupedData).map(([groupKey, groupData]) => {
-                    if (!groupData.rows || groupData.rows.length === 0) return null;
+                    if (!groupData.teachers || groupData.teachers.length === 0) return null;
 
                     const groupTotals = {};
                     let groupGrandTotal = 0;
                     activeSubjectNames.forEach((sub) => {
-                      groupTotals[sub] = groupData.rows.reduce(
-                        (sum, row) => sum + (row.subjectCounts[sub] || 0),
+                      groupTotals[sub] = groupData.teachers.reduce(
+                        (sum, teacher) => sum + (teacher.subjects?.[sub] || 0),
                         0
                       );
                     });
-                    groupGrandTotal = groupData.rows.reduce(
-                      (sum, row) => sum + row.totalCount,
+                    groupGrandTotal = groupData.teachers.reduce(
+                      (sum, teacher) => sum + (teacher.totalFiles || 0),
                       0
                     );
 
@@ -289,24 +300,21 @@ export default function SchoolSummaryView({
                               borderBottom: "1px solid #e2e8f0",
                             }}
                           >
-                            {groupData.title} ({groupData.rows.length} giáo viên)
+                            {groupData.title} ({groupData.teachers.length} giáo viên)
                           </TableCell>
                         </TableRow>
 
-                        {groupData.rows.map((row, index) => {
-                          const subjects = (row.assignedSubjects || []).map((sub) =>
-                            sub === "Giáo dục thể chất" ? "GDTC" : sub
-                          );
-                          const displaySubjects = subjects.length > 2
-                            ? `${subjects[0]}...`
-                            : (subjects.join(", ") || row.role);
+                        {groupData.teachers.map((teacher, index) => {
+                          const teacherName = teacher.teacherName || teacher.teacherId;
+                          const teacherClass = teacher.class || "Chưa gán";
+                          const teacherGroup = teacher.group || "";
 
                           return (
                             <TableRow 
-                              key={row.username} 
+                              key={teacherName} 
                               hover 
                               onClick={() => {
-                                setSelectedUsername(row.username);
+                                setSelectedUsername(teacherName);
                                 if (setIsFullScreen) setIsFullScreen(false);
                                 setViewMode("single");
                                 if (typeof setSelectedFile === "function") setSelectedFile(null);
@@ -316,15 +324,15 @@ export default function SchoolSummaryView({
                               <TableCell align="center" sx={{ color: "#64748b", fontSize: "0.85rem" }}>{index + 1}</TableCell>
                               <TableCell sx={{ py: 1.2 }}>
                                 <Typography variant="subtitle2" fontWeight="700" sx={{ color: "#2563eb", fontSize: "0.9rem", textDecoration: "underline" }}>
-                                  {row.username}
+                                  {teacherName}
                                 </Typography>
                                 <Typography variant="caption" sx={{ color: "#64748b", display: "block" }}>
-                                  Lớp: {row.teachingClasses.join(", ") || "Chưa gán"} | Môn: {displaySubjects}
+                                  Lớp: {teacherClass} | Nhóm: {teacherGroup}
                                 </Typography>
                               </TableCell>
                               
                               {activeSubjectNames.map((sub) => {
-                                const count = row.subjectCounts[sub] || 0;
+                                const count = teacher.subjects?.[sub] || 0;
                                 const hasData = count > 0;
                                 return (
                                   <TableCell 
@@ -354,8 +362,8 @@ export default function SchoolSummaryView({
                                 );
                               })}
                               <TableCell align="center" sx={{ borderLeft: "1px solid #e2e8f0" }}>
-                                <Typography variant="subtitle2" fontWeight="800" sx={{ color: row.totalCount > 0 ? "#dc2626" : "#94a3b8", fontSize: "0.9rem" }}>
-                                  {row.totalCount}
+                                <Typography variant="subtitle2" fontWeight="800" sx={{ color: (teacher.totalFiles || 0) > 0 ? "#dc2626" : "#94a3b8", fontSize: "0.9rem" }}>
+                                  {teacher.totalFiles || 0}
                                 </Typography>
                               </TableCell>
                             </TableRow>
@@ -365,7 +373,7 @@ export default function SchoolSummaryView({
                         {/* Dòng tổng nhóm */}
                         <TableRow sx={{ bgcolor: "#f8fafc", borderTop: "1px solid #e2e8f0" }}>
                           <TableCell align="center" colSpan={2} sx={{ fontWeight: "700", color: "#334155", fontSize: "0.85rem" }}>
-                            Tổng {groupData.title.replace("📌 ", "")}:
+                            Tổng {groupData.title}:
                           </TableCell>
                           
                           {activeSubjectNames.map((sub) => (

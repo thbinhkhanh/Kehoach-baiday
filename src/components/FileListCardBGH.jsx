@@ -12,7 +12,8 @@ import {
   IconButton,
 } from "@mui/material";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import AssignmentLateIcon from "@mui/icons-material/AssignmentLate"; // 👈 Icon yêu cầu điều chỉnh từ BGH
+import AssignmentLateIcon from "@mui/icons-material/AssignmentLate";
+import DownloadRounded from "@mui/icons-material/DownloadRounded";
 
 export default function FileListCardBGH({
   fileList,
@@ -21,16 +22,43 @@ export default function FileListCardBGH({
   loadingFiles,
   setViewMode,
   formatVNDate,
-  onRequestAdjustment, // 👈 Hàm callback mở form nhập yêu cầu khi BGH bấm vào icon
+  onRequestAdjustment,
   onViewAdjusted,
+  activeTab = 0,
 }) {
+  // 🌟 1. ĐẶT HÀM TẢI NGẦM Ở ĐÂY (TRƯỚC LỆNH RETURN)
+  const handleDownloadSilent = async (e, file) => {
+    e.stopPropagation(); // Không cho lan sự kiện click dòng
+    const downloadLink = file.fileId 
+      ? `https://docs.google.com/uc?export=download&id=${file.fileId}` 
+      : (file.downloadUrl || file.fileUrl);
+
+    try {
+      const response = await fetch(downloadLink);
+      const blob = await response.blob();
+      
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = file.fileName || file.name || "De_KTDV.docx";
+      
+      document.body.appendChild(link);
+      link.click();
+      
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error("Lỗi tải ngầm, đang chuyển sang chế độ dự phòng:", error);
+      window.open(downloadLink, "_self");
+    }
+  };
+
   return (
     <Card sx={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
       <CardContent sx={{ p: 1, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <Typography variant="subtitle1" fontWeight="bold">📂 Danh sách file ({fileList.length})</Typography>
       </CardContent>
 
-      {/* Danh sách file ở Cột Trái */}
       <List sx={{ flex: 1, overflowY: "auto", p: 0.5 }}>
         {loadingFiles ? (
           <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}>
@@ -46,10 +74,8 @@ export default function FileListCardBGH({
             const rawName = file.fileName || file.name || file.tieuDe || "";
             const displayName = rawName.replace(/\.[^/.]+$/, "");
 
-            // Kiểm tra trạng thái điều chỉnh và yêu cầu của BGH
             const hasAdjustmentsData = Boolean(file.hasAdjustments || file.activities);
             const hasBghRequest = Boolean(file.bghRequest);
-            // Kiểm tra giáo viên đã bấm "Đã hiểu" hay chưa
             const isReadByTeacher = Boolean(file.bghRequestRead);
 
             return (
@@ -81,7 +107,6 @@ export default function FileListCardBGH({
                   },
                 }}
               >
-                {/* 1. Vùng Tên tệp và các Chip trạng thái */}
                 <Box
                   sx={{
                     flex: 1,
@@ -93,15 +118,14 @@ export default function FileListCardBGH({
                     primary={
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
                         <span>{displayName}</span>
-                        {/* Chip Đã điều chỉnh */}
                         {hasAdjustmentsData && (
                           <Tooltip title="Bài đã có nội dung điều chỉnh - Bấm để xem">
                             <Box
                               component="span"
                               onClick={(e) => {
-                                e.stopPropagation(); // Không cho ăn sự kiện click của cả dòng ListItem
+                                e.stopPropagation();
                                 if (typeof onViewAdjusted === "function") {
-                                  onViewAdjusted(file); // 👈 Gọi callback mở chế độ xem
+                                  onViewAdjusted(file);
                                 }
                               }}
                               sx={{
@@ -116,8 +140,8 @@ export default function FileListCardBGH({
                                 display: "inline-flex",
                                 alignItems: "center",
                                 gap: 0.5,
-                                cursor: "pointer", // Thêm trỏ tay khi rê chuột vào chip
-                                "&:hover": { bgcolor: "#bbdefb" }, // Hiệu ứng khi rê chuột
+                                cursor: "pointer",
+                                "&:hover": { bgcolor: "#bbdefb" },
                               }}
                             >
                               <CheckCircleIcon sx={{ fontSize: 13 }} /> Đã điều chỉnh
@@ -125,14 +149,12 @@ export default function FileListCardBGH({
                           </Tooltip>
                         )}
 
-                        {/* 🚀 Chip BGH yêu cầu sửa / Giáo viên đã hiểu */}
                         {hasBghRequest && (
                           <Tooltip title={isReadByTeacher ? "Giáo viên đã xác nhận đọc và hiểu yêu cầu" : "Giáo viên chưa xem yêu cầu"}>
                             <Box
                               component="span"
                               sx={{
                                 fontSize: "11px",
-                                // Nếu GV đã hiểu -> màu xám nhạt/xanh nhẹ; chưa đọc -> màu cam cảnh báo nổi bật
                                 bgcolor: isReadByTeacher ? "#f1f5f9" : "#fff3e0",
                                 color: isReadByTeacher ? "#475569" : "#e65100",
                                 px: 1,
@@ -166,30 +188,49 @@ export default function FileListCardBGH({
                   />
                 </Box>
 
-                {/* 2. Vùng Icon Gửi/Sửa yêu cầu chỉnh sửa của BGH */}
                 <Box
                   component="div"
                   onClick={(e) => e.stopPropagation()}
                   sx={{ px: 2, display: "flex", alignItems: "center" }}
                 >
-                  <Tooltip title={hasBghRequest ? "Xem/Sửa nội dung yêu cầu điều chỉnh" : "Gửi yêu cầu điều chỉnh cho GV"}>
-                    <IconButton
-                      size="small"
-                      color={hasBghRequest ? "warning" : "default"}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (onRequestAdjustment) {
-                          onRequestAdjustment(file);
-                        }
-                      }}
-                      sx={{
-                        bgcolor: hasBghRequest ? "rgba(237, 108, 2, 0.1)" : "transparent",
-                        "&:hover": { bgcolor: "rgba(237, 108, 2, 0.2)" },
-                      }}
-                    >
-                      <AssignmentLateIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
+                  {activeTab === 1 ? (
+                    // 🌟 2. GỌI HÀM TẢI NGẦM TRONG SỰ KIỆN CLICK CỦA TAB 1
+                    <Tooltip title="Tải xuống đề kiểm tra">
+                      <IconButton
+                        size="small"
+                        onClick={(e) => handleDownloadSilent(e, file)}
+                        sx={{
+                          color: "#2563eb",
+                          bgcolor: "#eff6ff",
+                          border: "1px solid #bae6fd",
+                          "&:hover": { bgcolor: "#dbeafe" },
+                          height: 32,
+                          width: 32,
+                        }}
+                      >
+                        <DownloadRounded fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  ) : (
+                    <Tooltip title={hasBghRequest ? "Xem/Sửa nội dung yêu cầu điều chỉnh" : "Gửi yêu cầu điều chỉnh cho GV"}>
+                      <IconButton
+                        size="small"
+                        color={hasBghRequest ? "warning" : "default"}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onRequestAdjustment) {
+                            onRequestAdjustment(file);
+                          }
+                        }}
+                        sx={{
+                          bgcolor: hasBghRequest ? "rgba(237, 108, 2, 0.1)" : "transparent",
+                          "&:hover": { bgcolor: "rgba(237, 108, 2, 0.2)" },
+                        }}
+                      >
+                        <AssignmentLateIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
                 </Box>
               </ListItem>
             );

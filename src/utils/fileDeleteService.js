@@ -1,5 +1,5 @@
 import { db } from "../firebase";
-import { deleteDoc, doc, setDoc } from "firebase/firestore";
+import { deleteDoc, doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { deleteGoogleDriveFile } from "./uploadService";
 
 /**
@@ -76,6 +76,7 @@ export async function handleConfirmDeleteService({
     const yearStr = academicYear;
     let firestoreChanged = false;
     let deletedCount = 0;
+    const deletedFileIdsArray = filesDeleted.map(f => f.fileId).filter(Boolean);
 
     // 🌟 Sửa lại logic xác định docIdentifier theo đúng thứ tự ưu tiên vai trò (TA -> BM -> GVCN)
     let docIdentifier = "Chung";
@@ -119,6 +120,64 @@ export async function handleConfirmDeleteService({
           `Lỗi khi xóa file ${file.fileName || file.id}:`,
           err
         );
+      }
+    }
+
+    // 🌟 GIẢM SỐ LIỆU TRỰC TIẾP TRONG THONGKE_{academicYear} NẾU XÓA Ở TAB 0 (KHBD)
+    if (firestoreChanged && activeTab === 0 && teacherName) {
+      try {
+        const teacherKey = teacherName.trim().toUpperCase();
+        const thongKeRef = doc(db, `THONGKE_${yearStr}`, teacherKey);
+        const thongKeSnap = await getDoc(thongKeRef);
+
+        if (thongKeSnap.exists()) {
+          const existingData = thongKeSnap.data();
+          const deleteCount = filesDeleted.length;
+          const gradeLabel = `Khối ${gradeKey}`;
+
+          // 1. Giảm tổng số file
+          const newTotalFiles = Math.max(0, (Number(existingData.totalFiles) || 0) - deleteCount);
+
+          // 2. Giảm số lượng theo môn (subjects)
+          const subjectsMap = { ...(existingData.subjects || {}) };
+          if (subjectsMap[subject] !== undefined) {
+            subjectsMap[subject] = Math.max(0, Number(subjectsMap[subject]) - deleteCount);
+          }
+
+          // 3. Giảm phân bổ theo môn và khối (classBreakdown - CHỈ trừ ở định dạng "Khối X")
+          const classBreakdownMap = { ...(existingData.classBreakdown || {}) };
+          if (classBreakdownMap[subject]) {
+            const subBreakdown = { ...classBreakdownMap[subject] };
+            if (subBreakdown[gradeLabel] !== undefined) {
+              subBreakdown[gradeLabel] = Math.max(0, Number(subBreakdown[gradeLabel]) - deleteCount);
+            }
+            classBreakdownMap[subject] = subBreakdown;
+          }
+
+          // 4. Lọc bỏ các file bị xóa khỏi danh sách recentFiles
+          let updatedRecentFiles = Array.isArray(existingData.recentFiles) ? existingData.recentFiles : [];
+          if (deletedFileIdsArray.length > 0) {
+            updatedRecentFiles = updatedRecentFiles.filter(
+              (item) => !deletedFileIdsArray.includes(item.fileId)
+            );
+          }
+
+          // 5. Ghi đè cập nhật vào Firestore
+          await setDoc(
+            thongKeRef,
+            {
+              totalFiles: newTotalFiles,
+              subjects: subjectsMap,
+              classBreakdown: classBreakdownMap,
+              recentFiles: updatedRecentFiles,
+              lastUpdated: new Date().toISOString(),
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true }
+          );
+        }
+      } catch (thongKeErr) {
+        console.error("Lỗi cập nhật giảm số liệu trong THONGKE khi xóa file:", thongKeErr);
       }
     }
 

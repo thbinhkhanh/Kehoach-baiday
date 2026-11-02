@@ -16,12 +16,12 @@ import {
 import { useLessonPlan } from "../contexts/LessonPlanContext";
 import NotificationsRoundedIcon from "@mui/icons-material/NotificationsRounded";
 
-import { fetchTeacherStatsService } from "../utils/teacherStatsService";
 import { handleConfirmDeleteService } from "../utils/fileDeleteService";
 import { handleUploadService } from "../utils/fileUploadHandlerService";
 import { getAvailableSubjectsService } from "../utils/subjectUtils";
 import { openNotificationByFileIdService, markBghRequestAsReadService } from "../utils/gvNotificationService";
-import { fetchSchoolSummaryData } from "../utils/thongKe";
+import { fetchTeamSummaryData } from "../utils/teamSummaryUtils";
+import { fetchTeacherStatsData } from "../utils/teacherStatsUtils";
 
 import TeacherStatsView from "../components/TeacherStatsView";
 import FileListCard from "../components/FileListCard";
@@ -33,7 +33,7 @@ import BghRequestDialog from "../dialogs/BghRequestDialog";
 import TeacherAdjustmentDialog from "../dialogs/TeacherAdjustmentDialog";
 import TeamSummaryDialog from "../dialogs/TeamSummaryDialog";
 
-import BarChartRoundedIcon from "@mui/icons-material/BarChartRounded"; // 🌟
+import BarChartRoundedIcon from "@mui/icons-material/BarChartRounded"; 
 
 import {
   Box,
@@ -693,12 +693,10 @@ export default function Users({ user }) {
     }
   };
 
-  // ✅ Thống kê linh hoạt theo Tab đang chọn (Tab 0: KHBD, Tab 1: Đề KTĐK)
-  // ✅ Thống kê linh hoạt theo Tab đang chọn (Tab 0: KHBD, Tab 1: Đề KTĐK, Tab 2: Biên bản)
+  // ✅ Thống kê linh hoạt theo Tab đang chọn (Tab 0: KHBD lấy trực tiếp từ THONGKE_{academicYear})
   const fetchTeacherStats = async () => {
     if (!academicYear) return;
 
-    const yearStr = academicYear;
     const statsKey = `${academicYear}_${activeTeacher || teacherName}_tab_${activeTab}`;
     const cachedStats = getTeacherStats(statsKey);
 
@@ -710,109 +708,17 @@ export default function Users({ user }) {
     }
 
     try {
-      let stats = [];
-
-      if (activeTab === 0) {
-        // 📊 1. Thống kê Kế hoạch bài dạy (Tab 0)
-        if (!activeTeacher) return;
-        stats = await fetchTeacherStatsService({
-          teacherName: activeTeacher,
-          academicYear,
-          teacherRole,
-          className,
-          assignedClassesList,
-          assignedSubjectsList,
-          allMonHoc,
-          teacherAssignedSubjects,
-        });
-
-      } else if (activeTab === 1) {
-        // 📋 2. Thống kê Đề KTĐK (Tab 1)
-        const statsMap = {};
-        const targetSubjects = assignedSubjectsList.length > 0 ? assignedSubjectsList : allMonHoc.map(m => m.name);
-
-        let docIdentifier = "Chung";
-        if (teacherRole === "TA") {
-          docIdentifier = "Tieng_Anh";
-        } else if (teacherRole === "BM") {
-          docIdentifier = "Bo_mon";
-        } else {
-          const gKey = String(className || "").split(".")[0].replace(/[^0-9]/g, "") || "4";
-          docIdentifier = `Khối_${gKey}`;
-        }
-        docIdentifier = docIdentifier.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "_");
-
-        const mainColName = `DE_KTDK_${yearStr}`;
-
-        for (const sub of targetSubjects) {
-          try {
-            const subjectName = sub.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "_");
-            const subColRef = collection(db, mainColName, docIdentifier, subjectName);
-            const subSnap = await getDocs(subColRef);
-
-            let rowData = { subject: sub, total: 0 };
-
-            subSnap.forEach((docSnap) => {
-              const docId = docSnap.id;
-              const data = docSnap.data();
-
-              const idMatch = docId.match(/^LOP_(\d+)_/i) || docId.match(/^(\d+)_/i);
-              const khoiVal = String(data.khoi || data.className || "").trim();
-              const khoiMatch = khoiVal.match(/^(?:khối|khoi|lớp|lop)\s*(\d+)/i);
-              const grade = idMatch?.[1] || khoiMatch?.[1] || String(className || "").split(".")[0];
-
-              if (grade) {
-                rowData[grade] = (rowData[grade] || 0) + 1;
-                rowData.total++;
-              }
-            });
-
-            if (rowData.total > 0) {
-              statsMap[sub] = rowData;
-            }
-          } catch (subErr) {
-            console.error(`Lỗi thống kê đề KTĐK môn ${sub}:`, subErr);
-          }
-        }
-
-        stats = Object.values(statsMap);
-
-      } else if (activeTab === 2) {
-        // 📝 3. Thống kê Biên bản sinh hoạt chuyên môn (Tab 2)
-        const statsMap = {};
-        let docIdentifier = "Chung";
-        if (teacherRole === "TA") {
-          docIdentifier = "Tieng_Anh";
-        } else if (teacherRole === "BM") {
-          docIdentifier = "Bo_mon";
-        } else {
-          const gKey = String(className || "").split(".")[0].replace(/[^0-9]/g, "") || "4";
-          docIdentifier = `Khối_${gKey}`;
-        }
-        docIdentifier = docIdentifier.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "_");
-
-        const mainColName = `BIEN_BAN_${yearStr}`;
-        try {
-          const filesRef = collection(db, mainColName, docIdentifier, "FILES_LIST");
-          const snap = await getDocs(filesRef);
-
-          let rowData = { subject: "Biên bản sinh hoạt CM", total: 0 };
-          snap.forEach((docSnap) => {
-            const data = docSnap.data();
-            const gVal = String(data.khoi || data.className || "Chung").trim();
-            rowData[gVal] = (rowData[gVal] || 0) + 1;
-            rowData.total++;
-          });
-
-          if (rowData.total > 0) {
-            statsMap["Biên bản sinh hoạt CM"] = rowData;
-          }
-        } catch (err) {
-          console.error("Lỗi thống kê Biên bản:", err);
-        }
-
-        stats = Object.values(statsMap);
-      }
+      const stats = await fetchTeacherStatsData({
+        academicYear,
+        activeTab,
+        activeTeacher,
+        teacherName,
+        teacherRole,
+        className,
+        assignedSubjectsList,
+        allMonHoc,
+        db,
+      });
 
       setStatsData(stats);
       updateTeacherStats(statsKey, stats);
@@ -969,73 +875,44 @@ const getShortSubjectName = (name) => {
   return trimmed;
 };
 
-// 🌟 Hàm gọi thống kê tổng hợp toàn trường/tổ cho Users
-// 🌟 Hàm gọi thống kê tổng hợp chỉ trong phạm vi Khối hoặc Tổ của user hiện tại
+// ============================================================
+// TỔNG HỢP SỐ LIỆU GIÁO VIÊN THEO TỔ / KHỐI
+// Nguồn dữ liệu: THONGKE_{academicYear}
+// ============================================================
 const handleOpenTeamSummary = async () => {
   setTeamSummaryOpen(true);
+  setLoadingSchoolSummary(true);
 
-  const groupedTeachersData = {
-    khoi1: [], khoi2: [], khoi3: [], khoi4: [], khoi5: [],
-    tiengAnh: [],
-    boMon: []
-  };
+  try {
+    const { groupedSummary, teamList, missingCount } = await fetchTeamSummaryData({
+      toTeachers,
+      academicYear,
+      db,
+    });
 
-  // Phân loại toàn bộ giáo viên từ phanQuyenMap
-  Object.entries(phanQuyenMap).forEach(([tName, tData]) => {
-    const role = (tData.role || "GVCN").toUpperCase();
-    const classes = tData.teachingClasses || (tData.assignedClass ? [tData.assignedClass] : []);
-    
-    if (role === "TA") {
-      groupedTeachersData.tiengAnh.push(tName);
-    } else if (role === "BM") {
-      groupedTeachersData.boMon.push(tName);
-    } else {
-      classes.forEach((c) => {
-        const grade = String(c).split(".")[0].replace(/[^0-9]/g, "");
-        if (grade === "1") groupedTeachersData.khoi1.push(tName);
-        if (grade === "2") groupedTeachersData.khoi2.push(tName);
-        if (grade === "3") groupedTeachersData.khoi3.push(tName);
-        if (grade === "4") groupedTeachersData.khoi4.push(tName);
-        if (grade === "5") groupedTeachersData.khoi5.push(tName);
-      });
+    // Cập nhật State giao diện
+    setSchoolSummaryGrouped(groupedSummary);
+
+    console.log("🎯 KẾT QUẢ TỔNG HỢP GIÁO VIÊN:", groupedSummary);
+
+    // Thông báo nếu có giáo viên thiếu dữ liệu
+    if (missingCount > 0) {
+      showMessage(
+        `Không tìm thấy dữ liệu thống kê của ${missingCount}/${teamList.length} giáo viên. Kiểm tra mã giáo viên trong Firestore.`,
+        "warning"
+      );
     }
-  });
-
-  // 🌟 Lọc cô lập chỉ lấy đúng tổ/khối của user hiện tại dựa vào toTeachers
-  if (toTeachers && toTeachers.length > 0) {
-    if (teacherRole === "TA") {
-      groupedTeachersData.khoi1 = []; groupedTeachersData.khoi2 = [];
-      groupedTeachersData.khoi3 = []; groupedTeachersData.khoi4 = [];
-      groupedTeachersData.khoi5 = []; groupedTeachersData.boMon = [];
-      groupedTeachersData.tiengAnh = toTeachers;
-    } else if (teacherRole === "BM") {
-      groupedTeachersData.khoi1 = []; groupedTeachersData.khoi2 = [];
-      groupedTeachersData.khoi3 = []; groupedTeachersData.khoi4 = [];
-      groupedTeachersData.khoi5 = []; groupedTeachersData.tiengAnh = [];
-      groupedTeachersData.boMon = toTeachers;
-    } else {
-      Object.keys(groupedTeachersData).forEach((k) => {
-        if (k.startsWith("khoi")) {
-          groupedTeachersData[k] = groupedTeachersData[k].filter((name) => toTeachers.includes(name));
-        } else {
-          groupedTeachersData[k] = [];
-        }
-      });
-    }
+  } catch (error) {
+    console.error("❌ Lỗi tổng hợp dữ liệu tổ/khối:", error);
+    showMessage(
+      "Không thể tải dữ liệu tổng hợp: " + (error.message || ""),
+      "error"
+    );
+  } finally {
+    setLoadingSchoolSummary(false);
   }
-
-  await fetchSchoolSummaryData({
-    isAdmin: true,
-    phanQuyenMap,
-    allMonHoc,
-    academicYear,
-    groupedTeachers: groupedTeachersData,
-    filteredSubjectNames: assignedSubjectsList,
-    setLoadingSchoolSummary,
-    setSchoolSummaryGrouped,
-    forceRefresh: true,
-  });
 };
+
   
 return (
   <Box
@@ -1482,10 +1359,15 @@ return (
       onClose={() => setTeamSummaryOpen(false)}
       academicYear={academicYear}
       schoolSummaryGrouped={schoolSummaryGrouped}
-      filteredSubjectNames={assignedSubjectsList}
+      // 🌟 Đảm bảo filteredSubjectNames lấy đầy đủ danh sách môn học của tổ
+      filteredSubjectNames={
+        teacherRole === "BM" 
+          ? allMonHoc.map(m => m.name).filter(name => !name.toLowerCase().includes("toán") && !name.toLowerCase().includes("tiếng việt"))
+          : assignedSubjectsList
+      }
       getShortSubjectName={getShortSubjectName}
       setSelectedUsername={(username) => {
-        setTargetTeacherName(username); // Cho phép bấm vào tên giáo viên trong bảng tổng hợp để chuyển đến xem chi tiết
+        setTargetTeacherName(username);
       }}
       setSelectedFile={setSelectedFile}
       setSnackbar={setSnackbar}

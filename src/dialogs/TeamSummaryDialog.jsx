@@ -30,6 +30,7 @@ export default function TeamSummaryDialog({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [groupTitle, setGroupTitle] = useState("TỔ / KHỐI"); // 🌟 Lưu tên nhóm nhận về
 
   return (
     <Dialog
@@ -47,7 +48,7 @@ export default function TeamSummaryDialog({
         },
       }}
     >
-      {/* 🌟 THANH TIÊU ĐỀ TÍCH HỢP ĐẦY ĐỦ CÁC NÚT TIỆN ÍCH */}
+      {/* 🌟 THANH TIÊU ĐỀ HIỂN THỊ ĐÚNG TÊN KHỐI/TỔ THEO YÊU CẦU */}
       <Box
         sx={{
           display: "flex",
@@ -61,11 +62,10 @@ export default function TeamSummaryDialog({
         }}
       >
         <Typography variant="subtitle1" fontWeight="bold" sx={{ color: "#1e293b", fontSize: "0.95rem" }}>
-          📊 BẢNG TỔNG HỢP
+          📊 BẢNG TỔNG HỢP {groupTitle}
         </Typography>
 
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          {/* Nút Phóng to / Thu nhỏ (Chỉ hiện trên máy tính) */}
           {!isMobile && (
             <Tooltip title={isFullScreen ? "Thu nhỏ màn hình" : "Phóng to toàn màn hình"}>
               <IconButton
@@ -89,7 +89,6 @@ export default function TeamSummaryDialog({
             </Tooltip>
           )}
 
-          {/* Nút Xuất Excel */}
           <Tooltip title="Xuất Báo Cáo Excel">
             <IconButton
               color="primary"
@@ -114,7 +113,6 @@ export default function TeamSummaryDialog({
             </IconButton>
           </Tooltip>
 
-          {/* Nút Đóng Dialog */}
           <Tooltip title="Đóng">
             <IconButton
               size="small"
@@ -144,13 +142,14 @@ export default function TeamSummaryDialog({
           getShortSubjectName={getShortSubjectName}
           setViewMode={onClose}
           setSelectedUsername={(username) => {
-            setSelectedUsername(username);
-            onClose(); // Đóng dialog khi chọn giáo viên
+            if (setSelectedUsername) setSelectedUsername(username);
+            onClose();
           }}
           setSelectedFile={setSelectedFile}
           isFullScreen={isFullScreen}
           setIsFullScreen={setIsFullScreen}
           setSnackbar={setSnackbar}
+          onTitleDetected={(title) => setGroupTitle(title)} // 👈 Nhận tên khối/tổ đẩy lên tiêu đề dialog
         />
       </DialogContent>
     </Dialog>

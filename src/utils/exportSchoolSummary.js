@@ -1,7 +1,7 @@
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
-// Hàm phụ trợ rút gọn tên môn học hiển thị trên tiêu đề cột
+// Rút gọn tên môn học hiển thị trên tiêu đề cột Excel
 const getShortSubjectName = (name) => {
   if (!name) return "";
   const trimmed = name.trim();
@@ -25,38 +25,26 @@ const getShortSubjectName = (name) => {
 };
 
 /**
- * Hàm tách họ tên và so sánh theo chuẩn tiếng Việt từ phải sang trái (Tên -> Tên đệm -> Họ)
+ * Hàm so sánh họ tên tiếng Việt (Tên -> Tên đệm -> Họ)
  */
 const compareVietnameseNames = (nameA, nameB) => {
   const cleanA = (nameA || "").trim();
   const cleanB = (nameB || "").trim();
 
-  // Tách các từ trong chuỗi họ tên
   const partsA = cleanA.split(/\s+/);
   const partsB = cleanB.split(/\s+/);
 
-  // Lấy từ cuối cùng (Tên chính)
   const firstNameA = partsA[partsA.length - 1] || "";
   const firstNameB = partsB[partsB.length - 1] || "";
 
-  // So sánh tên chính trước
   const compareFirst = firstNameA.localeCompare(firstNameB, 'vi', { sensitivity: 'accent' });
   if (compareFirst !== 0) return compareFirst;
 
-  // Nếu tên chính giống nhau, so sánh toàn bộ chuỗi
   return cleanA.localeCompare(cleanB, 'vi', { sensitivity: 'accent' });
 };
 
 /**
- * Hàm trích xuất số lớp để sắp xếp GVCN (Ví dụ: "1.1", "1.2",...)
- */
-const getFirstClassNumber = (row) => {
-  if (!row.teachingClasses || row.teachingClasses.length === 0) return "999";
-  return row.teachingClasses[0];
-};
-
-/**
- * Hàm xuất file Excel Bảng Tổng hợp Toàn trường
+ * Hàm xuất file Excel Bảng Tổng hợp Toàn trường / Tổ / Khối
  */
 export const handleExportExcel = async ({
   schoolSummaryGrouped = {},
@@ -76,10 +64,10 @@ export const handleExportExcel = async ({
   }
 
   const workbook = new ExcelJS.Workbook();
-  const worksheet = workbook.addWorksheet('TongHopToanTruong');
+  const worksheet = workbook.addWorksheet('TongHop');
   worksheet.views = [{ showGridLines: true }];
 
-  // 1. Thông tin tiêu đề đơn vị
+  // 1. Thông tin trường & địa chỉ
   const schoolNameRow = worksheet.addRow(['TRƯỜNG TIỂU HỌC BÌNH KHÁNH']);
   schoolNameRow.getCell(1).font = { bold: true, size: 12, color: { argb: '1E3A8A' } };
 
@@ -88,47 +76,76 @@ export const handleExportExcel = async ({
 
   worksheet.addRow();
 
-  const titleRow = worksheet.addRow([`BẢNG TỔNG HỢP KẾ HOẠCH BÀI DẠY TOÀN TRƯỜNG - NĂM HỌC ${academicYear}`]);
-  worksheet.mergeCells('A4:L4');
+  // 🌟 2. XÁC ĐỊNH NHÓM VÀ TIÊU ĐỀ ĐỘNG (TOÀN TRƯỜNG HOẶC THEO KHỐI/TỔ)
+  const groupTitlesMap = {
+    khoi1: "📌 Khối 1",
+    khoi2: "📌 Khối 2",
+    khoi3: "📌 Khối 3",
+    khoi4: "📌 Khối 4",
+    khoi5: "📌 Khối 5",
+    tiengAnh: "📌 Tiếng Anh",
+    boMon: "📌 Bộ Môn",
+  };
+
+  const validGroupKeys = Object.keys(schoolSummaryGrouped).filter(
+    (k) => k !== "toBoMon" && Array.isArray(schoolSummaryGrouped[k]) && schoolSummaryGrouped[k].length > 0
+  );
+
+  let exportTitleText = `BẢNG TỔNG HỢP KẾ HOẠCH BÀI DẠY TOÀN TRƯỜNG - NĂM HỌC ${academicYear}`;
+  let isSingleGroup = false;
+
+  // Nếu chỉ truyền dữ liệu của đúng 1 Khối/Tổ -> Đổi tên tiêu đề phù hợp
+  if (validGroupKeys.length === 1) {
+    isSingleGroup = true;
+    const groupKey = validGroupKeys[0];
+    const groupData = schoolSummaryGrouped[groupKey];
+    const groupName = groupData?.title?.replace("📌 ", "").trim() || groupTitlesMap[groupKey] || groupKey.toUpperCase();
+    exportTitleText = `BẢNG TỔNG HỢP KẾ HOẠCH BÀI DẠY ${groupName} - NĂM HỌC ${academicYear}`;
+  }
+
+  // 🌟 3. THÊM VÀ MERGE DÒNG TIÊU ĐỀ (Tự động merge A4:H4 nếu là khối 1/đơn lẻ hoặc theo đúng số cột)
+  const titleRow = worksheet.addRow([exportTitleText]);
+  
+  // Nếu xuất khối đơn lẻ thì merge A4:H4 theo đúng yêu cầu, nếu toàn trường thì merge A4:L4
+  const mergeRange = isSingleGroup ? 'A4:H4' : 'A4:L4';
+  worksheet.mergeCells(mergeRange);
+
   const titleCell = titleRow.getCell(1);
-  titleCell.font = { bold: true, size: 15, color: { argb: '1E40AF' } };
+  titleCell.font = { bold: true, size: 14, color: { argb: '1E40AF' } };
   titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
-  titleRow.height = 30;
+  titleRow.height = 32;
 
   worksheet.addRow();
 
-  // 2. Phân tách dữ liệu thành 2 nhóm lớn
+  // 4. Phân tách nhóm GVCN và Chuyên biệt
   const gvcnGroups = {};
   const chuyenBietGroups = {};
 
-  Object.entries(schoolSummaryGrouped).forEach(([groupKey, groupData]) => {
-    const titleLower = (groupData.title || "").toLowerCase();
-    const isKhoiGroup = titleLower.includes("khối") || groupKey.startsWith("khoi");
+  Object.entries(schoolSummaryGrouped).forEach(([groupKey, teachersList]) => {
+    if (!Array.isArray(teachersList) || teachersList.length === 0) return;
+    const isKhoiGroup = groupKey.startsWith("khoi");
+
+    const groupPayload = {
+      title: groupTitlesMap[groupKey] || groupKey,
+      teachers: teachersList,
+    };
 
     if (isKhoiGroup) {
-      gvcnGroups[groupKey] = groupData;
-    } else {
-      if (!isKhoiGroup || titleLower.includes("tiếng anh") || titleLower.includes("bộ môn")) {
-        chuyenBietGroups[groupKey] = groupData;
-      }
+      gvcnGroups[groupKey] = groupPayload;
+    } else if (groupKey !== "toBoMon") {
+      chuyenBietGroups[groupKey] = groupPayload;
     }
   });
 
-  // Hàm render từng phần với logic sắp xếp riêng biệt
+  // Hàm render từng phần
   const renderSection = (sectionTitle, groupsData, isGvcn = false) => {
     if (!groupsData || Object.keys(groupsData).length === 0) return;
-    const hasData = Object.values(groupsData).some(g => g.rows && g.rows.length > 0);
-    if (!hasData) return;
 
-    // Lọc cột môn học động
+    // Lọc các cột môn học động thực tế có dữ liệu
     const activeSubjects = filteredSubjectNames.filter((sub) => {
       return Object.values(groupsData).some((groupData) => {
-        return groupData.rows?.some((row) => {
-          const isAssigned = row.assignedSubjects?.some(
-            (as) => as.toLowerCase().trim() === sub.toLowerCase().trim()
-          );
-          const hasCount = (row.subjectCounts?.[sub] || 0) > 0;
-          return isAssigned || hasCount;
+        return groupData.teachers?.some((teacher) => {
+          return (teacher.subjects?.[sub] || 0) > 0;
         });
       });
     });
@@ -137,16 +154,18 @@ export const handleExportExcel = async ({
     const totalCols = 2 + shortHeaders.length + 1;
     const lastColLet = String.fromCharCode(64 + totalCols);
 
-    // Tiêu đề phần lớn
-    const secTitleRow = worksheet.addRow([sectionTitle]);
-    worksheet.mergeCells(`A${secTitleRow.number}:${lastColLet}${secTitleRow.number}`);
-    secTitleRow.height = 26;
-    const secCell = secTitleRow.getCell(1);
-    secCell.font = { bold: true, size: 12, color: { argb: 'FFFFFF' } };
-    secCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1E3A8A' } };
-    secCell.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+    // Chỉ hiển thị tiêu đề nhóm lớn (GIÁO VIÊN CHỦ NHIỆM / GIÁO VIÊN BỘ MÔN) khi xuất toàn trường
+    if (!isSingleGroup) {
+      const secTitleRow = worksheet.addRow([sectionTitle]);
+      worksheet.mergeCells(`A${secTitleRow.number}:${lastColLet}${secTitleRow.number}`);
+      secTitleRow.height = 26;
+      const secCell = secTitleRow.getCell(1);
+      secCell.font = { bold: true, size: 12, color: { argb: 'FFFFFF' } };
+      secCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1E3A8A' } };
+      secCell.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+    }
 
-    // Header bảng
+    // Tiêu đề các cột
     const headers = ['STT', 'Họ và tên giáo viên', ...shortHeaders, 'Tổng số'];
     const headerRow = worksheet.addRow(headers);
     headerRow.height = 24;
@@ -168,24 +187,23 @@ export const handleExportExcel = async ({
     let sectionGrandTotal = 0;
 
     for (const [groupKey, groupData] of Object.entries(groupsData)) {
-      if (!groupData.rows || groupData.rows.length === 0) continue;
+      if (!groupData.teachers || groupData.teachers.length === 0) continue;
 
       // Sắp xếp danh sách giáo viên
-      const sortedRows = [...groupData.rows].sort((a, b) => {
+      const sortedTeachers = [...groupData.teachers].sort((a, b) => {
         if (isGvcn) {
-          // GVCN: Sắp xếp theo tên lớp tăng dần (1.1, 1.2,...)
-          const classA = getFirstClassNumber(a);
-          const classB = getFirstClassNumber(b);
+          const classA = String(a.class || "999");
+          const classB = String(b.class || "999");
           return classA.localeCompare(classB, undefined, { numeric: true });
         } else {
-          // BM & TA: Sắp xếp theo tên tiếng Việt từ phải sang trái
-          const nameA = (a.username || "").trim();
-          const nameB = (b.username || "").trim();
+          const nameA = (a.teacherName || a.teacherId || "").trim();
+          const nameB = (b.teacherName || b.teacherId || "").trim();
           return compareVietnameseNames(nameA, nameB);
         }
       });
 
-      const groupTitleRow = worksheet.addRow([`${groupData.title} (${sortedRows.length} giáo viên)`]);
+      // Tên khối / tổ nhỏ
+      const groupTitleRow = worksheet.addRow([`${groupData.title} (${sortedTeachers.length} giáo viên)`]);
       worksheet.mergeCells(`A${groupTitleRow.number}:${lastColLet}${groupTitleRow.number}`);
       groupTitleRow.height = 20;
 
@@ -194,16 +212,16 @@ export const handleExportExcel = async ({
       groupCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F1F5F9' } };
       groupCell.alignment = { horizontal: 'left', vertical: 'middle' };
 
-      sortedRows.forEach((row) => {
-        const teacherName = row.username || 'Chưa rõ';
+      sortedTeachers.forEach((teacher) => {
+        const teacherName = teacher.teacherName || teacher.teacherId || 'Chưa rõ';
 
         const subjectCounts = activeSubjects.map((sub, idx) => {
-          const count = Number(row.subjectCounts?.[sub] || 0);
+          const count = Number(teacher.subjects?.[sub] || 0);
           colTotals[idx] += count;
           return count;
         });
 
-        const rowTotal = Number(row.totalCount) || subjectCounts.reduce((s, v) => s + v, 0);
+        const rowTotal = Number(teacher.totalFiles) || subjectCounts.reduce((s, v) => s + v, 0);
         sectionGrandTotal += rowTotal;
 
         const rowData = [
@@ -243,7 +261,7 @@ export const handleExportExcel = async ({
       });
     }
 
-    // Dòng tổng kết cho phần này
+    // Dòng tổng cộng
     const secTotalRowData = [`TỔNG CỘNG`, '', ...colTotals, sectionGrandTotal];
     const secTotalRow = worksheet.addRow(secTotalRowData);
     worksheet.mergeCells(`A${secTotalRow.number}:B${secTotalRow.number}`);
@@ -273,22 +291,22 @@ export const handleExportExcel = async ({
     worksheet.addRow();
   };
 
-  // 3. Render 2 phần
+  // 5. Render phần tương ứng
   renderSection('GIÁO VIÊN CHỦ NHIỆM', gvcnGroups, true);   
   renderSection('GIÁO VIÊN BỘ MÔN & TIẾNG ANH', chuyenBietGroups, false); 
 
-  // 4. Độ rộng cột thu gọn cân đối
+  // 6. Định dạng độ rộng các cột
   worksheet.columns.forEach((column, index) => {
     if (index === 0) {
       column.width = 6;
     } else if (index === 1) {
-      column.width = 26;
+      column.width = 28;
     } else {
       column.width = 10;
     }
   });
 
-  // 5. Tạo Buffer và Blob, sau đó xuất file với tên định dạng TongHop_KHBD_ToanTruong_DD-MM-YYYY.xlsx
+  // 7. Tạo file và tải về
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 
@@ -298,12 +316,13 @@ export const handleExportExcel = async ({
   const year = today.getFullYear();
   const dateStr = `${day}-${month}-${year}`;
 
-  saveAs(blob, `TongHop_KHBD_ToanTruong_${dateStr}.xlsx`);
+  const fileNamePrefix = isSingleGroup ? 'TongHop_KHBD' : 'TongHop_KHBD_ToanTruong';
+  saveAs(blob, `${fileNamePrefix}_${dateStr}.xlsx`);
 
   if (setSnackbar) {
     setSnackbar({
       open: true,
-      message: 'Đã xuất file Excel tổng hợp toàn trường thành công!',
+      message: `Đã xuất file Excel ${isSingleGroup ? 'tổng hợp khối' : 'tổng hợp toàn trường'} thành công!`,
       severity: 'success',
     });
   }
