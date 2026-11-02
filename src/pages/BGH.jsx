@@ -191,7 +191,7 @@ export default function BGH({ user }) {
           const data = configSnap.data();
           if (data.flagSchoolSummary === true) {
             setFlagSchoolSummary(true);
-            setViewMode("schoolSummary");
+            //setViewMode("schoolSummary");
             // 🌟 Ép làm mới (forceRefresh = true) vì trên Server vừa có dữ liệu mới do giáo viên nộp bài
             await fetchSchoolSummary(true); 
           }
