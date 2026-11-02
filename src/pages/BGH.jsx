@@ -1130,7 +1130,11 @@ export default function BGH({ user }) {
           sx={{
             width: { xs: "100%", sm: "32%" },
             minWidth: 280,
-            display: { xs: viewMode === "single" ? "flex" : "none", sm: "flex" },
+            // 🌟 Chỉ hiện trên mobile khi đang ở chế độ single VÀ chưa bấm chọn file xem trước
+            display: { 
+              xs: (viewMode === "single" && !selectedFile?.fileId) ? "flex" : "none", 
+              sm: "flex" 
+            },
             flexDirection: "column",
             gap: 1.5,
             height: "100%",
@@ -1513,8 +1517,9 @@ export default function BGH({ user }) {
         sx={{
           flex: 1,
           height: "100%",
+          // 🌟 Trên mobile: Hiện khi đang mở tab tổng hợp/cá nhân HOẶC đã chọn file xem trước
           display: {
-            xs: selectedFile?.fileId ? "flex" : "none",
+            xs: (viewMode !== "single" || selectedFile?.fileId) ? "flex" : "none",
             sm: "flex",
           },
           flexDirection: "column",
