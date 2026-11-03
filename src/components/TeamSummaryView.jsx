@@ -293,11 +293,13 @@ export default function TeamSummaryView({
                 <TableCell
                   align="center"
                   sx={{
-                    bgcolor: "#1e293b",
-                    color: "white",
+                    bgcolor: "#e1effe",
+                    color: "#1e293b",
                     fontWeight: "bold",
                     minWidth: 45,
                     fontSize: "0.85rem",
+                    borderBottom: "1px solid #cbd5e1",
+                    borderTop: "1px solid #cbd5e1",
                   }}
                 >
                   STT
@@ -305,26 +307,30 @@ export default function TeamSummaryView({
                 <TableCell
                   align="center"
                   sx={{
-                    bgcolor: "#1e293b",
-                    color: "white",
+                    bgcolor: "#e1effe",
+                    color: "#1e293b",
                     fontWeight: "bold",
                     minWidth: 220,
                     fontSize: "0.85rem",
+                    borderBottom: "1px solid #cbd5e1",
+                    borderTop: "1px solid #cbd5e1",
                   }}
                 >
-                  Họ và tên
+                  HỌ VÀ TÊN
                 </TableCell>
                 {activeSubjectNames.map((subject) => (
                   <TableCell
                     key={subject}
                     align="center"
                     sx={{
-                      bgcolor: "#1e293b",
-                      color: "white",
+                      bgcolor: "#e1effe",
+                      color: "#1e293b",
                       fontWeight: "bold",
                       minWidth: 65,
                       fontSize: "0.85rem",
-                      borderLeft: "1px solid #334155",
+                      borderLeft: "1px solid #cbd5e1",
+                      borderBottom: "1px solid #cbd5e1",
+                      borderTop: "1px solid #cbd5e1",
                     }}
                   >
                     {getShortSubjectName ? getShortSubjectName(subject) : subject}
@@ -333,12 +339,14 @@ export default function TeamSummaryView({
                 <TableCell
                   align="center"
                   sx={{
-                    bgcolor: "#0f172a",
-                    color: "#38bdf8",
+                    bgcolor: "#e1effe",
+                    color: "#1976d2",
                     fontWeight: "bold",
                     minWidth: 80,
                     fontSize: "0.85rem",
-                    borderLeft: "1px solid #334155",
+                    borderLeft: "1px solid #cbd5e1",
+                    borderBottom: "1px solid #cbd5e1",
+                    borderTop: "1px solid #cbd5e1",
                   }}
                 >
                   Tổng số

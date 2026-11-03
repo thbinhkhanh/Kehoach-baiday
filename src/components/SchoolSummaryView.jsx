@@ -241,9 +241,9 @@ export default function SchoolSummaryView({
             <TableContainer component={Paper} sx={{ maxHeight: isFullScreen ? "calc(100vh - 130px)" : "calc(100vh - 180px)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)", borderRadius: 2.5, border: "1px solid #e2e8f0" }}>
               <Table stickyHeader size="small">
                 <TableHead>
-                  <TableRow sx={{ bgcolor: "#1e293b" }}>
-                    <TableCell align="center" sx={{ fontWeight: "bold", bgcolor: "#1e293b", color: "white", minWidth: 45, fontSize: "0.85rem" }}>STT</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: "bold", bgcolor: "#1e293b", color: "white", minWidth: 200, fontSize: "0.85rem" }}>Họ và tên</TableCell>
+                  <TableRow sx={{ bgcolor: "#e1effe" }}>
+                    <TableCell align="center" sx={{ fontWeight: "bold", bgcolor: "#e1effe", color: "#1e293b", minWidth: 45, fontSize: "0.85rem", borderBottom: "1px solid #cbd5e1" }}>STT</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: "bold", bgcolor: "#e1effe", color: "#1e293b", minWidth: 200, fontSize: "0.85rem", borderBottom: "1px solid #cbd5e1" }}>Họ và tên</TableCell>
 
                     {activeSubjectNames.map((sub) => (
                       <TableCell 
@@ -251,19 +251,21 @@ export default function SchoolSummaryView({
                         align="center" 
                         sx={{ 
                           fontWeight: "bold", 
-                          bgcolor: "#1e293b", 
-                          color: "white", 
+                          bgcolor: "#e1effe", 
+                          color: "#1e293b", 
                           minWidth: 60, 
                           fontSize: "0.85rem",
-                          borderLeft: "1px solid #334155",
-                          borderRight: "1px solid #334155"
+                          borderLeft: "1px solid #cbd5e1",
+                          borderRight: "1px solid #cbd5e1",
+                          borderBottom: "1px solid #cbd5e1"
                         }}
                       >
                         {getShortSubjectName(sub)}
                       </TableCell>
                     ))}
 
-                    <TableCell align="center" sx={{ fontWeight: "bold", bgcolor: "#0f172a", color: "#38bdf8", minWidth: 70, fontSize: "0.85rem", borderLeft: "1px solid #334155" }}>
+                    {/* Tăng minWidth của cột Tổng số lên 100 để rộng rãi hơn */}
+                    <TableCell align="center" sx={{ fontWeight: "bold", bgcolor: "#dbeafe", color: "#1976d2", minWidth: 100, fontSize: "0.85rem", borderLeft: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1" }}>
                       Tổng số
                     </TableCell>
                   </TableRow>
@@ -361,7 +363,8 @@ export default function SchoolSummaryView({
                                   </TableCell>
                                 );
                               })}
-                              <TableCell align="center" sx={{ borderLeft: "1px solid #e2e8f0" }}>
+                              {/* Cột Tổng số của từng giáo viên (tăng minWidth tương ứng) */}
+                              <TableCell align="center" sx={{ minWidth: 100, borderLeft: "1px solid #e2e8f0" }}>
                                 <Typography variant="subtitle2" fontWeight="800" sx={{ color: (teacher.totalFiles || 0) > 0 ? "#dc2626" : "#94a3b8", fontSize: "0.9rem" }}>
                                   {teacher.totalFiles || 0}
                                 </Typography>
@@ -391,7 +394,7 @@ export default function SchoolSummaryView({
                               {groupTotals[sub] > 0 ? groupTotals[sub] : "—"}
                             </TableCell>
                           ))}
-                          <TableCell align="center" sx={{ fontWeight: "800", color: "#1d4ed8", fontSize: "0.95rem", bgcolor: "#eff6ff", borderLeft: "1px solid #e2e8f0" }}>
+                          <TableCell align="center" sx={{ minWidth: 100, fontWeight: "800", color: "#1d4ed8", fontSize: "0.95rem", bgcolor: "#eff6ff", borderLeft: "1px solid #e2e8f0" }}>
                             {groupGrandTotal}
                           </TableCell>
                         </TableRow>
@@ -419,7 +422,7 @@ export default function SchoolSummaryView({
                         {grandSchoolTotals[sub] > 0 ? grandSchoolTotals[sub] : "—"}
                       </TableCell>
                     ))}
-                    <TableCell align="center" sx={{ fontWeight: "bold", color: "#ffffff", fontSize: "1.05rem", bgcolor: "#1e3a8a", borderLeft: "1px solid #1e293b" }}>
+                    <TableCell align="center" sx={{ minWidth: 100, fontWeight: "bold", color: "#ffffff", fontSize: "1.05rem", bgcolor: "#1e3a8a", borderLeft: "1px solid #1e293b" }}>
                       {grandSchoolTotalCount}
                     </TableCell>
                   </TableRow>
