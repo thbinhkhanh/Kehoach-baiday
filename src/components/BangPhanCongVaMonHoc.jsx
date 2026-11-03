@@ -78,22 +78,27 @@ export default function BangPhanCongVaMonHoc({
           sx={{
             border: "1px solid #e2e8f0",
             borderRadius: 2.5,
-            p: 3,
+            p: { xs: 2, sm: 3 },
             bgcolor: "#ffffff",
           }}
         >
+          {/* 🌟 Thêm variant="scrollable", scrollButtons="auto", allowScrollButtonsMobile để lướt mượt trên điện thoại */}
           <Tabs
             value={activeGradeTab}
             onChange={(e, val) => setActiveGradeTab(val)}
-            variant="fullWidth"
+            variant="scrollable"
+            scrollButtons="auto"
+            allowScrollButtonsMobile
             sx={{
               mb: 3,
               borderBottom: "1px solid #e8edf5",
+              minHeight: 44,
               "& .MuiTab-root": {
                 fontWeight: 700,
                 fontSize: "0.95rem",
                 textTransform: "none",
-                borderRadius: "8px 8px 0 0",
+                minWidth: { xs: 90, sm: 110 },
+                px: 2,
               },
               "& .Mui-selected": {
                 color: "#2457c5 !important",
@@ -106,7 +111,7 @@ export default function BangPhanCongVaMonHoc({
             }}
           >
             {["1", "2", "3", "4", "5"].map((cls) => (
-              <Tab key={cls} label={`Khối Lớp ${cls}`} value={cls} />
+              <Tab key={cls} label={`Khối  ${cls}`} value={cls} />
             ))}
           </Tabs>
 
@@ -237,6 +242,7 @@ export default function BangPhanCongVaMonHoc({
                 px: 3,
                 py: 0.6,
                 minHeight: "unset",
+                width: { xs: "100%", sm: "auto" },
                 "&:hover": { bgcolor: "#1d459e" },
               }}
             >
@@ -253,6 +259,7 @@ export default function BangPhanCongVaMonHoc({
           fontWeight: 750,
           color: "#172b4d",
           mb: 2,
+          mt: 4,
         }}
       >
         Danh sách phân công giảng dạy ({academicYear})
@@ -261,6 +268,9 @@ export default function BangPhanCongVaMonHoc({
       <Tabs
         value={currentTab}
         onChange={(e, val) => setCurrentTab(val)}
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
         sx={{
           borderBottom: "1px solid #e8edf5",
           mb: 2.5,
@@ -308,7 +318,6 @@ export default function BangPhanCongVaMonHoc({
                 gvcnList.map((item, idx) => (
                   <TableRow key={item.username} hover>
                     <TableCell>{idx + 1}</TableCell>
-                    {/* Thêm noWrap để tên không bị rớt dòng */}
                     <TableCell sx={{ fontWeight: 600 }} noWrap>
                       {item.username}
                     </TableCell>
@@ -328,7 +337,6 @@ export default function BangPhanCongVaMonHoc({
                 taList.map((item, idx) => (
                   <TableRow key={item.username} hover>
                     <TableCell>{idx + 1}</TableCell>
-                    {/* Thêm noWrap để tên không bị rớt dòng */}
                     <TableCell sx={{ fontWeight: 600 }} noWrap>
                       {item.username}
                     </TableCell>
@@ -348,7 +356,6 @@ export default function BangPhanCongVaMonHoc({
                 bmList.map((item, idx) => (
                   <TableRow key={item.username} hover>
                     <TableCell>{idx + 1}</TableCell>
-                    {/* Thêm noWrap để tên không bị rớt dòng */}
                     <TableCell sx={{ fontWeight: 600 }} noWrap>
                       {item.username}
                     </TableCell>

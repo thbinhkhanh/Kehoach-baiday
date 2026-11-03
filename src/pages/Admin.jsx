@@ -827,7 +827,7 @@ return (
                     fontSize: "0.85rem",
                   }}
                 >
-                  Đồng bộ dữ liệu sang Thongke-namhoc ({academicYear}).
+                  Đồng bộ dữ liệu sang THỐNG KÊ ({academicYear}).
                 </Typography>
 
                 <Button

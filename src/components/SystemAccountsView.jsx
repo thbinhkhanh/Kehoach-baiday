@@ -11,6 +11,37 @@ import {
 } from "@mui/material";
 
 export default function SystemAccountsView({ accountsList, formatDate }) {
+  // 1. Hàm tách tên tiếng Việt để lấy tên chính làm chuẩn so sánh từ phải sang trái
+  const getLastNameForSorting = (fullName) => {
+    if (!fullName) return "";
+    const parts = fullName.trim().replace(/\s+/g, " ").split(" ");
+    return parts[parts.length - 1] || ""; // Lấy từ cuối cùng (Tên)
+  };
+
+  // 2. Thực hiện sắp xếp mảng accountsList trước khi render
+  const sortedAccountsList = [...accountsList].sort((a, b) => {
+    const roleA = (a.role || a.chucVu || "").toUpperCase();
+    const roleB = (b.role || b.chucVu || "").toUpperCase();
+
+    const isPriorityA = roleA.includes("ADMIN") || roleA.includes("BGH");
+    const isPriorityB = roleB.includes("ADMIN") || roleB.includes("BGH");
+
+    // Ưu tiên Admin và BGH lên đầu
+    if (isPriorityA && !isPriorityB) return -1;
+    if (!isPriorityA && isPriorityB) return 1;
+
+    // Nếu cùng là nhóm ưu tiên hoặc cùng không phải, sắp xếp theo tên tiếng Việt (từ phải sang trái)
+    const nameA = a.username || "";
+    const nameB = b.username || "";
+
+    // So sánh từ tên trước
+    const lastCmp = getLastNameForSorting(nameA).localeCompare(getLastNameForSorting(nameB), "vi", { sensitivity: "base" });
+    if (lastCmp !== 0) return lastCmp;
+
+    // Nếu tên giống nhau, so sánh toàn bộ chuỗi tên
+    return nameA.localeCompare(nameB, "vi", { sensitivity: "base" });
+  });
+
   return (
     <Box sx={{ minWidth: 0, width: "100%" }}>
       <Box
@@ -125,7 +156,7 @@ export default function SystemAccountsView({ accountsList, formatDate }) {
             </TableHead>
 
             <TableBody>
-              {accountsList.length === 0 ? (
+              {sortedAccountsList.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={4}
@@ -141,13 +172,13 @@ export default function SystemAccountsView({ accountsList, formatDate }) {
                   </TableCell>
                 </TableRow>
               ) : (
-                accountsList.map((acc, index) => (
+                sortedAccountsList.map((acc, index) => (
                   <TableRow key={acc.id} hover>
                     <TableCell
                       sx={{
                         fontSize: "0.85rem",
                         color: "#64748b",
-                        fontWeight: 400, // 🌟 Chữ thường không in đậm
+                        fontWeight: 400,
                       }}
                     >
                       {index + 1}
@@ -157,7 +188,7 @@ export default function SystemAccountsView({ accountsList, formatDate }) {
                       sx={{
                         fontSize: "0.85rem",
                         color: "#0f172a",
-                        fontWeight: 400, // 🌟 Đã bỏ in đậm tên tài khoản
+                        fontWeight: 400,
                       }}
                     >
                       {acc.username}
@@ -168,7 +199,7 @@ export default function SystemAccountsView({ accountsList, formatDate }) {
                         fontSize: "0.85rem",
                         fontFamily: "monospace",
                         color: "#2563eb",
-                        fontWeight: 400, // 🌟 Đã bỏ in đậm mật khẩu (giữ màu xanh đặc trưng)
+                        fontWeight: 400,
                       }}
                     >
                       {acc.pass}
@@ -178,7 +209,7 @@ export default function SystemAccountsView({ accountsList, formatDate }) {
                       sx={{
                         fontSize: "0.85rem",
                         color: "#64748b",
-                        fontWeight: 400, // 🌟 Chữ thường không in đậm
+                        fontWeight: 400,
                       }}
                     >
                       {formatDate ? formatDate(acc.updatedAt) : acc.updatedAt}
