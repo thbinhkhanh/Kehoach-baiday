@@ -46,11 +46,11 @@ export default function FileListCard({
       <CardContent sx={{ p: 1, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <Typography variant="subtitle1" fontWeight="bold">📂 Danh sách file ({fileList.length})</Typography>
         {fileList.length > 0 && (
-          <Box sx={{ display: "flex", alignItems: "center", mr: hasScrollbar ? 3 : 1 }}>
+          <Box sx={{ display: "flex", alignItems: "center", mr: { xs: 1, sm: hasScrollbar ? 3 : 1 } }}>
             <Typography variant="body2" sx={{ mr: 1 }}>Chọn tất cả</Typography>
             <input
               type="checkbox"
-              checked={fileList.every((file) => file.selected === true)}
+              checked={fileList.length > 0 && fileList.every((file) => file.selected === true)}
               onChange={(e) => {
                 const checked = e.target.checked;
                 setFileList((prev) => prev.map((file) => ({ ...file, selected: checked })));
