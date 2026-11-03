@@ -34,9 +34,9 @@ export default function TeacherStatsDialog({
           justifyContent: "center",
           alignItems: "stretch",
           
-          width: isMobile ? "100%" : "90vw",
+          width: isMobile ? "100%" : "95vw",
           maxWidth: "1000px", // 👉 Giới hạn độ rộng tối đa để dialog gọn gàng ở giữa màn hình
-          height: isMobile ? "100%" : "85vh",
+          height: isMobile ? "100%" : "80vh",
           borderRadius: isMobile ? 0 : "16px",
           backgroundColor: "#ffffff",
           overflow: "hidden",

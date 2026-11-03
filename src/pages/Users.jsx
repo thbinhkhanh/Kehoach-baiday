@@ -510,12 +510,17 @@ export default function Users({ user }) {
   // ✅ Bước 2: Lọc danh sách môn học hiển thị
   // ✅ Lấy danh sách môn học linh hoạt: Tab 1, 2 cho nhóm Bộ môn sẽ lấy tất cả môn của bộ môn; các tab/nhóm khác lấy theo phân công
   const getAvailableSubjects = () => {
+    // 🌟 1. Chuẩn hóa lấy đúng số khối từ className (Ví dụ: "4.5" -> "4", "5.1" -> "5")
+    const gradeKey = String(className).split(".")[0].replace(/[^0-9]/g, "") || className;
+    
+    // 🌟 2. Chuẩn hóa vai trò giáo viên về chữ hoa để so sánh chính xác
+    const role = String(teacherRole || "").trim().toUpperCase();
+
     // Nếu đang ở Tab 1 hoặc Tab 2 và giáo viên thuộc nhóm Bộ môn (BM)
-    if ((activeTab === 1 || activeTab === 2) && teacherRole === "BM") {
+    if ((activeTab === 1 || activeTab === 2) && role === "BM") {
       let allowed = [];
       allMonHoc.forEach(m => {
         const nameLower = String(m.name).toLowerCase();
-        // Lấy tất cả các môn trừ Toán và Tiếng Việt (chuẩn định nghĩa nhóm Bộ môn)
         if (!nameLower.includes("toán") && !nameLower.includes("tiếng việt")) {
           allowed.push(m.name);
         }
@@ -524,7 +529,7 @@ export default function Users({ user }) {
     }
 
     // Nếu là nhóm Bộ môn ở Tab 0 nhưng chưa có phân công cụ thể
-    if (teacherRole === "BM" && teacherAssignedSubjects.length === 0) {
+    if (role === "BM" && teacherAssignedSubjects.length === 0) {
       let allowed = [];
       allMonHoc.forEach(m => {
         const nameLower = String(m.name).toLowerCase();
@@ -536,16 +541,47 @@ export default function Users({ user }) {
     }
 
     // Nếu là nhóm Tiếng Anh hoặc có phân công riêng
-    if ((teacherRole === "BM" || teacherRole === "TA") && teacherAssignedSubjects.length > 0) {
+    if ((role === "BM" || role === "TA") && teacherAssignedSubjects.length > 0) {
       return teacherAssignedSubjects;
     }
 
-    // Các trường hợp còn lại (GVCN) sử dụng service tiêu chuẩn theo lớp
+    // 🌟 3. Truy xuất trực tiếp từ `lopMonHocMap` theo đúng gradeKey mới nhất từ Firestore
+    const directSubjectsForGrade = lopMonHocMap[gradeKey] || lopMonHocMap[String(className)] || [];
+    
+    if (role === "GVCN" && directSubjectsForGrade.length > 0) {
+      let subjects = allMonHoc
+        .filter((sub) => {
+          const matchesGrade = !sub.grades || sub.grades.length === 0 || sub.grades.some(g => String(g).trim().split(".")[0] === gradeKey);
+          const matchesList = directSubjectsForGrade.some(
+            (name) => String(name).trim().toLowerCase() === String(sub.name).trim().toLowerCase()
+          );
+          return matchesGrade && matchesList;
+        })
+        .map((sub) => sub.name);
+
+      const hasAllSubjectsPermission =
+        teacherAssignedSubjects.length === 0 ||
+        teacherAssignedSubjects.some((s) => String(s).toLowerCase().includes("tất cả"));
+
+      if (!hasAllSubjectsPermission) {
+        subjects = subjects.filter((name) =>
+          teacherAssignedSubjects.some(
+            (assigned) => String(assigned).trim().toLowerCase() === String(name).trim().toLowerCase()
+          )
+        );
+      }
+
+      if (subjects.length > 0) {
+        return [...new Set(subjects)];
+      }
+    }
+
+    // Trường hợp còn lại sử dụng service tiêu chuẩn
     return getAvailableSubjectsService({
-      className,
+      className: gradeKey, 
       allMonHoc,
       teacherAssignedSubjects,
-      teacherRole,
+      teacherRole: role,
       lopMonHocMap,
     });
   };

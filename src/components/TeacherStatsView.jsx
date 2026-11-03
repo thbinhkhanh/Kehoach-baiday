@@ -108,36 +108,36 @@ export default function TeacherStatsView({
   return (
     <Box 
       sx={{ 
-        p: { xs: 1, sm: 3 }, 
+        p: { xs: 1, sm: 1.5 }, // 👉 Đã giảm padding tổng thể (trên, dưới, trái, phải)
         overflowY: "auto", 
         flex: 1, 
-        bgcolor: "#f8fafc", // Đổi màu nền nhẹ một chút để khung trắng nổi bật hơn khi căn giữa
+        bgcolor: "#f8fafc", 
         display: "flex", 
         flexDirection: "column", 
-        alignItems: "center", // 🌟 Căn giữa các thành phần con theo chiều ngang
+        alignItems: "center", 
         width: "100%",
         boxSizing: "border-box"
       }}
     >
-      {/* 🌟 Thêm thẻ bọc ngoài (Container) giới hạn chiều rộng để nội dung tập trung ở giữa màn hình */}
-      <Box sx={{ width: "100%", maxWidth: "900px", display: "flex", flexDirection: "column", gap: 2 }}>
+      {/* Thẻ bọc ngoài thu gọn khoảng cách (gap: 1.5 thay vì 2) */}
+      <Box sx={{ width: "100%", maxWidth: "900px", display: "flex", flexDirection: "column", gap: 1.5 }}>
         
         {/* Banner Tiêu đề & Thẻ chỉ số thu gọn */}
         <Card
           sx={{
-            p: 2,
+            p: 1.5, // 👉 Giảm padding bên trong Card tiêu đề
             background: "linear-gradient(135deg, #f0f7ff 0%, #e1effe 100%)",
             color: "#1e293b",
-            borderRadius: 2.5,
+            borderRadius: 2,
             border: "1px solid #cbd5e1",
             boxShadow: "none",
           }}
         >
-          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1.5 }}>
+          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1 }}>
             {/* Tiêu đề linh hoạt: Tách phần tên/nhóm để tô màu xanh */}
             <Typography 
               variant="h6" 
-              sx={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 1, fontSize: "16px", color: "#1e293b", m: 0 }}
+              sx={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 1, fontSize: "15px", color: "#1e293b", m: 0 }}
             >
               <Box 
                 component="span" 
@@ -206,28 +206,28 @@ export default function TeacherStatsView({
             {/* Cụm 3 thẻ thống kê trên cùng một dòng trên điện thoại */}
             <Box sx={{ display: "flex", gap: 0.8, flexWrap: "nowrap", width: { xs: "100%", sm: "auto" } }}>
               {/* Thẻ Tổng */}
-              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5, px: 1, py: 0.6, borderRadius: 2, bgcolor: "rgba(255, 255, 255, 0.9)", border: "1px solid #cbd5e1", flex: 1, minWidth: 0 }}>
+              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5, px: 1, py: 0.4, borderRadius: 1.5, bgcolor: "rgba(255, 255, 255, 0.9)", border: "1px solid #cbd5e1", flex: 1, minWidth: 0 }}>
                 <span>📦</span>
-                <Typography variant="body2" sx={{ color: "#475569", fontSize: { xs: "0.75rem", sm: "0.875rem" }, whiteSpace: "nowrap" }}>Tổng:</Typography>
-                <Typography variant="body1" fontWeight="bold" sx={{ color: "#1976d2", fontSize: { xs: "0.85rem", sm: "1rem" }, whiteSpace: "nowrap" }}>
+                <Typography variant="body2" sx={{ color: "#475569", fontSize: { xs: "0.75rem", sm: "0.85rem" }, whiteSpace: "nowrap" }}>Tổng:</Typography>
+                <Typography variant="body1" fontWeight="bold" sx={{ color: "#1976d2", fontSize: { xs: "0.85rem", sm: "0.95rem" }, whiteSpace: "nowrap" }}>
                   {grandTotal}
                 </Typography>
               </Box>
 
               {/* Thẻ Môn */}
-              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5, px: 1, py: 0.6, borderRadius: 2, bgcolor: "rgba(255, 255, 255, 0.9)", border: "1px solid #cbd5e1", flex: 1, minWidth: 0 }}>
+              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5, px: 1, py: 0.4, borderRadius: 1.5, bgcolor: "rgba(255, 255, 255, 0.9)", border: "1px solid #cbd5e1", flex: 1, minWidth: 0 }}>
                 <span>📚</span>
-                <Typography variant="body2" sx={{ color: "#475569", fontSize: { xs: "0.75rem", sm: "0.875rem" }, whiteSpace: "nowrap" }}>Môn:</Typography>
-                <Typography variant="body1" fontWeight="bold" sx={{ color: "#4f46e5", fontSize: { xs: "0.85rem", sm: "1rem" }, whiteSpace: "nowrap" }}>
+                <Typography variant="body2" sx={{ color: "#475569", fontSize: { xs: "0.75rem", sm: "0.85rem" }, whiteSpace: "nowrap" }}>Môn:</Typography>
+                <Typography variant="body1" fontWeight="bold" sx={{ color: "#4f46e5", fontSize: { xs: "0.85rem", sm: "0.95rem" }, whiteSpace: "nowrap" }}>
                   {filteredStatsData.length}
                 </Typography>
               </Box>
 
               {/* Thẻ Lớp/Khối */}
-              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5, px: 1, py: 0.6, borderRadius: 2, bgcolor: "rgba(255, 255, 255, 0.9)", border: "1px solid #cbd5e1", flex: 1, minWidth: 0, overflow: "hidden" }}>
+              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5, px: 1, py: 0.4, borderRadius: 1.5, bgcolor: "rgba(255, 255, 255, 0.9)", border: "1px solid #cbd5e1", flex: 1, minWidth: 0, overflow: "hidden" }}>
                 <span>🏫</span>
-                <Typography variant="body2" sx={{ color: "#475569", fontSize: { xs: "0.75rem", sm: "0.875rem" }, whiteSpace: "nowrap" }}>Lớp:</Typography>
-                <Typography variant="body1" fontWeight="bold" sx={{ color: "#16a34a", fontSize: { xs: "0.85rem", sm: "1rem" }, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <Typography variant="body2" sx={{ color: "#475569", fontSize: { xs: "0.75rem", sm: "0.85rem" }, whiteSpace: "nowrap" }}>Lớp:</Typography>
+                <Typography variant="body1" fontWeight="bold" sx={{ color: "#16a34a", fontSize: { xs: "0.85rem", sm: "0.95rem" }, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {dynamicColumns.join(", ") || "Không có"}
                 </Typography>
               </Box>
@@ -236,17 +236,17 @@ export default function TeacherStatsView({
         </Card>
 
         {loadingStats ? (
-          <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
+          <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}>
             <CircularProgress />
           </Box>
         ) : (
-          <Card sx={{ p: 2, borderRadius: 2.5, boxShadow: "none", border: "1px solid #e2e8f0", bgcolor: "white" }}>
-            <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 2, color: "#1e293b", fontSize: "1rem" }}>
+          <Card sx={{ p: 1.5, borderRadius: 2, boxShadow: "none", border: "1px solid #e2e8f0", bgcolor: "white" }}>
+            <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1.5, color: "#1e293b", fontSize: "0.95rem" }}>
               📊 Chi tiết bài nộp
             </Typography>
             
             {filteredStatsData.length === 0 ? (
-              <Box sx={{ p: 4, textAlign: "center" }}>
+              <Box sx={{ p: 3, textAlign: "center" }}>
                 <Typography color="text.secondary">Chưa có dữ liệu bài nộp nào được ghi nhận cho giáo viên này trong năm học {academicYear}.</Typography>
               </Box>
             ) : (
@@ -257,11 +257,11 @@ export default function TeacherStatsView({
                       <Box 
                         component="th" 
                         sx={{ 
-                          p: { xs: 1, sm: 1.8 }, 
+                          p: { xs: 0.8, sm: 1.2 }, // 👉 Giảm padding ô tiêu đề bảng
                           textAlign: "left", 
                           color: "#475569", 
                           fontWeight: 700, 
-                          fontSize: "0.95rem",
+                          fontSize: "0.9rem",
                           whiteSpace: "nowrap"
                         }}
                       >
@@ -272,19 +272,19 @@ export default function TeacherStatsView({
                           component="th" 
                           key={col} 
                           sx={{ 
-                            p: { xs: 0.5, sm: 1.8 }, 
+                            p: { xs: 0.4, sm: 1.2 }, 
                             color: "#475569", 
                             fontWeight: 700, 
-                            fontSize: "0.95rem", 
-                            width: { xs: "38px", sm: "50px" }, 
-                            minWidth: { xs: "38px", sm: "50px" }, 
+                            fontSize: "0.9rem", 
+                            width: { xs: "35px", sm: "45px" }, 
+                            minWidth: { xs: "35px", sm: "45px" }, 
                             whiteSpace: "nowrap" 
                           }}
                         >
                           {dynamicColumns.length === 1 ? "Số bài nộp" : (String(col).toLowerCase().includes("khối") || String(col).length === 1 ? `Khối ${col}` : `Lớp ${col}`)}
                         </Box>
                       ))}
-                      <Box component="th" sx={{ p: { xs: 1, sm: 1.8 }, color: "#dc2626", fontWeight: 700, fontSize: "0.95rem", width: "14%", whiteSpace: "nowrap" }}>
+                      <Box component="th" sx={{ p: { xs: 0.8, sm: 1.2 }, color: "#dc2626", fontWeight: 700, fontSize: "0.9rem", width: "14%", whiteSpace: "nowrap" }}>
                         Tổng
                       </Box>
                     </Box>
@@ -305,11 +305,11 @@ export default function TeacherStatsView({
                           <Box 
                             component="td" 
                             sx={{ 
-                              p: { xs: 1, sm: 1.8 }, 
+                              p: { xs: 0.8, sm: 1.2 }, // 👉 Giảm padding các dòng dữ liệu
                               textAlign: "left", 
                               fontWeight: "700", 
                               color: "#1e293b", 
-                              fontSize: "0.95rem",
+                              fontSize: "0.9rem",
                               whiteSpace: "nowrap"
                             }}
                           >
@@ -323,10 +323,10 @@ export default function TeacherStatsView({
                                 component="td" 
                                 key={col} 
                                 sx={{ 
-                                  p: { xs: 0.5, sm: 1.8 }, 
+                                  p: { xs: 0.4, sm: 1.2 }, 
                                   color: count > 0 ? "#15803d" : "#94a3b8", 
                                   fontWeight: count > 0 ? "800" : "500",
-                                  fontSize: "1rem",
+                                  fontSize: "0.95rem",
                                   textAlign: "center"
                                 }}
                               >
@@ -338,11 +338,11 @@ export default function TeacherStatsView({
                           <Box 
                             component="td" 
                             sx={{ 
-                              p: { xs: 1, sm: 1.8 }, 
+                              p: { xs: 0.8, sm: 1.2 }, 
                               fontWeight: "800", 
                               color: "#dc2626", 
                               bgcolor: "#eff6ff", 
-                              fontSize: "1rem",
+                              fontSize: "0.95rem",
                               textAlign: "center"
                             }}
                           >

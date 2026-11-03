@@ -10,8 +10,8 @@ export function getAvailableSubjectsService({
 }) {
   if (!className || allMonHoc.length === 0) return [];
 
-  // Lớp 5.4 -> khối 5; lớp 4 -> khối 4
-  const selectedGrade = String(className).split(".")[0];
+  // Lớp 5.4 -> khối 5; lớp 4 -> khối 4 (chuẩn hóa loại bỏ khoảng trắng)
+  const selectedGrade = String(className).split(".")[0].trim();
 
   const gradeMatches = (grades) => {
     if (!Array.isArray(grades) || grades.length === 0) return true;
@@ -34,8 +34,11 @@ export function getAvailableSubjectsService({
       String(s).toLowerCase().includes("tất cả")
     );
 
+  // Chuẩn hóa role về chữ hoa để tránh lỗi lệch ký tự
+  const role = String(teacherRole || "").trim().toUpperCase();
+
   // Giáo viên Tiếng Anh
-  if (teacherRole === "TA") {
+  if (role === "TA") {
     const taSubject = allMonHoc.find((s) =>
       s.name.toLowerCase().includes("tiếng anh")
     );
@@ -45,8 +48,8 @@ export function getAvailableSubjectsService({
       : [];
   }
 
-  // Giáo viên bộ môn: chỉ hiện môn đã được phân quyền
-  if (teacherRole === "BM") {
+  // Giáo viên bộ môn: chỉ hiện môn đã được phân quyền và đúng khối
+  if (role === "BM") {
     return allMonHoc
       .filter(
         (sub) =>
@@ -56,9 +59,7 @@ export function getAvailableSubjectsService({
   }
 
   // Giáo viên chủ nhiệm
-  if (teacherRole === "GVCN") {
-    // Ưu tiên danh sách môn trong LOP_MONHOC theo mã lớp,
-    // nếu không có thì thử theo khối.
+  if (role === "GVCN") {
     const subjectsForClass =
       lopMonHocMap[String(className)] ||
       lopMonHocMap[selectedGrade] ||
@@ -67,8 +68,10 @@ export function getAvailableSubjectsService({
     let subjects = [];
 
     if (subjectsForClass.length > 0) {
+      // 🌟 BỔ SUNG gradeMatches(sub.grades) để bắt buộc môn học phải đúng khối của lớp đang chọn
       subjects = allMonHoc
         .filter((sub) =>
+          gradeMatches(sub.grades) &&
           subjectsForClass.some(
             (name) =>
               String(name).trim().toLowerCase() ===
@@ -110,6 +113,7 @@ export function getAvailableSubjectsService({
     return [...new Set(subjects)];
   }
 
+  // Trường hợp mặc định
   return allMonHoc
     .filter((sub) => gradeMatches(sub.grades))
     .map((sub) => sub.name);

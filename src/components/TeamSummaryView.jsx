@@ -316,7 +316,7 @@ export default function TeamSummaryView({
                     borderTop: "1px solid #cbd5e1",
                   }}
                 >
-                  HỌ VÀ TÊN
+                  Họ và tên
                 </TableCell>
                 {activeSubjectNames.map((subject) => (
                   <TableCell
