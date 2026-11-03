@@ -342,7 +342,7 @@ export default function TeamSummaryView({
                     bgcolor: "#e1effe",
                     color: "#1976d2",
                     fontWeight: "bold",
-                    minWidth: 80,
+                    minWidth: 90,
                     fontSize: "0.85rem",
                     borderLeft: "1px solid #cbd5e1",
                     borderBottom: "1px solid #cbd5e1",
