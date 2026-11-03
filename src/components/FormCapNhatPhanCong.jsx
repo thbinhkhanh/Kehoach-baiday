@@ -212,63 +212,71 @@ export default function FormCapNhatPhanCong({
             );
 
             return (
-              <>
-                <FormControl
-                  size="small"
-                  sx={{ width: { xs: "100%", md: "85px" }, flexShrink: 0 }}
-                >
-                  <InputLabel id="gvcn-grade-label">Khối</InputLabel>
-                  <Select
-                    labelId="gvcn-grade-label"
-                    value={grade}
-                    label="Khối"
-                    onChange={(e) => {
-                      const newGrade = String(e.target.value);
-                      setSelectedGrade(newGrade);
+  <Box
+    sx={{
+      display: "flex",
+      flexDirection: "row", // Luôn hiển thị nằm ngang trên mọi thiết bị
+      gap: 1.5,              // Khoảng cách giữa 2 ô
+      width: { xs: "100%", md: "auto" },
+      flexShrink: 0,
+    }}
+  >
+    <FormControl
+      size="small"
+      sx={{ width: { xs: "40%", md: "85px" }, flexShrink: 0 }}
+    >
+      <InputLabel id="gvcn-grade-label">Khối</InputLabel>
+      <Select
+        labelId="gvcn-grade-label"
+        value={grade}
+        label="Khối"
+        onChange={(e) => {
+          const newGrade = String(e.target.value);
+          setSelectedGrade(newGrade);
 
-                      const firstClass = allClasses.find(
-                        (cls) => cls.split(".")[0] === newGrade
-                      );
+          const firstClass = allClasses.find(
+            (cls) => cls.split(".")[0] === newGrade
+          );
 
-                      setAssignedClass(firstClass || "");
-                    }}
-                  >
-                    {gradeOptions.map((item) => (
-                      <MenuItem key={item} value={item}>
-                        {item}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+          setAssignedClass(firstClass || "");
+        }}
+      >
+        {gradeOptions.map((item) => (
+          <MenuItem key={item} value={item}>
+            {item}
+          </MenuItem>
+        ))}
+      </Select>
+    </FormControl>
 
-                <FormControl
-                  size="small"
-                  sx={{ width: { xs: "100%", md: "110px" }, flexShrink: 0 }}
-                >
-                  <InputLabel id="gvcn-class-label">Lớp</InputLabel>
-                  <Select
-                    labelId="gvcn-class-label"
-                    value={
-                      classOptions.includes(normalizeClass(assignedClass))
-                        ? normalizeClass(assignedClass)
-                        : ""
-                    }
-                    label="Lớp"
-                    onChange={(e) => {
-                      const newClass = String(e.target.value);
-                      setAssignedClass(newClass);
-                      setSelectedGrade(newClass.split(".")[0]);
-                    }}
-                  >
-                    {classOptions.map((cls) => (
-                      <MenuItem key={cls} value={cls}>
-                        {cls}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </>
-            );
+    <FormControl
+      size="small"
+      sx={{ width: { xs: "60%", md: "110px" }, flexShrink: 0 }}
+    >
+      <InputLabel id="gvcn-class-label">Lớp</InputLabel>
+      <Select
+        labelId="gvcn-class-label"
+        value={
+          classOptions.includes(normalizeClass(assignedClass))
+            ? normalizeClass(assignedClass)
+            : ""
+        }
+        label="Lớp"
+        onChange={(e) => {
+          const newClass = String(e.target.value);
+          setAssignedClass(newClass);
+          setSelectedGrade(newClass.split(".")[0]);
+        }}
+      >
+        {classOptions.map((cls) => (
+          <MenuItem key={cls} value={cls}>
+            {cls}
+          </MenuItem>
+        ))}
+      </Select>
+    </FormControl>
+  </Box>
+);
           })()}
 
           {/* Môn học (Dành cho BM hoặc TA) */}

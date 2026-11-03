@@ -143,10 +143,6 @@ export default function BangPhanCongVaMonHoc({
                 );
               }
 
-              const midpoint = Math.ceil(validSubjects.length / 2);
-              const leftColumnSubjects = validSubjects.slice(0, midpoint);
-              const rightColumnSubjects = validSubjects.slice(midpoint);
-
               const renderSubjectCard = (sub) => {
                 const activeGrades = classSubjectMap[sub.name] || ["1", "2", "3", "4", "5"];
                 const isChecked = activeGrades.includes(activeGradeTab);
@@ -158,9 +154,8 @@ export default function BangPhanCongVaMonHoc({
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
-                      py: 1,
+                      py: 1.2,
                       px: 2,
-                      mb: 1.5,
                       borderRadius: 1.5,
                       border: "1px solid",
                       borderColor: isChecked ? "#cbd5e1" : "#e2e8f0",
@@ -201,24 +196,16 @@ export default function BangPhanCongVaMonHoc({
               return (
                 <Box
                   sx={{
-                    display: "flex",
-                    justifyContent: "center",
+                    display: "grid",
+                    // 🌟 Điện thoại (xs): 1 cột | Máy tính (sm trở lên): 2 cột có độ rộng bằng nhau
+                    gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" },
+                    gap: 2, // Khoảng cách đều giữa các ô
                     width: "100%",
+                    maxWidth: "780px",
+                    mx: "auto",
                   }}
                 >
-                  <Grid
-                    container
-                    spacing={2.5}
-                    sx={{ maxWidth: "780px", width: "100%" }}
-                    justifyContent="center"
-                  >
-                    <Grid item xs={12} sm={6}>
-                      {leftColumnSubjects.map((sub) => renderSubjectCard(sub))}
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      {rightColumnSubjects.map((sub) => renderSubjectCard(sub))}
-                    </Grid>
-                  </Grid>
+                  {validSubjects.map((sub) => renderSubjectCard(sub))}
                 </Box>
               );
             })()}
@@ -302,7 +289,7 @@ export default function BangPhanCongVaMonHoc({
               <TableCell sx={{ fontWeight: 700, bgcolor: "#f8fafc", width: "70px" }}>STT</TableCell>
               <TableCell sx={{ fontWeight: 700, bgcolor: "#f8fafc", width: "320px" }}>Họ và tên</TableCell>
               <TableCell sx={{ fontWeight: 700, bgcolor: "#f8fafc" }}>
-                {currentTab === 0 ? "Lớp chủ nhiệm" : currentTab === 1 ? "Môn học" : "Môn / Khối phụ trách"}
+                {currentTab === 0 ? "Lớp" : currentTab === 1 ? "Môn" : "Môn"}
               </TableCell>
             </TableRow>
           </TableHead>
