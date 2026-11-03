@@ -41,8 +41,10 @@ export default function TeamSummaryDialog({
       fullWidth
       PaperProps={{
         sx: {
-          height: isMobile || isFullScreen ? "100%" : "85vh",
-          borderRadius: isMobile || isFullScreen ? 0 : "16px",
+          width: isMobile ? "95%" : "90%",
+          maxWidth: isMobile ? "95%" : "900px", // Giới hạn chiều rộng tối đa trên PC
+          height: isMobile || isFullScreen ? "85%" : "85vh",
+          borderRadius: isMobile || isFullScreen ? 3 : "16px",
           display: "flex",
           flexDirection: "column",
         },
@@ -55,7 +57,7 @@ export default function TeamSummaryDialog({
           justifyContent: "space-between",
           alignItems: "center",
           px: 2,
-          py: 1,
+          py: 2,
           bgcolor: "#ffffff",
           borderBottom: "1px solid #e2e8f0",
           flexShrink: 0,

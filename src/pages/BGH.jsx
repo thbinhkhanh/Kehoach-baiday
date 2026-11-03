@@ -43,7 +43,7 @@ import FileListCardBGH from "../components/FileListCardBGH";
 
 import { useBGHStats } from "../contexts/BGHStatsContext";
 import BghRequestManageDialog from "../dialogs/BghRequestManageDialog";
-import MobileStatsSummaryDialog from "../dialogs/MobileStatsSummaryDialog";
+import MobileStatsSummaryDialogBGH from "../dialogs/MobileStatsSummaryDialogBGH";
 import TeacherAdjustmentDialog from "../dialogs/TeacherAdjustmentDialog";
 
 import PersonRounded from "@mui/icons-material/PersonRounded";
@@ -1491,7 +1491,7 @@ export default function BGH({ user }) {
       )}
 
       {/* 📱 DIALOG HIỂN THỊ BẢNG NỔI TRÊN ĐIỆN THOẠI KHI BẤM NÚT CÁ NHÂN HOẶC TOÀN TRƯỜNG */}
-      <MobileStatsSummaryDialog
+      <MobileStatsSummaryDialogBGH
         viewMode={viewMode}
         setViewMode={setViewMode}
         isMobile={isMobile}

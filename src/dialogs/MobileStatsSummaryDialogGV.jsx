@@ -37,7 +37,7 @@ export default function TeacherStatsDialog({
           width: isMobile ? "100%" : "95vw",
           maxWidth: "1000px", // 👉 Giới hạn độ rộng tối đa để dialog gọn gàng ở giữa màn hình
           height: isMobile ? "100%" : "85vh",
-          borderRadius: isMobile ? 0 : "16px",
+          borderRadius: isMobile ? 0 : "12px",
           backgroundColor: "#ffffff",
           overflow: "hidden",
         },
@@ -46,7 +46,7 @@ export default function TeacherStatsDialog({
       {/* Thanh tiêu đề với đường gạch ngăn cách */}
       <Box
         sx={{
-          p: 2,
+          p: 1,
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",

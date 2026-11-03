@@ -28,7 +28,7 @@ import FileListCard from "../components/FileListCard";
 
 import ConfirmDeleteDialog from "../dialogs/ConfirmDeleteDialog";
 import EditLessonPlanDialog from "../dialogs/EditLessonPlanDialog";
-import TeacherStatsDialog from "../dialogs/TeacherStatsDialog";
+import TeacherStatsDialog from "../dialogs/MobileStatsSummaryDialogGV";
 import BghRequestDialog from "../dialogs/BghRequestDialog";
 import TeacherAdjustmentDialog from "../dialogs/TeacherAdjustmentDialog";
 import TeamSummaryDialog from "../dialogs/TeamSummaryDialog";

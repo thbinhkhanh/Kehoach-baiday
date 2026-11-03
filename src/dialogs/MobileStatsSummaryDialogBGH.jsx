@@ -4,7 +4,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import SchoolSummaryView from "../components/SchoolSummaryView";
 import TeacherStatsView from "../components/TeacherStatsView";
 
-export default function MobileStatsSummaryDialog({
+export default function MobileStatsSummaryDialogBGH({
   viewMode,
   setViewMode,
   isMobile,
@@ -34,20 +34,20 @@ export default function MobileStatsSummaryDialog({
       fullWidth
       PaperProps={{
         sx: {
-          width: isMobile ? "100%" : "90%",
-          maxWidth: isMobile ? "100%" : "900px", // Giới hạn chiều rộng tối đa trên PC
+          width: isMobile ? "95%" : "90%",
+          maxWidth: isMobile ? "95%" : "900px", // Giới hạn chiều rộng tối đa trên PC
           height: isMobile ? "100%" : "85vh", // Chiều cao cố định trên PC
-          maxHeight: isMobile ? "100vh" : "85vh",
+          maxHeight: isMobile ? "85vh" : "85vh",
           // 🌟 Căn giữa tuyệt đối trên màn hình PC bằng margin: "auto"
           margin: isMobile ? 0 : "auto", 
-          borderRadius: isMobile ? 0 : "16px",
+          borderRadius: isMobile ? 3 : "16px",
           display: "flex",
           flexDirection: "column",
           backgroundColor: "#ffffff",
         },
       }}
     >
-      <Box sx={{ py: 1, px: 2, display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #eee", backgroundColor: "#fff" }}>
+      <Box sx={{ py: 2, px: 2, display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #eee", backgroundColor: "#fff" }}>
         <Typography variant="subtitle1" fontWeight="bold" color="primary">
           {viewMode === "summary" 
             ? `📊 TỔNG HỢP TOÀN TRƯỜNG` 
