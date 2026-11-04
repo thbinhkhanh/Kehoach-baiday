@@ -7,6 +7,21 @@ import {
   useTheme,
   useMediaQuery,
 } from "@mui/material";
+// Import đầy đủ các biểu tượng MUI cho toàn bộ môn học tiểu học
+import CalculateIcon from '@mui/icons-material/Calculate'; // Toán
+import PublicIcon from '@mui/icons-material/Public'; // Lịch sử và Địa lí
+import DevicesIcon from '@mui/icons-material/Devices'; // Công nghệ
+import ScienceIcon from '@mui/icons-material/Science'; // Khoa học
+import EmojiPeopleIcon from '@mui/icons-material/EmojiPeople'; // Hoạt động trải nghiệm
+import MenuBookIcon from '@mui/icons-material/MenuBook'; // Tiếng Việt
+import LanguageIcon from '@mui/icons-material/Language'; // Tiếng Anh
+import FavoriteIcon from '@mui/icons-material/Favorite'; // Đạo đức
+import NatureIcon from '@mui/icons-material/Nature'; // Tự nhiên và Xã hội
+import MusicNoteIcon from '@mui/icons-material/MusicNote'; // Âm nhạc
+import PaletteIcon from '@mui/icons-material/Palette'; // Mỹ thuật
+import FitnessCenterIcon from '@mui/icons-material/FitnessCenter'; // Giáo dục thể chất
+import ComputerIcon from '@mui/icons-material/Computer'; // Tin học
+import SchoolIcon from '@mui/icons-material/School'; // Mặc định chung
 
 export default function TeacherStatsView({
   title,
@@ -36,7 +51,7 @@ export default function TeacherStatsView({
       return "HĐTN";
     }
     if (lower.includes("tự nhiên và xã hội")) {
-      return "TN-XN";
+      return "TN-XH";
     }
     if (lower.includes("giáo dục thể chất")) {
       return "GDTC";
@@ -47,7 +62,53 @@ export default function TeacherStatsView({
     return trimmed;
   };
 
-  // 🌟 Lọc các lớp hợp lệ và tự động quy đổi lớp chi tiết (vd: "4.3" -> "4") để khớp với dữ liệu lưu theo khối
+  // Hàm ánh xạ biểu tượng to hơn kèm nền màu riêng cho từng môn học
+  const getSubjectIconAndColor = (subjectName) => {
+    const lower = (subjectName || "").toLowerCase();
+
+    if (lower.includes("toán")) {
+      return { icon: <CalculateIcon sx={{ fontSize: 26, color: '#1976d2' }} />, color: '#e3f2fd' };
+    }
+    if (lower.includes("tiếng việt")) {
+      return { icon: <MenuBookIcon sx={{ fontSize: 26, color: '#0288d1' }} />, color: '#e0f7fa' };
+    }
+    if (lower.includes("tiếng anh")) {
+      return { icon: <LanguageIcon sx={{ fontSize: 26, color: '#0284c7' }} />, color: '#e0f2fe' };
+    }
+    if (lower.includes("đạo đức")) {
+      return { icon: <FavoriteIcon sx={{ fontSize: 26, color: '#e11d48' }} />, color: '#ffe4e6' };
+    }
+    if (lower.includes("tự nhiên và xã hội") || lower.includes("tự nhiên xã hội")) {
+      return { icon: <NatureIcon sx={{ fontSize: 26, color: '#16a34a' }} />, color: '#dcfce7' };
+    }
+    if (lower.includes("khoa học")) {
+      return { icon: <ScienceIcon sx={{ fontSize: 26, color: '#9333ea' }} />, color: '#f3e8ff' };
+    }
+    if (lower.includes("lịch sử") || lower.includes("địa lí") || lower.includes("địa lý") || lower.includes("lịch sử và địa lí")) {
+      return { icon: <PublicIcon sx={{ fontSize: 26, color: '#15803d' }} />, color: '#f0fdf4' };
+    }
+    if (lower.includes("tin học")) {
+      return { icon: <ComputerIcon sx={{ fontSize: 26, color: '#4f46e5' }} />, color: '#eef2ff' };
+    }
+    if (lower.includes("công nghệ")) {
+      return { icon: <DevicesIcon sx={{ fontSize: 26, color: '#ea580c' }} />, color: '#ffedd5' };
+    }
+    if (lower.includes("giáo dục thể chất") || lower.includes("thể chất")) {
+      return { icon: <FitnessCenterIcon sx={{ fontSize: 26, color: '#0d9488' }} />, color: '#ccfbf1' };
+    }
+    if (lower.includes("âm nhạc")) {
+      return { icon: <MusicNoteIcon sx={{ fontSize: 26, color: '#db2777' }} />, color: '#fce7f3' };
+    }
+    if (lower.includes("mỹ thuật")) {
+      return { icon: <PaletteIcon sx={{ fontSize: 26, color: '#ca8a04' }} />, color: '#fef9c3' };
+    }
+    if (lower.includes("hoạt động trải nghiệm") || lower.includes("hđtn")) {
+      return { icon: <EmojiPeopleIcon sx={{ fontSize: 26, color: '#dc2626' }} />, color: '#fee2e2' };
+    }
+
+    return { icon: <SchoolIcon sx={{ fontSize: 26, color: '#475569' }} />, color: '#f1f5f9' };
+  };
+
   // Lọc danh sách lớp được phân công hợp lệ
   const allowedClassesFiltered = (teacherAllowedClasses || []).filter(
     (c) => !String(c).toLowerCase().includes("username")
@@ -79,7 +140,7 @@ export default function TeacherStatsView({
     });
   }
 
-  // Hàm tính tổng số bài theo dòng (hỗ trợ đọc cả key lớp chi tiết như "4.3" hoặc khối như "4")
+  // Hàm tính tổng số bài theo dòng
   const getRowTotal = (row) => {
     let total = 0;
     dynamicColumns.forEach((col) => {
@@ -90,16 +151,22 @@ export default function TeacherStatsView({
     return total;
   };
 
-  // Lọc bỏ các môn học có tổng số bài nộp bằng 0
-  const filteredStatsData = statsData.filter((row) => getRowTotal(row) > 0);
+  // Lọc bỏ các môn học có tổng số bài nộp bằng 0 và SẮP XẾP THEO TÊN MÔN HỌC (alphabet)
+  const filteredStatsData = statsData
+    .filter((row) => getRowTotal(row) > 0)
+    .sort((a, b) => {
+      const nameA = (a.subject || "").trim();
+      const nameB = (b.subject || "").trim();
+      return nameA.localeCompare(nameB, 'vi', { sensitivity: 'base' });
+    });
 
-  // Tính tổng toàn bộ bài nộp của giáo viên (từ danh sách đã lọc)
+  // Tính tổng toàn bộ bài nộp của giáo viên
   const grandTotal = filteredStatsData.reduce((sum, row) => sum + getRowTotal(row), 0);
 
   return (
     <Box 
       sx={{ 
-        p: { xs: 1, sm: 1.5 }, // 👉 Đã giảm padding tổng thể (trên, dưới, trái, phải)
+        p: { xs: 1, sm: 1.5 }, 
         overflowY: "auto", 
         flex: 1, 
         bgcolor: "#f8fafc", 
@@ -110,13 +177,12 @@ export default function TeacherStatsView({
         boxSizing: "border-box"
       }}
     >
-      {/* Thẻ bọc ngoài thu gọn khoảng cách (gap: 1.5 thay vì 2) */}
       <Box sx={{ width: "100%", maxWidth: "900px", display: "flex", flexDirection: "column", gap: 1.5 }}>
         
         {/* Banner Tiêu đề & Thẻ chỉ số thu gọn */}
         <Card
           sx={{
-            p: 1.5, // 👉 Giảm padding bên trong Card tiêu đề
+            p: 1.5,
             background: "linear-gradient(135deg, #f0f7ff 0%, #e1effe 100%)",
             color: "#1e293b",
             borderRadius: 2,
@@ -125,15 +191,11 @@ export default function TeacherStatsView({
           }}
         >
           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1 }}>
-            {/* Tiêu đề linh hoạt: Tách phần tên/nhóm để tô màu xanh */}
             <Typography 
               variant="h6" 
               sx={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 1, fontSize: "15px", color: "#1e293b", m: 0 }}
             >
-              <Box 
-                component="span" 
-                sx={{ display: { xs: "none", sm: "inline" } }}
-              >
+              <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
                 👤
               </Box>
               {(() => {
@@ -194,7 +256,7 @@ export default function TeacherStatsView({
               })()}
             </Typography>
 
-            {/* Cụm 3 thẻ thống kê trên cùng một dòng trên điện thoại */}
+            {/* Cụm 3 thẻ thống kê trên cùng một dòng */}
             <Box sx={{ display: "flex", gap: 1, flexWrap: "nowrap", width: { xs: "100%", sm: "auto" }, alignItems: "center" }}>
               
               {/* Thẻ Tổng */}
@@ -215,7 +277,7 @@ export default function TeacherStatsView({
                 </Typography>
               </Box>
 
-              {/* Thẻ Lớp/Khối: Cho phép giãn rộng linh hoạt (flex: 1) để hiển thị trọn vẹn tên các lớp */}
+              {/* Thẻ Lớp/Khối */}
               <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5, px: 1.2, py: 0.4, borderRadius: 1.5, bgcolor: "rgba(255, 255, 255, 0.9)", border: "1px solid #cbd5e1", flex: 1, minWidth: 0, overflow: "hidden" }}>
                 <span>🏫</span>
                 <Typography variant="body2" sx={{ color: "#475569", fontSize: { xs: "0.75rem", sm: "0.85rem" }, whiteSpace: "nowrap" }}>Lớp:</Typography>
@@ -299,6 +361,8 @@ export default function TeacherStatsView({
                   <tbody>
                     {filteredStatsData.map((row, idx) => {
                       const rowTotal = getRowTotal(row);
+                      const { icon, color } = getSubjectIconAndColor(row.subject);
+
                       return (
                         <Box 
                           component="tr" 
@@ -320,10 +384,26 @@ export default function TeacherStatsView({
                               whiteSpace: "nowrap"
                             }}
                           >
-                            📖 {getDisplaySubjectName(row.subject)}
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                              {/* Khung chứa icon to hơn và có màu nền riêng */}
+                              <Box
+                                sx={{
+                                  p: 1,
+                                  borderRadius: 1.5,
+                                  bgcolor: color,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  flexShrink: 0,
+                                }}
+                              >
+                                {icon}
+                              </Box>
+                              <span>{getDisplaySubjectName(row.subject)}</span>
+                            </Box>
                           </Box>
 
-                          {/* Ẩn dữ liệu cột lớp/khối tương ứng ở body nếu chỉ có 1 cột */}
+                          {/* Dữ liệu cột lớp/khối tương ứng */}
                           {dynamicColumns.length > 1 && dynamicColumns.map((col) => {
                             const count = row[col] || 0;
                             return (

@@ -301,7 +301,7 @@ export default function Dashboard({ onSelectModule }) {
             color: "#94a3b8",
           }}
         >
-          Phiên bản: v1.1.2
+          Phiên bản: v1.1.3
         </Typography>
       </Box>
     </Box>
