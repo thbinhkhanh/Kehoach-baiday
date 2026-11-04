@@ -42,7 +42,7 @@ export default function TeamSummaryDialog({
       PaperProps={{
         sx: {
           width: isMobile ? "95%" : "90%",
-          maxWidth: isMobile ? "95%" : "900px", // Giới hạn chiều rộng tối đa trên PC
+          maxWidth: isMobile ? "95%" : "1200px", // Giới hạn chiều rộng tối đa trên PC
           height: isMobile || isFullScreen ? "85%" : "85vh",
           borderRadius: isMobile || isFullScreen ? 3 : "16px",
           display: "flex",
