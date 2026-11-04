@@ -22,7 +22,7 @@ import PaletteIcon from '@mui/icons-material/Palette'; // Mỹ thuật
 import FitnessCenterIcon from '@mui/icons-material/FitnessCenter'; // Giáo dục thể chất
 import ComputerIcon from '@mui/icons-material/Computer'; // Tin học
 import SchoolIcon from '@mui/icons-material/School'; // Mặc định chung
-import DescriptionIcon from '@mui/icons-material/Description'; // Biên bản / Tài liệu văn bản
+import DescriptionIcon from '@mui/icons-material/Description'; // Biên bản / Văn bản hành chính
 import AssignmentIcon from '@mui/icons-material/Assignment'; // Đề kiểm tra / Bài tập
 
 export default function TeacherStatsView({
@@ -64,65 +64,65 @@ export default function TeacherStatsView({
     return trimmed;
   };
 
-  // Hàm ánh xạ biểu tượng kèm nền màu riêng (Hỗ trợ môn học, biên bản và đề kiểm tra)
+  // Hàm ánh xạ biểu tượng kèm nền màu riêng
   const getSubjectIconAndColor = (subjectName) => {
     const lower = (subjectName || "").toLowerCase();
 
-    // 🌟 Nhóm Biên bản / Văn bản hành chính
     if (lower.includes("biên bản") || lower.includes("sinh hoạt chuyên môn")) {
-      return { icon: <DescriptionIcon sx={{ fontSize: 24, color: '#0284c7' }} />, color: '#e0f2fe' };
+      return { icon: <DescriptionIcon sx={{ fontSize: 26, color: '#0284c7' }} />, color: '#e0f2fe' };
     }
-
-    // 🌟 Nhóm Đề kiểm tra / Khảo sát
     if (lower.includes("đề") || lower.includes("kiểm tra") || lower.includes("ktđk")) {
-      return { icon: <AssignmentIcon sx={{ fontSize: 24, color: '#d97706' }} />, color: '#fef3c7' };
+      return { icon: <AssignmentIcon sx={{ fontSize: 26, color: '#d97706' }} />, color: '#fef3c7' };
     }
-
-    // Các môn học tiểu học thông thường
     if (lower.includes("toán")) {
-      return { icon: <CalculateIcon sx={{ fontSize: 24, color: '#1976d2' }} />, color: '#e3f2fd' };
+      return { icon: <CalculateIcon sx={{ fontSize: 26, color: '#1976d2' }} />, color: '#e3f2fd' };
     }
     if (lower.includes("tiếng việt")) {
-      return { icon: <MenuBookIcon sx={{ fontSize: 24, color: '#0288d1' }} />, color: '#e0f7fa' };
+      return { icon: <MenuBookIcon sx={{ fontSize: 26, color: '#0288d1' }} />, color: '#e0f7fa' };
     }
     if (lower.includes("tiếng anh")) {
-      return { icon: <LanguageIcon sx={{ fontSize: 24, color: '#0284c7' }} />, color: '#e0f2fe' };
+      return { icon: <LanguageIcon sx={{ fontSize: 26, color: '#0284c7' }} />, color: '#e0f2fe' };
     }
     if (lower.includes("đạo đức")) {
-      return { icon: <FavoriteIcon sx={{ fontSize: 24, color: '#e11d48' }} />, color: '#ffe4e6' };
+      return { icon: <FavoriteIcon sx={{ fontSize: 26, color: '#e11d48' }} />, color: '#ffe4e6' };
     }
     if (lower.includes("tự nhiên và xã hội") || lower.includes("tự nhiên xã hội")) {
-      return { icon: <NatureIcon sx={{ fontSize: 24, color: '#16a34a' }} />, color: '#dcfce7' };
+      return { icon: <NatureIcon sx={{ fontSize: 26, color: '#16a34a' }} />, color: '#dcfce7' };
     }
     if (lower.includes("khoa học")) {
-      return { icon: <ScienceIcon sx={{ fontSize: 24, color: '#9333ea' }} />, color: '#f3e8ff' };
+      return { icon: <ScienceIcon sx={{ fontSize: 26, color: '#9333ea' }} />, color: '#f3e8ff' };
     }
     if (lower.includes("lịch sử") || lower.includes("địa lí") || lower.includes("địa lý") || lower.includes("lịch sử và địa lí")) {
-      return { icon: <PublicIcon sx={{ fontSize: 24, color: '#15803d' }} />, color: '#f0fdf4' };
+      return { icon: <PublicIcon sx={{ fontSize: 26, color: '#15803d' }} />, color: '#f0fdf4' };
     }
     if (lower.includes("tin học")) {
-      return { icon: <ComputerIcon sx={{ fontSize: 24, color: '#4f46e5' }} />, color: '#eef2ff' };
+      return { icon: <ComputerIcon sx={{ fontSize: 26, color: '#4f46e5' }} />, color: '#eef2ff' };
     }
     if (lower.includes("công nghệ")) {
-      return { icon: <DevicesIcon sx={{ fontSize: 24, color: '#ea580c' }} />, color: '#ffedd5' };
+      return { icon: <DevicesIcon sx={{ fontSize: 26, color: '#ea580c' }} />, color: '#ffedd5' };
     }
     if (lower.includes("giáo dục thể chất") || lower.includes("thể chất")) {
-      return { icon: <FitnessCenterIcon sx={{ fontSize: 24, color: '#0d9488' }} />, color: '#ccfbf1' };
+      return { icon: <FitnessCenterIcon sx={{ fontSize: 26, color: '#0d9488' }} />, color: '#ccfbf1' };
     }
     if (lower.includes("âm nhạc")) {
-      return { icon: <MusicNoteIcon sx={{ fontSize: 24, color: '#db2777' }} />, color: '#fce7f3' };
+      return { icon: <MusicNoteIcon sx={{ fontSize: 26, color: '#db2777' }} />, color: '#fce7f3' };
     }
     if (lower.includes("mỹ thuật")) {
-      return { icon: <PaletteIcon sx={{ fontSize: 24, color: '#ca8a04' }} />, color: '#fef9c3' };
+      return { icon: <PaletteIcon sx={{ fontSize: 26, color: '#ca8a04' }} />, color: '#fef9c3' };
     }
     if (lower.includes("hoạt động trải nghiệm") || lower.includes("hđtn")) {
-      return { icon: <EmojiPeopleIcon sx={{ fontSize: 24, color: '#dc2626' }} />, color: '#fee2e2' };
+      return { icon: <EmojiPeopleIcon sx={{ fontSize: 26, color: '#dc2626' }} />, color: '#fee2e2' };
     }
 
-    return { icon: <SchoolIcon sx={{ fontSize: 24, color: '#475569' }} />, color: '#f1f5f9' };
+    return { icon: <SchoolIcon sx={{ fontSize: 26, color: '#475569' }} />, color: '#f1f5f9' };
   };
 
-  // Thu thập tất cả các cột có dữ liệu thực tế từ statsData
+  // Lọc danh sách lớp phân công hợp lệ
+  const allowedClassesFiltered = (teacherAllowedClasses || []).filter(
+    (c) => !String(c).toLowerCase().includes("username")
+  );
+
+  // Thu thập tất cả các cột có dữ liệu thực tế từ statsData (Firestore)
   const activeColumnsSet = new Set();
   statsData.forEach((row) => {
     Object.keys(row).forEach((key) => {
@@ -135,28 +135,29 @@ export default function TeacherStatsView({
         lowerKey !== "key"
       ) {
         const count = Number(row[key] || 0);
-        if (count > 0 || row[key] !== undefined) {
+        if (count > 0) {
           activeColumnsSet.add(String(key).trim());
         }
       }
     });
   });
 
-  let dynamicColumns = Array.from(activeColumnsSet).sort((a, b) => {
-    const numA = parseInt(a, 10);
-    const numB = parseInt(b, 10);
-    if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
-    return String(a).localeCompare(String(b));
-  });
-
-  const allowedClassesFiltered = (teacherAllowedClasses || []).filter(
-    (c) => !String(c).toLowerCase().includes("username")
-  );
-  if (allowedClassesFiltered.length > 0 && activeTab === 0 && dynamicColumns.length === 0) {
+  // 🌟 XỬ LÝ THÔNG MINH: Nếu có lớp phân công cụ thể (như 4.3) thì dùng, nếu không (hoặc dữ liệu lưu theo khối/tổ bộ môn) sẽ tự động lấy các cột có dữ liệu thực tế từ database
+  let dynamicColumns = [];
+  if (allowedClassesFiltered.length > 0 && allowedClassesFiltered.some(c => String(c).includes("."))) {
+    dynamicColumns = allowedClassesFiltered;
+  } else if (activeColumnsSet.size > 0) {
+    dynamicColumns = Array.from(activeColumnsSet).sort((a, b) => {
+      const numA = parseFloat(a);
+      const numB = parseFloat(b);
+      if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+      return String(a).localeCompare(String(b), 'vi', { numeric: true });
+    });
+  } else if (allowedClassesFiltered.length > 0) {
     dynamicColumns = allowedClassesFiltered;
   }
 
-  // Hàm tính tổng số bài theo dòng
+  // Hàm tính tổng số bài theo dòng (hỗ trợ đọc linh hoạt cả key lớp chi tiết, khối, hoặc trường total)
   const getRowTotal = (row) => {
     if (row.total !== undefined && row.total !== null && !isNaN(row.total)) {
       return Number(row.total);
@@ -166,11 +167,12 @@ export default function TeacherStatsView({
     if (dynamicColumns.length > 0) {
       dynamicColumns.forEach((col) => {
         const gradePrefix = String(col).split(".")[0];
-        const count = Number((row[col] ?? row[gradePrefix] ?? 0));
+        const count = Number(row[col] ?? row[gradePrefix] ?? 0);
         total += count;
       });
     }
 
+    // Fallback quét toàn bộ số liệu trong dòng nếu dynamicColumns chưa khớp
     if (total === 0) {
       Object.keys(row).forEach((key) => {
         const lowerKey = String(key).toLowerCase();
@@ -189,6 +191,7 @@ export default function TeacherStatsView({
     return total;
   };
 
+  // Lọc bỏ các môn học có tổng số bài nộp bằng 0 và sắp xếp theo tên môn học (alphabet)
   const filteredStatsData = statsData
     .filter((row) => getRowTotal(row) > 0)
     .sort((a, b) => {
@@ -197,6 +200,7 @@ export default function TeacherStatsView({
       return nameA.localeCompare(nameB, 'vi', { sensitivity: 'base' });
     });
 
+  // Tính tổng toàn bộ bài nộp của giáo viên (từ danh sách đã lọc)
   const grandTotal = filteredStatsData.reduce((sum, row) => sum + getRowTotal(row), 0);
 
   return (
@@ -440,7 +444,8 @@ export default function TeacherStatsView({
 
                           {/* Dữ liệu cột lớp/khối tương ứng */}
                           {dynamicColumns.length > 1 && dynamicColumns.map((col) => {
-                            const count = Number(row[col] ?? row[String(col).split(".")[0]] ?? 0);
+                            const gradePrefix = String(col).split(".")[0];
+                            const count = Number(row[col] ?? row[gradePrefix] ?? 0);
                             return (
                               <Box 
                                 component="td" 
