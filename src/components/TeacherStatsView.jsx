@@ -48,53 +48,44 @@ export default function TeacherStatsView({
   };
 
   // 🌟 Lọc các lớp hợp lệ và tự động quy đổi lớp chi tiết (vd: "4.3" -> "4") để khớp với dữ liệu lưu theo khối
+  // Lọc danh sách lớp được phân công hợp lệ
   const allowedClassesFiltered = (teacherAllowedClasses || []).filter(
     (c) => !String(c).toLowerCase().includes("username")
   );
 
-  // Thu thập thêm các khóa cột thực tế đang tồn tại bên trong statsData từ Firestore
-  const statsKeysSet = new Set();
-  statsData.forEach((row) => {
-    Object.keys(row).forEach((key) => {
-      if (key !== "subject" && key !== "total" && key !== "id" && key !== "username") {
-        statsKeysSet.add(String(key));
-      }
-    });
-  });
-
-  // Chuẩn hóa danh sách lớp phân công về dạng số Khối (vd: "4.3" -> "4")
-  const normalizedAllowedGrades = allowedClassesFiltered.map((c) => {
-    const trimmed = String(c).trim();
-    return trimmed.split(".")[0].replace(/[^0-9]/g, "") || trimmed;
-  });
-
-  // Kết hợp cả hai nguồn, loại bỏ trùng lặp và SẮP XẾP theo thứ tự tăng dần (3, 4, 5...)
-  // 🌟 CHỈ LẤY CÁC CỘT KHỐI/LỚP CÓ ÍT NHẤT 1 BÀI NỘP TRÊN TOÀN BỘ DỮ LIỆU
+  // Thu thập các cột có dữ liệu thực tế từ statsData (Firestore)
   const activeColumnsSet = new Set();
   statsData.forEach((row) => {
     Object.keys(row).forEach((key) => {
       if (key !== "subject" && key !== "total" && key !== "id" && key !== "username") {
         const count = Number(row[key] || 0);
         if (count > 0) {
-          activeColumnsSet.add(String(key));
+          activeColumnsSet.add(String(key).trim());
         }
       }
     });
   });
 
-  // Chuyển thành mảng và sắp xếp thứ tự tăng dần (VD: 3, 4...)
-  let dynamicColumns = Array.from(activeColumnsSet).sort((a, b) => {
-    const numA = parseInt(a, 10);
-    const numB = parseInt(b, 10);
-    if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
-    return String(a).localeCompare(String(b));
-  });
+  // Xác định danh sách cột hiển thị: Ưu tiên lớp phân công, nếu không có lấy theo dữ liệu kho
+  let dynamicColumns = [];
+  if (allowedClassesFiltered.length > 0) {
+    dynamicColumns = allowedClassesFiltered;
+  } else {
+    dynamicColumns = Array.from(activeColumnsSet).sort((a, b) => {
+      const numA = parseInt(a, 10);
+      const numB = parseInt(b, 10);
+      if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+      return String(a).localeCompare(String(b));
+    });
+  }
 
-  // Hàm tính tổng số bài theo dòng môn học
+  // Hàm tính tổng số bài theo dòng (hỗ trợ đọc cả key lớp chi tiết như "4.3" hoặc khối như "4")
   const getRowTotal = (row) => {
     let total = 0;
     dynamicColumns.forEach((col) => {
-      total += Number(row[col] || 0);
+      const gradePrefix = String(col).split(".")[0];
+      const count = Number((row[col] ?? row[gradePrefix]) || 0);
+      total += count;
     });
     return total;
   };
@@ -204,9 +195,10 @@ export default function TeacherStatsView({
             </Typography>
 
             {/* Cụm 3 thẻ thống kê trên cùng một dòng trên điện thoại */}
-            <Box sx={{ display: "flex", gap: 0.8, flexWrap: "nowrap", width: { xs: "100%", sm: "auto" } }}>
+            <Box sx={{ display: "flex", gap: 1, flexWrap: "nowrap", width: { xs: "100%", sm: "auto" }, alignItems: "center" }}>
+              
               {/* Thẻ Tổng */}
-              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5, px: 1, py: 0.4, borderRadius: 1.5, bgcolor: "rgba(255, 255, 255, 0.9)", border: "1px solid #cbd5e1", flex: 1, minWidth: 0 }}>
+              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5, px: 1, py: 0.4, borderRadius: 1.5, bgcolor: "rgba(255, 255, 255, 0.9)", border: "1px solid #cbd5e1", flex: "0 0 auto", minWidth: 0 }}>
                 <span>📦</span>
                 <Typography variant="body2" sx={{ color: "#475569", fontSize: { xs: "0.75rem", sm: "0.85rem" }, whiteSpace: "nowrap" }}>Tổng:</Typography>
                 <Typography variant="body1" fontWeight="bold" sx={{ color: "#1976d2", fontSize: { xs: "0.85rem", sm: "0.95rem" }, whiteSpace: "nowrap" }}>
@@ -215,7 +207,7 @@ export default function TeacherStatsView({
               </Box>
 
               {/* Thẻ Môn */}
-              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5, px: 1, py: 0.4, borderRadius: 1.5, bgcolor: "rgba(255, 255, 255, 0.9)", border: "1px solid #cbd5e1", flex: 1, minWidth: 0 }}>
+              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5, px: 1, py: 0.4, borderRadius: 1.5, bgcolor: "rgba(255, 255, 255, 0.9)", border: "1px solid #cbd5e1", flex: "0 0 auto", minWidth: 0 }}>
                 <span>📚</span>
                 <Typography variant="body2" sx={{ color: "#475569", fontSize: { xs: "0.75rem", sm: "0.85rem" }, whiteSpace: "nowrap" }}>Môn:</Typography>
                 <Typography variant="body1" fontWeight="bold" sx={{ color: "#4f46e5", fontSize: { xs: "0.85rem", sm: "0.95rem" }, whiteSpace: "nowrap" }}>
@@ -223,14 +215,26 @@ export default function TeacherStatsView({
                 </Typography>
               </Box>
 
-              {/* Thẻ Lớp/Khối */}
-              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5, px: 1, py: 0.4, borderRadius: 1.5, bgcolor: "rgba(255, 255, 255, 0.9)", border: "1px solid #cbd5e1", flex: 1, minWidth: 0, overflow: "hidden" }}>
+              {/* Thẻ Lớp/Khối: Cho phép giãn rộng linh hoạt (flex: 1) để hiển thị trọn vẹn tên các lớp */}
+              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5, px: 1.2, py: 0.4, borderRadius: 1.5, bgcolor: "rgba(255, 255, 255, 0.9)", border: "1px solid #cbd5e1", flex: 1, minWidth: 0, overflow: "hidden" }}>
                 <span>🏫</span>
                 <Typography variant="body2" sx={{ color: "#475569", fontSize: { xs: "0.75rem", sm: "0.85rem" }, whiteSpace: "nowrap" }}>Lớp:</Typography>
-                <Typography variant="body1" fontWeight="bold" sx={{ color: "#16a34a", fontSize: { xs: "0.85rem", sm: "0.95rem" }, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <Typography 
+                  variant="body1" 
+                  fontWeight="bold" 
+                  sx={{ 
+                    color: "#16a34a", 
+                    fontSize: { xs: "0.85rem", sm: "0.95rem" }, 
+                    overflow: "hidden", 
+                    textOverflow: "ellipsis", 
+                    whiteSpace: "nowrap" 
+                  }}
+                  title={dynamicColumns.join(", ")}
+                >
                   {dynamicColumns.join(", ") || "Không có"}
                 </Typography>
               </Box>
+
             </Box>
           </Box>
         </Card>
