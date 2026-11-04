@@ -257,7 +257,7 @@ export default function TeacherStatsView({
                       <Box 
                         component="th" 
                         sx={{ 
-                          p: { xs: 0.8, sm: 1.2 }, // 👉 Giảm padding ô tiêu đề bảng
+                          p: { xs: 0.8, sm: 1.2 }, 
                           textAlign: "left", 
                           color: "#475569", 
                           fontWeight: 700, 
@@ -267,7 +267,9 @@ export default function TeacherStatsView({
                       >
                         Môn học
                       </Box>
-                      {dynamicColumns.map((col) => (
+
+                      {/* Ẩn cột chi tiết lớp/khối nếu chỉ có đúng 1 cột */}
+                      {dynamicColumns.length > 1 && dynamicColumns.map((col) => (
                         <Box 
                           component="th" 
                           key={col} 
@@ -281,9 +283,10 @@ export default function TeacherStatsView({
                             whiteSpace: "nowrap" 
                           }}
                         >
-                          {dynamicColumns.length === 1 ? "Số bài nộp" : (String(col).toLowerCase().includes("khối") || String(col).length === 1 ? `Khối ${col}` : `Lớp ${col}`)}
+                          {String(col).toLowerCase().includes("khối") || String(col).length === 1 ? `Khối ${col}` : `Lớp ${col}`}
                         </Box>
                       ))}
+
                       <Box component="th" sx={{ p: { xs: 0.8, sm: 1.2 }, color: "#dc2626", fontWeight: 700, fontSize: "0.9rem", width: "14%", whiteSpace: "nowrap" }}>
                         Tổng
                       </Box>
@@ -305,7 +308,7 @@ export default function TeacherStatsView({
                           <Box 
                             component="td" 
                             sx={{ 
-                              p: { xs: 0.8, sm: 1.2 }, // 👉 Giảm padding các dòng dữ liệu
+                              p: { xs: 0.8, sm: 1.2 }, 
                               textAlign: "left", 
                               fontWeight: "700", 
                               color: "#1e293b", 
@@ -316,7 +319,8 @@ export default function TeacherStatsView({
                             📖 {getDisplaySubjectName(row.subject)}
                           </Box>
 
-                          {dynamicColumns.map((col) => {
+                          {/* Ẩn dữ liệu cột lớp/khối tương ứng ở body nếu chỉ có 1 cột */}
+                          {dynamicColumns.length > 1 && dynamicColumns.map((col) => {
                             const count = row[col] || 0;
                             return (
                               <Box 

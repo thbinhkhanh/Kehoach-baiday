@@ -175,7 +175,7 @@ function AppContent() {
                     fontWeight: 600,
                     fontSize: 14,
                     borderBottom: "1px solid #eee",
-                    color: "#d32f2f",
+                    color: "#1976d2",
                   }}
                 >
                   {currentUser?.username ? "TÀI KHOẢN" : "HỆ THỐNG"}
