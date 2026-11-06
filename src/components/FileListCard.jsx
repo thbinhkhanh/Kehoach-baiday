@@ -93,13 +93,15 @@ export default function FileListCard({
                 key={file.id || index}
                 sx={{
                   mb: 1,
-                  border: hasAdjustmentsData ? "1.5px solid #1976d2" : "1px solid #ddd",
-                  borderRadius: 1,
+                  // 🌟 Cố định viền xám nhẹ tiêu chuẩn cho tất cả các bài (không đổi màu xanh nữa)
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "10px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
                   p: 0,
-                  bgcolor: isSelected ? "rgba(25,118,210,0.1)" : "background.paper",
+                  // Chỉ giữ lại hiệu ứng nền nhẹ khi click chọn file (isSelected), còn lại nền trắng bình thường
+                  bgcolor: isSelected ? "rgba(25,118,210,0.06)" : "#ffffff",
                 }}
               >
                 {/* 1. Vùng Tên tệp (Xem trước) */}

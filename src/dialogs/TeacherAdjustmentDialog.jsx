@@ -7,8 +7,10 @@ import {
   Button,
   Typography,
   Box,
+  IconButton,
 } from "@mui/material";
 import EditNoteIcon from "@mui/icons-material/EditNote";
+import CloseIcon from "@mui/icons-material/Close"; // 🌟 Import icon dấu X
 
 export default function TeacherAdjustmentDialog({
   open,
@@ -35,13 +37,18 @@ export default function TeacherAdjustmentDialog({
     fileData.monHoc ||
     "Tin học";
 
-  // Xử lý lấy khối lớp gọn gàng (vd: "Khối 5" -> "5")
+  // 🌟 Xử lý chuẩn hóa tên lớp/khối: nếu là GVCN (như 4.1, 4.2, 42, 53...) thì tự động rút gọn lấy phần khối (4, 5...)
   const rawKhoi =
     className ||
     fileData.metadata?.khoiLop ||
     fileData.khoi ||
     "4";
-  const khoiLop = String(rawKhoi).replace(/[^0-9]/g, "") || rawKhoi;
+  
+  const khoiLop = (() => {
+    const str = String(rawKhoi).trim();
+    const match = str.match(/[0-9]/);
+    return match ? match[0] : str;
+  })();
 
   // Trích xuất các object dữ liệu chính từ Firestore
   const outcomes = fileData.outcomes || fileData.yeuCauCanDat || {};
@@ -68,17 +75,32 @@ export default function TeacherAdjustmentDialog({
         sx={{
           display: "flex",
           alignItems: "center",
-          gap: 1.5,
+          justifyContent: "space-between", // 🌟 Căn đều để đẩy icon X sang góc phải
           bgcolor: "#f8fafc",
           borderBottom: "1px solid #e2e8f0",
           py: 1,
           px: 2.5,
         }}
       >
-        <EditNoteIcon color="primary" sx={{ fontSize: "1.2rem" }} />
-        <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: "0.9rem", color: "#1e293b" }}>
-          Nội dung điều chỉnh của GV: <Box component="span" sx={{ color: "#2563eb", fontWeight: 700 }}>{teacherName}</Box>
-        </Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+          <EditNoteIcon color="primary" sx={{ fontSize: "1.2rem" }} />
+          <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: "0.9rem", color: "#1e293b" }}>
+            Nội dung điều chỉnh của GV: <Box component="span" sx={{ color: "#2563eb", fontWeight: 700 }}>{teacherName}</Box>
+          </Typography>
+        </Box>
+
+        {/* 🌟 Nút icon đóng (X) ở góc trên bên phải */}
+        <IconButton
+          aria-label="close"
+          onClick={onClose}
+          size="small"
+          sx={{
+            color: (theme) => theme.palette.grey[500],
+            "&:hover": { color: (theme) => theme.palette.grey[800], bgcolor: "rgba(0, 0, 0, 0.04)" },
+          }}
+        >
+          <CloseIcon fontSize="small" />
+        </IconButton>
       </DialogTitle>
 
       {/* Phần nội dung với khoảng cách mt: 2 để KẾ HOẠCH BÀI DẠY không bị sát thanh xám */}
@@ -196,12 +218,12 @@ export default function TeacherAdjustmentDialog({
       </DialogContent>
 
       {/* Chân Dialog */}
-      <DialogActions sx={{ p: 2, bgcolor: "#f1f5f9", borderTop: "1px solid #e2e8f0" }}>
+      <DialogActions sx={{ p: 2, py: 1, px: 2.5, bgcolor: "#f1f5f9", borderTop: "1px solid #e2e8f0" }}>
         <Button
           onClick={onClose}
           variant="contained"
           color="primary"
-          sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 600, px: 3 }}
+          sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 600, px: 3, py: 0.5 }}
         >
           Đóng
         </Button>

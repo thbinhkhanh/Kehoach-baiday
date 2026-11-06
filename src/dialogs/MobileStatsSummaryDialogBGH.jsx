@@ -23,14 +23,19 @@ export default function MobileStatsSummaryDialogBGH({
   teacherAllowedSubjects,
   teacherAllowedClasses,
   loadingStats,
+  // 🌟 Bổ sung đầy đủ các props ngữ cảnh (activeTab, activeTeacher, className, teacherRole) để truyền sang TeacherStatsView
+  activeTab,
+  activeTeacher,
+  className,
+  teacherRole,
 }) {
   return (
     <Dialog
       open={isMobile && (viewMode === "summary" || viewMode === "personal")}
       onClose={() => setViewMode("single")}
-      // 🌟 Nếu trên mobile thì fullScreen, trên PC thì tắt fullScreen để có thể căn giữa
+      // Trên mobile bật fullScreen, trên PC hiển thị dạng Popup căn giữa
       fullScreen={isMobile}
-      maxWidth="md" // 🌟 Đặt giới hạn kích thước PC vừa phải (có thể đổi thành "lg" nếu muốn to hơn)
+      maxWidth="md"
       fullWidth
       PaperProps={{
         sx: {
@@ -38,7 +43,6 @@ export default function MobileStatsSummaryDialogBGH({
           maxWidth: isMobile ? "95%" : "900px", // Giới hạn chiều rộng tối đa trên PC
           height: isMobile ? "100%" : "85vh", // Chiều cao cố định trên PC
           maxHeight: isMobile ? "85vh" : "85vh",
-          // 🌟 Căn giữa tuyệt đối trên màn hình PC bằng margin: "auto"
           margin: isMobile ? 0 : "auto", 
           borderRadius: isMobile ? 3 : "16px",
           display: "flex",
@@ -47,25 +51,36 @@ export default function MobileStatsSummaryDialogBGH({
         },
       }}
     >
-      <Box sx={{ py: 2, px: 2, display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #eee", backgroundColor: "#fff" }}>
-        <Typography variant="subtitle1" fontWeight="bold" color="primary">
+      <Box sx={{ py: 2, px: 2.5, display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #e2e8f0", backgroundColor: "#fff" }}>
+        <Typography variant="subtitle1" fontWeight="800" color="primary" sx={{ fontSize: "1rem" }}>
           {viewMode === "summary" 
-            ? `📊 TỔNG HỢP TOÀN TRƯỜNG` 
-            : `📊 THỐNG KÊ CÁ NHÂN`}
+            ? (
+                activeTab === 0 
+                  ? "📊 Tổng hợp Kế hoạch bài dạy" 
+                  : activeTab === 1 
+                    ? "📊 Tổng hợp Đề KTĐK" 
+                    : "📊 Tổng hợp Biên bản"
+              )
+            : (
+                activeTab === 0 
+                  ? "📊 Kế hoạch bài dạy" 
+                  : activeTab === 1 
+                    ? "📊 Đề KTĐK" 
+                    : "📊 Biên bản"
+              )}
         </Typography>
-        <IconButton size="small" onClick={() => setViewMode("single")}>
+        <IconButton size="small" onClick={() => setViewMode("single")} sx={{ color: "#64748b", bgcolor: "#f1f5f9" }}>
           <CloseIcon fontSize="small" />
         </IconButton>
       </Box>
       <DialogContent 
         sx={{ 
-          p: isMobile ? 1 : 2, 
+          p: isMobile ? 1.5 : 2.5, 
           overflowY: "auto",
-          backgroundColor: isMobile ? "#f8f9fa" : "background.default",
+          backgroundColor: "#f8fafc",
           flex: 1,
           display: "flex",
           flexDirection: "column",
-          // 🌟 Căn giữa nội dung bên trong theo chiều ngang và dọc (nếu nội dung ngắn)
           alignItems: "center",
         }}
       >
@@ -93,6 +108,11 @@ export default function MobileStatsSummaryDialogBGH({
               loadingStats={loadingStats}
               academicYear={academicYear}
               getShortSubjectName={getShortSubjectName}
+              // 🌟 Truyền đầy đủ props trạng thái tab và giáo viên để đồng bộ chính xác trên mobile
+              activeTab={activeTab}
+              activeTeacher={activeTeacher}
+              className={className}
+              teacherRole={teacherRole}
             />
           )}
         </Box>

@@ -56,7 +56,11 @@ export default function TeacherStatsDialog({
         }}
       >
         <Typography variant="h6" fontWeight="bold" color="primary">
-          📊 Thống kê KHBD
+          {activeTab === 0 
+            ? "📊 Kế hoạch bài dạy" 
+            : activeTab === 1 
+              ? "📊 Đề KHĐT" 
+              : "📊 Biên bản"}
         </Typography>
         <IconButton onClick={onClose}>
           <CloseIcon />

@@ -786,6 +786,9 @@ export default function BGH({ user }) {
     teacherAllowedSubjects,
   ]);
 
+  const activeTeacher = selectedUsername || "";
+  const teacherRole = phanQuyenMap[selectedUsername]?.role || "GVCN";
+
   if (!isBGH) {
     return (
       <Box sx={{ p: 4, textAlign: "center" }}>
@@ -983,26 +986,27 @@ export default function BGH({ user }) {
     }
   }, [activeTab, selectedGrade, subjectTab1, subject, className, selectedUsername, academicYear]);
 
-  // Xác định tiêu đề hiển thị cho phần thống kê bên phải
   // 🌟 Xác định tiêu đề hiển thị linh hoạt theo đúng yêu cầu từng tab
   const getStatsTitleLabel = () => {
     if (activeTab === 0) {
-      return `Tổng hợp: ${selectedUsername || ""}`;
+      return selectedUsername ? `${selectedUsername.toUpperCase()}` : "Thống kê cá nhân";
     } else {
       // Tab 1 (Đề KTĐK) hoặc Tab 2 (Biên bản)
       let label = selectedGrade || "";
       const currentSelection = String(selectedGrade || "").trim();
 
       if (currentSelection === "Tieng_Anh" || currentSelection.toLowerCase().includes("tiếng anh")) {
-        label = "Tiếng Anh";
+        label = "TỔ TIẾNG ANH";
       } else if (currentSelection === "Bo_mon" || currentSelection.toLowerCase().includes("bộ môn")) {
-        label = "Bộ môn";
+        label = "TỔ BỘ MÔN";
       } else if (["1", "2", "3", "4", "5"].includes(currentSelection)) {
-        label = `Khối ${currentSelection}`;
+        label = `KHỐI ${currentSelection}`;
+      } else {
+        label = currentSelection.toUpperCase();
       }
 
-      // Có thể phân biệt hoặc dùng chung nhãn "Tổng hợp theo Khối / Tổ CM"
-      return `Tổng hợp theo Khối / Tổ CM: ${label}`;
+      // 🌟 Chỉ trả về trực tiếp tên nhãn (ví dụ: BỘ MÔN, TỔ TIẾNG ANH, KHỐI 3...) không có tiền tố dài dòng
+      return label;
     }
   };
 
@@ -1510,6 +1514,12 @@ export default function BGH({ user }) {
         teacherAllowedSubjects={teacherAllowedSubjects}
         teacherAllowedClasses={teacherAllowedClasses}
         loadingStats={loadingStats}
+        activeTab={activeTab}
+        activeTeacher={activeTeacher}
+        className={(activeTab === 1 || activeTab === 2) ? selectedGrade : className}
+        teacherRole={teacherRole}
+        // 🌟 TRUYỀN THÊM PROP TITLE NÀY VÀO ĐỂ BẮT BUỘC HIỂN THỊ ĐÚNG NHÃN
+        title={getStatsTitleLabel()}
       />
 
       {/* Cột phải hiển thị trên máy tính (Desktop) hoặc khi xem trước file trên điện thoại */}
@@ -1560,6 +1570,8 @@ export default function BGH({ user }) {
               teacherAllowedClasses={teacherAllowedClasses}
               loadingStats={loadingStats}
               academicYear={academicYear}
+              className={(activeTab === 1 || activeTab === 2) ? selectedGrade : className}
+              teacherRole={teacherRole}   
             />
           ) : (
             <>

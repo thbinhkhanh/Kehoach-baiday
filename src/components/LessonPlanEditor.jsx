@@ -554,7 +554,7 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
                   <TextField
                     fullWidth
                     multiline
-                    rows={2}
+                    rows={8}
                     placeholder="Ghi chú rút kinh nghiệm về thời gian, phương pháp, học sinh..."
                     value={adjustments}
                     onChange={(e) => setAdjustments(e.target.value)}
