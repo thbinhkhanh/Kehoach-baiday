@@ -261,45 +261,45 @@ export default function TeacherStatsView({
                   Báo cáo thống kê
                 </Typography>*/}
                 <Typography variant="h6" sx={{ fontWeight: 800, fontSize: { xs: "0.95rem", sm: "1.15rem" }, color: "#0f172a" }}>
-  <Box component="span" sx={{ color: "#2563eb" }}>
-    {(() => {
-      // 1. Nếu có truyền prop title và title có chứa dấu hai chấm, ta chỉ lấy phần tên phía sau
-      if (title) {
-        const parts = title.split(":");
-        if (parts.length >= 2) {
-          return parts.slice(1).join(":").trim().toUpperCase();
-        }
-        return title.toUpperCase();
-      }
+                  <Box component="span" sx={{ color: "#2563eb" }}>
+                    {(() => {
+                      // 1. Nếu có truyền prop title và title có chứa dấu hai chấm, ta chỉ lấy phần tên phía sau
+                      if (title) {
+                        const parts = title.split(":");
+                        if (parts.length >= 2) {
+                          return parts.slice(1).join(":").trim().toUpperCase();
+                        }
+                        return title.toUpperCase();
+                      }
 
-      // 2. Nếu ở Tab 1 hoặc Tab 2 (BGH tổng hợp theo Khối / Tổ)
-      if (activeTab === 1 || activeTab === 2) {
-        const groupVal = String(currentUserGroup || teacherRole || "").trim().toUpperCase();
-        const currentSelection = String(className || "").trim().toUpperCase();
-        
-        if (groupVal.includes("TA") || groupVal.includes("TIENG_ANH") || groupVal.includes("TIẾNG ANH")) {
-          return "TỔ TIẾNG ANH";
-        } 
-        if (groupVal.includes("BM") || groupVal.includes("BO_MON") || groupVal.includes("BỘ MÔN") || currentSelection.includes("BỘ MÔN") || currentSelection.includes("BO_MON") || currentSelection === "BM") {
-          return "TỔ BỘ MÔN";
-        }
-        if (currentSelection.includes("TIẾNG ANH") || currentSelection === "TIENG_ANH") {
-          return "TỔ TIẾNG ANH";
-        }
-        const gradeNumber = currentSelection.split(".")[0].replace(/[^0-9]/g, "") || "1";
-        return `KHỐI ${gradeNumber}`;
-      }
+                      // 2. Nếu ở Tab 1 hoặc Tab 2 (BGH tổng hợp theo Khối / Tổ)
+                      if (activeTab === 1 || activeTab === 2) {
+                        const groupVal = String(currentUserGroup || teacherRole || "").trim().toUpperCase();
+                        const currentSelection = String(className || "").trim().toUpperCase();
+                        
+                        if (groupVal.includes("TA") || groupVal.includes("TIENG_ANH") || groupVal.includes("TIẾNG ANH")) {
+                          return "TỔ TIẾNG ANH";
+                        } 
+                        if (groupVal.includes("BM") || groupVal.includes("BO_MON") || groupVal.includes("BỘ MÔN") || currentSelection.includes("BỘ MÔN") || currentSelection.includes("BO_MON") || currentSelection === "BM") {
+                          return "TỔ BỘ MÔN";
+                        }
+                        if (currentSelection.includes("TIẾNG ANH") || currentSelection === "TIENG_ANH") {
+                          return "TỔ TIẾNG ANH";
+                        }
+                        const gradeNumber = currentSelection.split(".")[0].replace(/[^0-9]/g, "") || "1";
+                        return `KHỐI ${gradeNumber}`;
+                      }
 
-      // 3. Nếu ở Tab 0 (Cá nhân)
-      const currentTeacher = (activeTeacher || selectedUsername || "").trim();
-      if (currentTeacher) {
-        return currentTeacher.toUpperCase();
-      }
+                      // 3. Nếu ở Tab 0 (Cá nhân)
+                      const currentTeacher = (activeTeacher || selectedUsername || "").trim();
+                      if (currentTeacher) {
+                        return currentTeacher.toUpperCase();
+                      }
 
-      return "KHỐI 4";
-    })()}
-  </Box>
-</Typography>
+                      return "KHỐI 4";
+                    })()}
+                  </Box>
+                </Typography>
               </Box>
             </Box>
 
@@ -380,11 +380,12 @@ export default function TeacherStatsView({
                 </Typography>
               </Paper>
             ) : (
+              /* 🌟 Khoảng cách giữa các thẻ: Máy tính giữ nguyên gap: 2, Điện thoại thu nhỏ còn gap: 1 */
               <Box 
                 sx={{ 
                   display: "grid", 
                   gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" }, 
-                  gap: 2 
+                  gap: { xs: 1, sm: 2 } 
                 }}
               >
                 {filteredStatsData.map((row, idx) => {
@@ -396,7 +397,8 @@ export default function TeacherStatsView({
                       key={idx}
                       elevation={0}
                       sx={{
-                        p: 2.5,
+                        /* 🌟 Padding bên trong: Máy tính giữ nguyên p: 2.5, Điện thoại thu nhỏ còn p: 1.2 */
+                        p: { xs: 1.2, sm: 2.5 },
                         borderRadius: "16px",
                         bgcolor: "#ffffff",
                         border: `1px solid ${border}`,
@@ -414,13 +416,14 @@ export default function TeacherStatsView({
                         }
                       }}
                     >
-                      <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 2}}>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                      <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: { xs: 1, sm: 2 }}}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 1.2, sm: 2 } }}>
                           <Box
                             sx={{
-                              width: 50,
-                              height: 50,
-                              borderRadius: "14px",
+                              /* 🌟 Kích thước ô icon: Máy tính 50x50, Điện thoại 40x40 */
+                              width: { xs: 40, sm: 50 },
+                              height: { xs: 40, sm: 50 },
+                              borderRadius: { xs: "10px", sm: "14px" },
                               bgcolor: color,
                               display: "flex",
                               alignItems: "center",
@@ -429,15 +432,15 @@ export default function TeacherStatsView({
                               boxShadow: "inset 0 2px 4px rgba(0,0,0,0.02)"
                             }}
                           >
-                            {icon}
+                            {/* 🌟 Icon bên trong tự co giãn theo màn hình */}
+                            <Box component="span" sx={{ "& svg": { fontSize: { xs: "22px !important", sm: "26px !important" } } }}>
+                              {icon}
+                            </Box>
                           </Box>
                           <Box>
-                            <Typography variant="subtitle1" sx={{ fontWeight: 800, color: "#0f172a", fontSize: "1rem", lineHeight: 1.3 }}>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 800, color: "#0f172a", fontSize: { xs: "0.9rem", sm: "1rem" }, lineHeight: 1.3 }}>
                               {getDisplaySubjectName(row.subject)}
                             </Typography>
-                            {/*<Typography variant="caption" sx={{ color: "#64748b", fontWeight: 500 }}>
-                              Môn học chính thức
-                            </Typography>*/}
                           </Box>
                         </Box>
 
@@ -448,28 +451,28 @@ export default function TeacherStatsView({
                             alignItems: "center",
                             justifyContent: "center",
                             bgcolor: "#eff6ff",
-                            px: 2,
-                            py: 1,
-                            borderRadius: "12px",
+                            px: { xs: 1.2, sm: 2 },
+                            py: { xs: 0.5, sm: 1 },
+                            borderRadius: "10px",
                             border: "1px solid #bfdbfe",
-                            minWidth: "60px"
+                            minWidth: { xs: "48px", sm: "60px" }
                           }}
                         >
-                          <Typography variant="caption" sx={{ color: "#1e40af", fontWeight: 700, fontSize: "0.65rem", textTransform: "uppercase", lineHeight: 1 }}>
+                          <Typography variant="caption" sx={{ color: "#1e40af", fontWeight: 700, fontSize: { xs: "0.55rem", sm: "0.65rem" }, textTransform: "uppercase", lineHeight: 1 }}>
                             TỔNG
                           </Typography>
-                          <Typography variant="h6" sx={{ fontWeight: 900, color: "#2563eb", lineHeight: 1.2, mt: 0.2 }}>
+                          <Typography variant="h6" sx={{ fontWeight: 900, color: "#2563eb", lineHeight: 1.2, mt: 0.2, fontSize: { xs: "1rem", sm: "1.25rem" } }}>
                             {rowTotal}
                           </Typography>
                         </Box>
                       </Box>
 
                       {dynamicColumns.length > 1 && (
-                        <Box sx={{ mt: 'auto', pt: 1.5, borderTop: "1px dashed #e2e8f0" }}>
-                          <Typography variant="caption" sx={{ color: "#64748b", display: "block", mb: 1, fontWeight: 600 }}>
+                        <Box sx={{ mt: 'auto', pt: { xs: 1, sm: 1.5 }, borderTop: "1px dashed #e2e8f0" }}>
+                          <Typography variant="caption" sx={{ color: "#64748b", display: "block", mb: { xs: 0.6, sm: 1 }, fontWeight: 600, fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>
                             Chi tiết theo lớp:
                           </Typography>
-                          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                          <Box sx={{ display: "flex", flexWrap: "wrap", gap: { xs: 0.6, sm: 1 } }}>
                             {dynamicColumns.map((col) => {
                               const gradePrefix = String(col).split(".")[0];
                               const count = Number(row[col] ?? row[gradePrefix] ?? 0);
@@ -479,18 +482,18 @@ export default function TeacherStatsView({
                                   sx={{ 
                                     display: "flex", 
                                     alignItems: "center", 
-                                    gap: 0.8,
+                                    gap: 0.6,
                                     bgcolor: count > 0 ? "#f0fdf4" : "#f8fafc",
                                     border: `1px solid ${count > 0 ? "#bbf7d0" : "#e2e8f0"}`,
-                                    px: 1.2,
-                                    py: 0.4,
-                                    borderRadius: "8px"
+                                    px: { xs: 0.8, sm: 1.2 },
+                                    py: { xs: 0.2, sm: 0.4 },
+                                    borderRadius: "6px"
                                   }}
                                 >
-                                  <Typography variant="caption" sx={{ color: "#475569", fontWeight: 600 }}>
+                                  <Typography variant="caption" sx={{ color: "#475569", fontWeight: 600, fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>
                                     {String(col).toLowerCase().includes("khối") || String(col).length === 1 ? `K${col}` : `Lớp ${col}`}:
                                   </Typography>
-                                  <Typography variant="caption" sx={{ color: count > 0 ? "#16a34a" : "#94a3b8", fontWeight: 800 }}>
+                                  <Typography variant="caption" sx={{ color: count > 0 ? "#16a34a" : "#94a3b8", fontWeight: 800, fontSize: { xs: "0.7rem", sm: "0.75rem" } }}>
                                     {count > 0 ? count : "—"}
                                   </Typography>
                                 </Box>

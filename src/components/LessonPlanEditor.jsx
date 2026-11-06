@@ -19,6 +19,11 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Collapse,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from "@mui/material";
 
 import { doc, getDoc, setDoc, updateDoc, deleteField } from "firebase/firestore";
@@ -31,6 +36,11 @@ import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import EditNoteIcon from "@mui/icons-material/EditNote";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import ExpandLessIcon from "@mui/icons-material/ExpandLess";
+
+// Import hàm lấy mẫu nhận xét từ file PostLessonAdjustments.js
+import { getAdjustments } from "../utils/PostLessonAdjustments";
 
 // Import Dialog xác nhận xóa điều chỉnh tùy chỉnh
 import ConfirmDeleteAdjustmentDialog from "../dialogs/ConfirmDeleteAdjustmentDialog";
@@ -76,7 +86,7 @@ const cleanLessonName = (name) => {
 
 const getCleanGrade = (grade) => {
   if (!grade) return "";
-  return grade.toString().split('.')[0].trim();
+  return grade.toString().split(".")[0].trim();
 };
 
 const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, teacherName }, ref) => {
@@ -91,7 +101,7 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
   const rawTenBai = initialData?.metadata?.tenBai || initialData?.fileName || initialData?.name || "";
   const [metadata, setMetadata] = useState({
     monHoc: initialData?.metadata?.monHoc || "Toán",
-    khoiLop: initialData?.metadata?.khoiLop || "5",
+    khoiLop: getCleanGrade(initialData?.metadata?.khoiLop || initialData?.khoi || "5"),
     tenBai: cleanLessonName(rawTenBai),
   });
 
@@ -111,6 +121,7 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
   );
 
   const [adjustments, setAdjustments] = useState(initialData?.adjustments || "");
+  const [selectedAdjComment, setSelectedAdjComment] = useState("");
 
   useEffect(() => {
     async function loadSavedDataFromFirestore() {
@@ -119,13 +130,13 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
       const docId = initialData?.id || initialData?.fileId;
       const tName = teacherName || initialData?.teacherName;
       const sName = initialData?.metadata?.monHoc || metadata.monHoc || "Toán";
-      
       const rawName = initialData?.metadata?.tenBai || initialData?.fileName || initialData?.name || "";
       const lop = initialData?.metadata?.khoiLop || initialData?.khoi || "5";
 
+      const cleanGrade = getCleanGrade(lop);
       setMetadata({
         monHoc: sName,
-        khoiLop: lop,
+        khoiLop: cleanGrade,
         tenBai: cleanLessonName(rawName),
       });
 
@@ -179,6 +190,15 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
     loadSavedDataFromFirestore();
   }, [initialData, teacherName]);
 
+  // Chèn câu nhận xét được chọn vào ô TextField adjustments
+  const handleInsertAdjustment = (commentText) => {
+    if (!commentText) return;
+    setAdjustments((prev) => {
+      if (!prev || prev.trim() === "") return commentText;
+      return `${prev.trim()}\n${commentText}`;
+    });
+  };
+
   const handleAddActivity = () => {
     const newId = `act_${Date.now()}`;
     setActivities([
@@ -215,8 +235,22 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
     setActivities(updated);
   };
 
+  const isFormEmpty = () => {
+    const hasOutcomes = outcomes.kienThuc.trim() || outcomes.nangLuc.trim() || outcomes.phamChat.trim();
+    const hasEquipment = equipment.giaoVien.trim() || equipment.hocSinh.trim();
+    const hasAdjustments = adjustments.trim();
+
+    const defaultActivities = SUBJECT_TEMPLATES[metadata.monHoc] || SUBJECT_TEMPLATES["Toán"];
+    const hasActivitiesContent =
+      activities.some((act, idx) => {
+        const defaultAct = defaultActivities[idx];
+        return act.noiDung.trim() !== "" || (defaultAct && act.tieuDe !== defaultAct.tieuDe);
+      }) || activities.length !== defaultActivities.length;
+
+    return !hasOutcomes && !hasEquipment && !hasAdjustments && !hasActivitiesContent;
+  };
+
   const handleSave = async () => {
-    // 🛑 Nếu form trống thì bật Dialog cảnh báo lên và dừng lại
     if (isFormEmpty()) {
       setEmptyWarningOpen(true);
       return;
@@ -252,20 +286,6 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
       console.error("Lỗi khi lưu vào Firestore:", error);
       alert("Có lỗi khi lưu dữ liệu vào hệ thống!");
     }
-  };
-
-  const isFormEmpty = () => {
-    const hasOutcomes = outcomes.kienThuc.trim() || outcomes.nangLuc.trim() || outcomes.phamChat.trim();
-    const hasEquipment = equipment.giaoVien.trim() || equipment.hocSinh.trim();
-    const hasAdjustments = adjustments.trim();
-    
-    const defaultActivities = SUBJECT_TEMPLATES[metadata.monHoc] || SUBJECT_TEMPLATES["Toán"];
-    const hasActivitiesContent = activities.some((act, idx) => {
-      const defaultAct = defaultActivities[idx];
-      return act.noiDung.trim() !== "" || (defaultAct && act.tieuDe !== defaultAct.tieuDe);
-    }) || activities.length !== defaultActivities.length;
-
-    return !hasOutcomes && !hasEquipment && !hasAdjustments && !hasActivitiesContent;
   };
 
   const handleDeleteAdjustments = async () => {
@@ -306,11 +326,27 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
     triggerSave: handleSave,
   }));
 
+  const [expandedSections, setExpandedSections] = useState({
+    part1: false,
+    part2: false,
+    part3: false,
+    part4: true,
+  });
+
+  const toggleSection = (sectionKey) => {
+    setExpandedSections((prev) => ({
+      ...prev,
+      [sectionKey]: !prev[sectionKey],
+    }));
+  };
+
+  // Tự động lấy danh sách 10 mẫu nhận xét dựa theo Môn học và Khối lớp hiện tại của bài dạy
+  const currentAdjComments = getAdjustments(metadata.khoiLop, metadata.monHoc);
+
   return (
     <Box sx={{ width: { xs: "100%", sm: "70%" }, maxWidth: { xs: "100%", sm: "70%" }, mx: "auto", p: { xs: 1, sm: 2 } }}>
       <Card elevation={1} sx={{ borderRadius: 3, bgcolor: "#ffffff" }}>
         <CardContent sx={{ p: { xs: 2, sm: 4 } }}>
-          
           {saveSuccess && (
             <Alert severity="success" sx={{ mb: 2, mt: 1, borderRadius: 2 }}>
               🎉 Đã lưu Kế hoạch bài dạy thành công vào hệ thống!
@@ -346,7 +382,7 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
           {/* TAB 1: SOẠN THẢO FORM */}
           {activeTab === 0 && (
             <Stack spacing={3}>
-              {/* KHUNG TIÊU ĐỀ ĐÃ ĐƯỢC CHUYỂN VÀO ĐÂY */}
+              {/* KHUNG TIÊU ĐỀ */}
               <Paper
                 elevation={0}
                 sx={{
@@ -369,7 +405,7 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
                   fontWeight="bold"
                   sx={{ textTransform: "none", mb: 0.5, color: "text.primary" }}
                 >
-                  Môn: {metadata.monHoc} – Lớp {getCleanGrade(metadata.khoiLop)}
+                  Môn: {metadata.monHoc} – Lớp {metadata.khoiLop}
                 </Typography>
                 <Typography
                   variant="subtitle1"
@@ -379,186 +415,316 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
                 </Typography>
               </Paper>
 
-              <Card variant="outlined" sx={{ borderRadius: 3 }}>
-                <CardContent sx={{ p: 2.5 }}>
-                  <Typography variant="h6" fontWeight={700} color="primary" gutterBottom>
-                    I. YÊU CẦU CẦN ĐẠT:
-                  </Typography>
-                  <Stack spacing={2}>
-                    <TextField
-                      fullWidth
-                      multiline
-                      rows={2}
-                      label="1. Về Kiến thức"
-                      placeholder="- Nhận biết/nắm vững được nội dung..."
-                      value={outcomes.kienThuc}
-                      onChange={(e) => setOutcomes({ ...outcomes, kienThuc: e.target.value })}
-                    />
-                    <TextField
-                      fullWidth
-                      multiline
-                      rows={2}
-                      label="2. Về Năng lực (Chung & Đặc thù)"
-                      placeholder="- Năng lực tự chủ, giao tiếp, hợp tác..."
-                      value={outcomes.nangLuc}
-                      onChange={(e) => setOutcomes({ ...outcomes, nangLuc: e.target.value })}
-                    />
-                    <TextField
-                      fullWidth
-                      multiline
-                      rows={2}
-                      label="3. Về Phẩm chất"
-                      placeholder="- Yêu nước, chăm chỉ, trung thực, trách nhiệm..."
-                      value={outcomes.phamChat}
-                      onChange={(e) => setOutcomes({ ...outcomes, phamChat: e.target.value })}
-                    />
-                  </Stack>
-                </CardContent>
-              </Card>
-
-              <Card variant="outlined" sx={{ borderRadius: 3 }}>
-                <CardContent sx={{ p: 2.5 }}>
-                  <Typography variant="h6" fontWeight={700} color="primary" gutterBottom>
-                    II. ĐỒ DÙNG DẠY HỌC & HỌC LIỆU
-                  </Typography>
-                  <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                    <TextField
-                      fullWidth
-                      multiline
-                      rows={2}
-                      label="Giáo viên chuẩn bị"
-                      placeholder="Máy chiếu, kế hoạch bài dạy, phiếu bài tập..."
-                      value={equipment.giaoVien}
-                      onChange={(e) => setEquipment({ ...equipment, giaoVien: e.target.value })}
-                    />
-                    <TextField
-                      fullWidth
-                      multiline
-                      rows={2}
-                      label="Học sinh chuẩn bị"
-                      placeholder="Sách giáo khoa, vở ghi, dụng cụ học tập..."
-                      value={equipment.hocSinh}
-                      onChange={(e) => setEquipment({ ...equipment, hocSinh: e.target.value })}
-                    />
-                  </Stack>
-                </CardContent>
-              </Card>
-
-              <Card variant="outlined" sx={{ borderRadius: 3, borderColor: "primary.light" }}>
-                <CardContent sx={{ p: 2.5 }}>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="h6" fontWeight={700} color="primary">
-                      III. CÁC HOẠT ĐỘNG DẠY HỌC CHỦ YẾU:
+              {/* PHẦN I: YÊU CẦU CẦN ĐẠT */}
+              <Card variant="outlined" sx={{ borderRadius: 2.5 }}>
+                {/* 🌟 Giảm padding của CardContent từ 2.5 xuống 1.5 để thẻ gọn lại */}
+                <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      cursor: "pointer",
+                    }}
+                    onClick={() => toggleSection("part1")}
+                  >
+                    {/* 🌟 Giảm cỡ chữ tiêu đề từ h6 xuống subtitle1, chỉnh lại kích thước chữ và độ đậm */}
+                    <Typography variant="subtitle1" fontWeight={700} color="primary" sx={{ fontSize: "0.95rem" }}>
+                      I. YÊU CẦU CẦN ĐẠT:
                     </Typography>
+                    <IconButton size="small" color="primary">
+                      {expandedSections.part1 ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                    </IconButton>
                   </Box>
 
-                  <Divider sx={{ mb: 2.5 }} />
-
-                  <Stack spacing={2.5}>
-                    {activities.map((act, index) => (
-                      <Paper
-                        key={act.id}
-                        elevation={0}
-                        sx={{
-                          p: 2,
-                          bgcolor: "#f8fafc",
-                          border: "1px solid #cbd5e1",
-                          borderRadius: 2.5,
-                          position: "relative",
-                        }}
-                      >
-                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5, gap: 1 }}>
-                          <TextField
-                            fullWidth
-                            variant="outlined"
-                            size="small"
-                            label={`Tên hoạt động ${index + 1}`}
-                            value={act.tieuDe}
-                            onChange={(e) => handleUpdateActivity(act.id, "tieuDe", e.target.value)}
-                            sx={{ bgcolor: "#ffffff", fontWeight: 600 }}
-                          />
-
-                          <Stack direction="row" spacing={0.5}>
-                            <Tooltip title="Chuyển lên">
-                              <span>
-                                <IconButton
-                                  size="small"
-                                  disabled={index === 0}
-                                  onClick={() => handleMoveActivity(index, "up")}
-                                >
-                                  <ArrowUpwardIcon fontSize="small" />
-                                </IconButton>
-                              </span>
-                            </Tooltip>
-                            <Tooltip title="Chuyển xuống">
-                              <span>
-                                <IconButton
-                                  size="small"
-                                  disabled={index === activities.length - 1}
-                                  onClick={() => handleMoveActivity(index, "down")}
-                                >
-                                  <ArrowDownwardIcon fontSize="small" />
-                                </IconButton>
-                              </span>
-                            </Tooltip>
-                            <Tooltip title="Xóa hoạt động">
-                              <IconButton
-                                size="small"
-                                color="error"
-                                onClick={() => handleRemoveActivity(act.id)}
-                              >
-                                <DeleteOutlineIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          </Stack>
-                        </Box>
-
-                        <TextField
-                          fullWidth
-                          multiline
-                          rows={4}
-                          placeholder="Nhập tiến trình: Mục tiêu, Nội dung, Sản phẩm, Tổ chức thực hiện..."
-                          value={act.noiDung}
-                          onChange={(e) => handleUpdateActivity(act.id, "noiDung", e.target.value)}
-                          sx={{ bgcolor: "#ffffff" }}
-                        />
-                      </Paper>
-                    ))}
-                  </Stack>
-
-                  <Button
-                    fullWidth
-                    variant="outlined"
-                    startIcon={<AddCircleOutlineIcon />}
-                    onClick={handleAddActivity}
-                    sx={{
-                      mt: 2.5,
-                      py: 1.5,
-                      border: "2px dashed #94a3b8",
-                      borderRadius: 2.5,
-                      color: "#475569",
-                      fontWeight: 600,
-                      "&:hover": { bgcolor: "#f1f5f9", borderColor: "#64748b" },
-                    }}
-                  >
-                    ➕ Thêm Hoạt Động Mới Tùy Ý
-                  </Button>
+                  <Collapse in={expandedSections.part1}>
+                    <Divider sx={{ my: 1.5 }} />
+                    <Stack spacing={2}>
+                      <TextField
+                        fullWidth
+                        multiline
+                        rows={2}
+                        label="1. Về Kiến thức"
+                        placeholder="- Nhận biết/nắm vững được nội dung..."
+                        value={outcomes.kienThuc}
+                        onChange={(e) => setOutcomes({ ...outcomes, kienThuc: e.target.value })}
+                      />
+                      <TextField
+                        fullWidth
+                        multiline
+                        rows={2}
+                        label="2. Về Năng lực (Chung & Đặc thù)"
+                        placeholder="- Năng lực tự chủ, giao tiếp, hợp tác..."
+                        value={outcomes.nangLuc}
+                        onChange={(e) => setOutcomes({ ...outcomes, nangLuc: e.target.value })}
+                      />
+                      <TextField
+                        fullWidth
+                        multiline
+                        rows={2}
+                        label="3. Về Phẩm chất"
+                        placeholder="- Yêu nước, chăm chỉ, trung thực, trách nhiệm..."
+                        value={outcomes.phamChat}
+                        onChange={(e) => setOutcomes({ ...outcomes, phamChat: e.target.value })}
+                      />
+                    </Stack>
+                  </Collapse>
                 </CardContent>
               </Card>
 
-              <Card variant="outlined" sx={{ borderRadius: 3 }}>
-                <CardContent sx={{ p: 2.5 }}>
-                  <Typography variant="h6" fontWeight={700} color="primary" gutterBottom>
-                    IV. ĐIỀU CHỈNH SAU BÀI DẠY 
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    multiline
-                    rows={8}
-                    placeholder="Ghi chú rút kinh nghiệm về thời gian, phương pháp, học sinh..."
-                    value={adjustments}
-                    onChange={(e) => setAdjustments(e.target.value)}
-                  />
+              {/* PHẦN II: ĐỒ DÙNG DẠY HỌC & HỌC LIỆU */}
+              <Card variant="outlined" sx={{ borderRadius: 2.5 }}>
+                <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      cursor: "pointer",
+                    }}
+                    onClick={() => toggleSection("part2")}
+                  >
+                    <Typography variant="subtitle1" fontWeight={700} color="primary" sx={{ fontSize: "0.95rem" }}>
+                      II. ĐỒ DÙNG DẠY HỌC & HỌC LIỆU
+                    </Typography>
+                    <IconButton size="small" color="primary">
+                      {expandedSections.part2 ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                    </IconButton>
+                  </Box>
+
+                  <Collapse in={expandedSections.part2}>
+                    <Divider sx={{ my: 1.5 }} />
+                    <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                      <TextField
+                        fullWidth
+                        multiline
+                        rows={2}
+                        label="Giáo viên chuẩn bị"
+                        placeholder="Máy chiếu, kế hoạch bài dạy, phiếu bài tập..."
+                        value={equipment.giaoVien}
+                        onChange={(e) => setEquipment({ ...equipment, giaoVien: e.target.value })}
+                      />
+                      <TextField
+                        fullWidth
+                        multiline
+                        rows={2}
+                        label="Học sinh chuẩn bị"
+                        placeholder="Sách giáo khoa, vở ghi, dụng cụ học tập..."
+                        value={equipment.hocSinh}
+                        onChange={(e) => setEquipment({ ...equipment, hocSinh: e.target.value })}
+                      />
+                    </Stack>
+                  </Collapse>
+                </CardContent>
+              </Card>
+
+              {/* PHẦN III: CÁC HOẠT ĐỘNG DẠY HỌC CHỦ YẾU */}
+              <Card variant="outlined" sx={{ borderRadius: 2.5, borderColor: "primary.light" }}>
+                <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      cursor: "pointer",
+                    }}
+                    onClick={() => toggleSection("part3")}
+                  >
+                    <Typography variant="subtitle1" fontWeight={700} color="primary" sx={{ fontSize: "0.95rem" }}>
+                      III. CÁC HOẠT ĐỘNG DẠY HỌC CHỦ YẾU:
+                    </Typography>
+                    <IconButton size="small" color="primary">
+                      {expandedSections.part3 ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                    </IconButton>
+                  </Box>
+
+                  <Collapse in={expandedSections.part3}>
+                    <Divider sx={{ my: 1.5 }} />
+
+                    <Stack spacing={2}>
+                      {activities.map((act, index) => (
+                        <Paper
+                          key={act.id}
+                          elevation={0}
+                          sx={{
+                            p: 1.5,
+                            bgcolor: "#f8fafc",
+                            border: "1px solid #cbd5e1",
+                            borderRadius: 2,
+                            position: "relative",
+                          }}
+                        >
+                          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1, gap: 1 }}>
+                            <TextField
+                              fullWidth
+                              variant="outlined"
+                              size="small"
+                              label={`Tên hoạt động ${index + 1}`}
+                              value={act.tieuDe}
+                              onChange={(e) => handleUpdateActivity(act.id, "tieuDe", e.target.value)}
+                              sx={{ bgcolor: "#ffffff", fontWeight: 600 }}
+                            />
+
+                            <Stack direction="row" spacing={0.5}>
+                              <Tooltip title="Chuyển lên">
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    disabled={index === 0}
+                                    onClick={() => handleMoveActivity(index, "up")}
+                                  >
+                                    <ArrowUpwardIcon fontSize="small" />
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                              <Tooltip title="Chuyển xuống">
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    disabled={index === activities.length - 1}
+                                    onClick={() => handleMoveActivity(index, "down")}
+                                  >
+                                    <ArrowDownwardIcon fontSize="small" />
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                              <Tooltip title="Xóa hoạt động">
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() => handleRemoveActivity(act.id)}
+                                >
+                                  <DeleteOutlineIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </Stack>
+                          </Box>
+
+                          <TextField
+                            fullWidth
+                            multiline
+                            rows={4}
+                            placeholder="Nhập tiến trình: Mục tiêu, Nội dung, Sản phẩm, Tổ chức thực hiện..."
+                            value={act.noiDung}
+                            onChange={(e) => handleUpdateActivity(act.id, "noiDung", e.target.value)}
+                            sx={{ bgcolor: "#ffffff" }}
+                          />
+                        </Paper>
+                      ))}
+                    </Stack>
+
+                    <Button
+                      fullWidth
+                      variant="outlined"
+                      startIcon={<AddCircleOutlineIcon />}
+                      onClick={handleAddActivity}
+                      sx={{
+                        mt: 2,
+                        py: 1,
+                        border: "2px dashed #94a3b8",
+                        borderRadius: 2,
+                        color: "#475569",
+                        fontWeight: 600,
+                        textTransform: "none",
+                        "&:hover": { bgcolor: "#f1f5f9", borderColor: "#64748b" },
+                      }}
+                    >
+                      ➕ Thêm Hoạt Động Mới Tùy Ý
+                    </Button>
+                  </Collapse>
+                </CardContent>
+              </Card>
+
+              {/* PHẦN IV: ĐIỀU CHỈNH SAU BÀI DẠY (TỰ ĐỘNG THEO MÔN & LỚP) */}
+              <Card variant="outlined" sx={{ borderRadius: 2.5 }}>
+                <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      cursor: "pointer",
+                    }}
+                    onClick={() => toggleSection("part4")}
+                  >
+                    <Typography variant="subtitle1" fontWeight={700} color="primary" sx={{ fontSize: "0.95rem" }}>
+                      IV. ĐIỀU CHỈNH SAU BÀI DẠY
+                    </Typography>
+                    <IconButton size="small" color="primary">
+                      {expandedSections.part4 ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                    </IconButton>
+                  </Box>
+
+                  <Collapse in={expandedSections.part4}>
+                    <Divider sx={{ my: 1.5 }} />
+
+                    {/* Khung công cụ chọn mẫu nhận xét */}
+                    <Box
+                      sx={{
+                        p: 1.5,
+                        mb: 1.5,
+                        bgcolor: "#f8fafc",
+                        borderRadius: 2,
+                        border: "1px solid #e2e8f0",
+                      }}
+                    >
+                      <Typography variant="subtitle2" fontWeight={600} mb={1} color="text.secondary" sx={{ fontSize: "0.85rem" }}>
+                        💡 <Box component="span" sx={{ color: "#dc2626", fontWeight: 700 }}>Gợi ý nhận xét mẫu theo chương trình GDPT 2018</Box> (Môn: {metadata.monHoc} - Lớp {metadata.khoiLop}):
+                      </Typography>
+
+                      {/* Dropdown danh sách 10 mẫu nhận xét theo đúng môn/lớp hiện tại */}
+                      <FormControl fullWidth size="small">
+                        <InputLabel id="adj-comment-select-label">Chọn nhận xét mẫu...</InputLabel>
+                        <Select
+                          labelId="adj-comment-select-label"
+                          value={selectedAdjComment}
+                          label="Chọn nhận xét mẫu..."
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (!val) return;
+                            
+                            // 1. Tự động đếm dòng và đánh số Tiết 1, Tiết 2... Cho phép chọn trùng lặp thoải mái
+                            setAdjustments((prev) => {
+                              const currentLines = prev ? prev.split("\n").filter(line => line.trim() !== "") : [];
+                              const nextIndex = currentLines.length + 1;
+                              const formattedLine = `Tiết ${nextIndex}: ${val}`;
+                              
+                              if (!prev || prev.trim() === "") return formattedLine;
+                              return `${prev.trim()}\n${formattedLine}`;
+                            });
+
+                            // 2. 🌟 Reset lại giá trị lựa chọn ngay lập tức để lần sau có thể chọn lại chính xác câu đó mà không bị kẹt focus
+                            setSelectedAdjComment("");
+                          }}
+                        >
+                          {currentAdjComments.map((text, idx) => (
+                            <MenuItem key={idx} value={text}>
+                              <Typography variant="body2" noWrap>
+                                {text}
+                              </Typography>
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Box>
+
+                    {/* Ô nhập liệu văn bản chính */}
+                    <TextField
+                      fullWidth
+                      multiline
+                      rows={8}
+                      placeholder="Ghi chú rút kinh nghiệm về thời gian, phương pháp, học sinh..."
+                      value={adjustments}
+                      onChange={(e) => setAdjustments(e.target.value)}
+                      slotProps={{
+                        input: {
+                          sx: {
+                            lineHeight: 1.8, // Giãn dòng cân đối hoàn toàn với Tab Xem trước
+                          },
+                        },
+                      }}
+                    />
+                  </Collapse>
                 </CardContent>
               </Card>
             </Stack>
@@ -572,14 +738,14 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
                   KẾ HOẠCH BÀI DẠY
                 </Typography>
                 <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 0.5 }}>
-                  Môn: {metadata.monHoc} – Lớp {getCleanGrade(metadata.khoiLop)}
+                  Môn: {metadata.monHoc} – Lớp {metadata.khoiLop}
                 </Typography>
                 <Typography variant="subtitle1" sx={{ fontSize: "1.1rem", color: "primary.main", fontWeight: 600 }}>
                   Bài: {metadata.tenBai || "..................................................."}
                 </Typography>
               </Box>
 
-              {/* I. YÊU CẦU CẦN ĐẠT (Chỉ hiện phần nào có nội dung thực tế) */}
+              {/* I. YÊU CẦU CẦN ĐẠT */}
               {(outcomes.kienThuc?.trim() || outcomes.nangLuc?.trim() || outcomes.phamChat?.trim()) && (
                 <>
                   <Typography variant="subtitle1" fontWeight="bold" sx={{ mt: 2 }}>
@@ -599,7 +765,7 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
                 </>
               )}
 
-              {/* II. ĐỒ DÙNG DẠY HỌC (Chỉ hiện khi có nội dung) */}
+              {/* II. ĐỒ DÙNG DẠY HỌC */}
               {(equipment.giaoVien?.trim() || equipment.hocSinh?.trim()) && (
                 <>
                   <Typography variant="subtitle1" fontWeight="bold" sx={{ mt: 2 }}>
@@ -616,8 +782,8 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
                 </>
               )}
 
-              {/* III. CÁC HOẠT ĐỘNG DẠY HỌC CHỦ YẾU (Chỉ hiển thị các hoạt động có nội dung) */}
-              {activities.some(act => act.noiDung?.trim()) && (
+              {/* III. CÁC HOẠT ĐỘNG DẠY HỌC CHỦ YẾU */}
+              {activities.some((act) => act.noiDung?.trim()) && (
                 <>
                   <Typography variant="subtitle1" fontWeight="bold" sx={{ mt: 2, mb: 1 }}>
                     III. CÁC HOẠT ĐỘNG DẠY HỌC CHỦ YẾU:
@@ -641,20 +807,27 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
                 </>
               )}
 
-              {/* IV. ĐIỀU CHỈNH SAU BÀI DẠY (Chỉ hiện khi có nội dung) */}
+              {/* IV. ĐIỀU CHỈNH SAU BÀI DẠY */}
               {adjustments?.trim() && (
                 <>
                   <Typography variant="subtitle1" fontWeight="bold" sx={{ mt: 3 }}>
                     IV. ĐIỀU CHỈNH SAU BÀI DẠY:
                   </Typography>
-                  <Typography variant="body1" sx={{ pl: 2, whitespace: "pre-line" }}>
-                    {adjustments}
-                  </Typography>
+                  <Box sx={{ pl: 2, display: "flex", flexDirection: "column", gap: 1 }}>
+                    {adjustments
+                      .split(/(?=Tiết \d+:)/)
+                      .map((item) => item.trim())
+                      .filter(Boolean)
+                      .map((tietText, idx) => (
+                        <Typography key={idx} variant="body1">
+                          {tietText}
+                        </Typography>
+                      ))}
+                  </Box>
                 </>
               )}
             </Paper>
           )}
-
         </CardContent>
       </Card>
 
@@ -677,16 +850,16 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
         onClose={() => setDeleteSuccess(false)}
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
       >
-        <Alert 
-          onClose={() => setDeleteSuccess(false)} 
-          severity="success" 
+        <Alert
+          onClose={() => setDeleteSuccess(false)}
+          severity="success"
           variant="filled"
           sx={{ width: "100%", borderRadius: "10px", fontWeight: 600 }}
         >
           🗑️ Đã xóa nội dung điều chỉnh của KHBD thành công!
         </Alert>
       </Snackbar>
-      
+
       {/* Dialog cảnh báo khi chưa nhập nội dung */}
       <Dialog
         open={emptyWarningOpen}
@@ -712,7 +885,6 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
           </Button>
         </DialogActions>
       </Dialog>
-
     </Box>
   );
 });

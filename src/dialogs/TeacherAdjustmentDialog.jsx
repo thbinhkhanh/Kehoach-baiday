@@ -8,6 +8,8 @@ import {
   Typography,
   Box,
   IconButton,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import EditNoteIcon from "@mui/icons-material/EditNote";
 import CloseIcon from "@mui/icons-material/Close"; // 🌟 Import icon dấu X
@@ -20,6 +22,9 @@ export default function TeacherAdjustmentDialog({
   subject,
   className,
 }) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm")); // 🌟 Xác định màn hình điện thoại
+
   if (!fileData) return null;
 
   // Lấy thông tin tiêu đề, môn, lớp, bài từ fileData hoặc metadata
@@ -66,10 +71,36 @@ export default function TeacherAdjustmentDialog({
     fileData.adjustments ||
     fileData.dieuChinh ||
     fileData.dieuChinhSauBaiDay ||
+    fileData.string ||
     "";
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <Dialog 
+      open={open} 
+      onClose={onClose} 
+      maxWidth="md" 
+      fullWidth
+      // 🌟 Tùy chỉnh kích thước linh hoạt trên điện thoại và máy tính
+      sx={{
+        "& .MuiDialog-container": {
+          alignItems: isMobile ? "flex-end" : "center", // Trên điện thoại có thể hiện sát đáy hoặc giữa tùy ý
+        },
+        "& .MuiPaper-root": {
+          m: "auto", 
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "stretch",
+          
+          width: isMobile ? "95%" : "95vw",
+          maxWidth: "1000px", 
+          height: isMobile ? "90%" : "85vh",
+          borderRadius: isMobile ? 3 : "12px",
+          backgroundColor: "#ffffff",
+          overflow: "hidden",
+        },
+      }}
+    >
       {/* Thanh tiêu đề màu xám thiết kế nhỏ gọn (py: 1) */}
       <DialogTitle
         sx={{
@@ -82,10 +113,10 @@ export default function TeacherAdjustmentDialog({
           px: 2.5,
         }}
       >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, pr: 1 }}>
           <EditNoteIcon color="primary" sx={{ fontSize: "1.2rem" }} />
           <Typography variant="subtitle1" sx={{ fontWeight: 600, fontSize: "0.9rem", color: "#1e293b" }}>
-            Nội dung điều chỉnh của GV: <Box component="span" sx={{ color: "#2563eb", fontWeight: 700 }}>{teacherName}</Box>
+            Nội dung điều chỉnh:
           </Typography>
         </Box>
 
@@ -104,18 +135,18 @@ export default function TeacherAdjustmentDialog({
       </DialogTitle>
 
       {/* Phần nội dung với khoảng cách mt: 2 để KẾ HOẠCH BÀI DẠY không bị sát thanh xám */}
-      <DialogContent sx={{ p: 3, pt: 2, bgcolor: "#fff" }}>
+      <DialogContent sx={{ p: isMobile ? 2 : 3, pt: 2, bgcolor: "#fff" }}>
         <Box sx={{ maxWidth: 800, mx: "auto", display: "flex", flexDirection: "column", gap: 3, mt: 2 }}>
           
           {/* TIÊU ĐỀ BẢN IN */}
           <Box sx={{ textAlign: "center", mb: 1 }}>
-            <Typography variant="h5" sx={{ fontWeight: "bold", textTransform: "uppercase", mb: 1 }}>
+            <Typography variant="h5" sx={{ fontWeight: "bold", textTransform: "uppercase", mb: 1, fontSize: isMobile ? "1.2rem" : "1.5rem" }}>
               KẾ HOẠCH BÀI DẠY
             </Typography>
-            <Typography variant="subtitle1" sx={{ fontWeight: 500, color: "#334155" }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 500, color: "#334155", fontSize: isMobile ? "0.9rem" : "1rem" }}>
               Môn: {monHoc} – Lớp {khoiLop}
             </Typography>
-            <Typography variant="subtitle1" sx={{ fontWeight: "bold", color: "#1976d2" }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: "bold", color: "#1976d2", fontSize: isMobile ? "0.95rem" : "1rem" }}>
               Bài: {displayName}
             </Typography>
           </Box>
@@ -181,11 +212,9 @@ export default function TeacherAdjustmentDialog({
 
                   return (
                     <Box key={act.id || idx} sx={{ pl: 1, display: "flex", flexDirection: "column", gap: 0.5 }}>
-                      {/* Tiêu đề hoạt động giữ nguyên màu bình thường */}
                       <Typography variant="body2" sx={{ fontWeight: "bold", color: "#334155" }}>
                         {title}
                       </Typography>
-                      {/* Chỉ phần nội dung điều chỉnh mang màu đỏ */}
                       <Typography variant="body2" sx={{ pl: 2, color: "#dc2626", whiteSpace: "pre-wrap" }}>
                         {content}
                       </Typography>

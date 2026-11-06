@@ -35,7 +35,7 @@ export default function TeacherStatsDialog({
           alignItems: "stretch",
           
           width: isMobile ? "100%" : "95vw",
-          maxWidth: "1000px", // 👉 Giới hạn độ rộng tối đa để dialog gọn gàng ở giữa màn hình
+          maxWidth: "1000px", 
           height: isMobile ? "100%" : "85vh",
           borderRadius: isMobile ? 0 : "12px",
           backgroundColor: "#ffffff",
@@ -79,7 +79,7 @@ export default function TeacherStatsDialog({
         }}
       >
         {/* Bọc TeacherStatsView trong Box nền trắng để khử hẳn nền xám bên trong */}
-        <Box sx={{ p: 2, backgroundColor: "#ffffff", flex: 1, height: "100%" }}>
+        <Box sx={{ p: 1, backgroundColor: "#ffffff", flex: 1, height: "100%" }}>
           <TeacherStatsView
             selectedUsername={teacherName}
             statsData={statsData}

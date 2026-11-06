@@ -1307,18 +1307,18 @@ return (
           </>
         ) : (
           <TeacherStatsView
-  selectedUsername={teacherName}
-  statsData={statsData}
-  teacherAllowedSubjects={teacherAssignedSubjects}
-  teacherAllowedClasses={assignedClassesList}
-  loadingStats={loadingStats}
-  academicYear={academicYear}
-  activeTeacher={activeTeacher}
-  activeTab={activeTab} 
-  className={className}
-  teacherRole={teacherRole}
-  currentUserGroup={teacherRole} // 🌟 Dùng luôn teacherRole có sẵn ở component Users
-/>
+            selectedUsername={teacherName}
+            statsData={statsData}
+            teacherAllowedSubjects={teacherAssignedSubjects}
+            teacherAllowedClasses={assignedClassesList}
+            loadingStats={loadingStats}
+            academicYear={academicYear}
+            activeTeacher={activeTeacher}
+            activeTab={activeTab} 
+            className={className}
+            teacherRole={teacherRole}
+            currentUserGroup={teacherRole} // 🌟 Dùng luôn teacherRole có sẵn ở component Users
+          />
         )}
       </CardContent>
     </Card>
