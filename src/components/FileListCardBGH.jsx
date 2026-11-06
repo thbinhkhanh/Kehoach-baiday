@@ -94,7 +94,8 @@ export default function FileListCardBGH({
                 }}
                 sx={{
                   mb: 1,
-                  border: hasAdjustmentsData ? "1.5px solid #1976d2" : "1px solid #ddd",
+                  // 🌟 Đã đặt lại viền chuẩn chung cho tất cả các thẻ (bỏ viền xanh cũ)
+                  border: "1px solid #ddd",
                   borderRadius: 1,
                   display: "flex",
                   alignItems: "center",
