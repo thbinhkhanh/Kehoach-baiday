@@ -24,6 +24,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  ListSubheader,
 } from "@mui/material";
 
 import { doc, getDoc, setDoc, updateDoc, deleteField } from "firebase/firestore";
@@ -40,7 +41,8 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 
 // Import hàm lấy mẫu nhận xét từ file PostLessonAdjustments.js
-import { getAdjustments } from "../utils/PostLessonAdjustments";
+//import { getAdjustments } from "../utils/PostLessonAdjustments";
+import { getAdjustments, getEnglishAdjustmentGroups } from "../utils/PostLessonAdjustments";
 
 // Import Dialog xác nhận xóa điều chỉnh tùy chỉnh
 import ConfirmDeleteAdjustmentDialog from "../dialogs/ConfirmDeleteAdjustmentDialog";
@@ -674,7 +676,7 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
 
                       {/* Dropdown danh sách 10 mẫu nhận xét theo đúng môn/lớp hiện tại */}
                       <FormControl fullWidth size="small">
-                        <InputLabel id="adj-comment-select-label">Chọn nhận xét mẫu...</InputLabel>
+                        <InputLabel id="adj-comment-select-label">Chọn nhận xét mẫu...</InputLabel>                      
                         <Select
                           labelId="adj-comment-select-label"
                           value={selectedAdjComment}
@@ -683,7 +685,6 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
                             const val = e.target.value;
                             if (!val) return;
                             
-                            // 1. Tự động đếm dòng và đánh số Tiết 1, Tiết 2... Cho phép chọn trùng lặp thoải mái
                             setAdjustments((prev) => {
                               const currentLines = prev ? prev.split("\n").filter(line => line.trim() !== "") : [];
                               const nextIndex = currentLines.length + 1;
@@ -692,18 +693,35 @@ const LessonPlanEditor = forwardRef(({ initialData, onClose, onSaveToFirestore, 
                               if (!prev || prev.trim() === "") return formattedLine;
                               return `${prev.trim()}\n${formattedLine}`;
                             });
-
-                            // 2. 🌟 Reset lại giá trị lựa chọn ngay lập tức để lần sau có thể chọn lại chính xác câu đó mà không bị kẹt focus
                             setSelectedAdjComment("");
                           }}
                         >
-                          {currentAdjComments.map((text, idx) => (
-                            <MenuItem key={idx} value={text}>
-                              <Typography variant="body2" noWrap>
-                                {text}
-                              </Typography>
-                            </MenuItem>
-                          ))}
+                          {metadata.monHoc === "Tiếng Anh" ? (
+                            // Dùng hàm lấy nhóm chuyên biệt cho Tiếng Anh để hiển thị phân mục chuẩn xác
+                            getEnglishAdjustmentGroups().map((group, gIdx) => [
+                              <ListSubheader 
+                                key={`group-${gIdx}`} 
+                                sx={{ fontWeight: "bold", bgcolor: "#f1f5f9", color: "primary.main", lineHeight: "36px" }}
+                              >
+                                {group.groupName}
+                              </ListSubheader>,
+                              ...group.items.map((text, iIdx) => (
+                                <MenuItem key={`item-${gIdx}-${iIdx}`} value={text} sx={{ pl: 3 }}>
+                                  <Typography variant="body2" noWrap>
+                                    {text}
+                                  </Typography>
+                                </MenuItem>
+                              ))
+                            ])
+                          ) : (
+                            currentAdjComments.map((text, idx) => (
+                              <MenuItem key={idx} value={text}>
+                                <Typography variant="body2" noWrap>
+                                  {text}
+                                </Typography>
+                              </MenuItem>
+                            ))
+                          )}
                         </Select>
                       </FormControl>
                     </Box>

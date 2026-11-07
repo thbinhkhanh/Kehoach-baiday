@@ -4,6 +4,50 @@
  * Đảm bảo đúng 10 mẫu nhận xét sư phạm chất lượng/môn/lớp.
  */
 
+export const GENERAL_ENGLISH_GROUPS = [
+  {
+    groupName: "📌 1. Đánh giá chung & Tiến trình bài học",
+    items: [
+      "The lesson went smoothly; students demonstrated great creativity and enthusiasm, requiring no adjustments.",
+      "Students engaged actively in the warm-up game, though time management should be tighter to ensure sufficient practice time.",
+      "The teacher successfully utilized visual aids and flashcards, which greatly enhanced students' vocabulary retention.",
+      "Classroom atmosphere was vibrant and engaging; pupils showed high interest in learning new English expressions.",
+      "The pedagogical methods applied effectively stimulated students' motivation and active participation throughout the lesson."
+    ]
+  },
+  {
+    groupName: "🗣️ 2. Kỹ năng Nghe - Nói & Phát âm",
+    items: [
+      "Pupils practiced pronunciation well, but the teacher should pay closer attention to individual ending sounds during pair work.",
+      "Role-play activities boosted students' confidence in speaking English, though quieter pupils need more encouragement to speak louder.",
+      "Listening comprehension tasks went well; however, slower learners require extra support when listening to fast audio tracks.",
+      "Intonation and sentence stress need more thorough drilling so that pupils can speak more naturally and fluently.",
+      "Pair work interaction was effective, but the teacher should monitor pairs more closely to correct common pronunciation errors."
+    ]
+  },
+  {
+    groupName: "✍️ 3. Kỹ năng Đọc - Viết & Từ vựng - Ngữ pháp",
+    items: [
+      "Reading comprehension exercises were successfully completed, with students accurately identifying key details from the text.",
+      "Writing activities showed that most pupils grasped the sentence structures, but spelling mistakes in new vocabulary need more correction.",
+      "Grammar structures were well-explained, yet students need more guided practice before moving to independent writing tasks.",
+      "Vocabulary expansion activities were engaging; pupils successfully applied new words into meaningful short sentences.",
+      "The teacher should provide more sentence-building templates to help lower-achieving students construct complete sentences accurately."
+    ]
+  },
+  {
+    groupName: "🎯 4. Hoạt động nhóm, Vận dụng & Nề nếp",
+    items: [
+      "Group discussions on the mini-project were lively, helping students build solid teamwork and communication skills.",
+      "Classroom discipline during transition times needs slight improvement to maximize instructional time for practical tasks.",
+      "Pupils demonstrated a solid understanding of the lesson theme and successfully connected it to real-life situations.",
+      "The wrap-up game effectively consolidated core knowledge, leaving students excited and eager for the next lesson.",
+      "The lesson objectives were fully achieved, laying a strong foundation of English communicative competence for the students."
+    ]
+  }
+];
+
+
 export const PostLessonAdjustments = {
   "1": {
     "Tiếng Việt": [
@@ -594,12 +638,14 @@ export const PostLessonAdjustments = {
 };
 
 /**
- * Hàm lấy danh sách 10 mẫu nhận xét đặc thù theo Khối lớp và Môn học
- * @param {string|number} grade - Khối lớp (1, 2, 3, 4, 5)
- * @param {string} subject - Tên môn học
- * @returns {string[]} Mảng mười mẫu nhận xét
+ * Hàm lấy danh sách mảng phẳng các mẫu nhận xét (đảm bảo không bị lỗi object cho các chỗ gọi cũ)
  */
 export function getAdjustments(grade, subject) {
+  if (subject === "Tiếng Anh") {
+    // Trả về mảng phẳng gom tất cả các câu tiếng Anh lại
+    return GENERAL_ENGLISH_GROUPS.flatMap(group => group.items);
+  }
+
   const g = String(grade);
   if (PostLessonAdjustments[g] && PostLessonAdjustments[g][subject]) {
     return PostLessonAdjustments[g][subject];
@@ -608,10 +654,14 @@ export function getAdjustments(grade, subject) {
 }
 
 /**
+ * Hàm chuyên dụng để lấy danh sách phân theo nhóm phục vụ riêng cho dropdown môn Tiếng Anh
+ */
+export function getEnglishAdjustmentGroups() {
+  return GENERAL_ENGLISH_GROUPS;
+}
+
+/**
  * Hàm lấy ngẫu nhiên 1 mẫu nhận xét
- * @param {string|number} grade 
- * @param {string} subject 
- * @returns {string}
  */
 export function getRandomAdjustment(grade, subject) {
   const list = getAdjustments(grade, subject);

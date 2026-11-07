@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { Box, Button, Dialog } from "@mui/material";
 import SaveIcon from "@mui/icons-material/Save";
 import LessonPlanEditor from "../components/LessonPlanEditor";
@@ -17,6 +17,21 @@ export default function EditLessonPlanDialog({
   viewOnly = false,
 }) {
   const editorRef = useRef(null);
+  
+  // 🌟 Thêm ref để điều khiển vùng cuộn của Dialog
+  const scrollContainerRef = useRef(null);
+
+  // 🌟 Đưa thanh cuộn về đỉnh tuyệt đối ngay khi mở dialog để không bị kẹt ở phần III hoặc IV
+  useEffect(() => {
+    if (open) {
+      const timer = setTimeout(() => {
+        if (scrollContainerRef.current) {
+          scrollContainerRef.current.scrollTop = 0;
+        }
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [open]);
 
   return (
     <Dialog
@@ -66,12 +81,13 @@ export default function EditLessonPlanDialog({
           onClick={onClose}
           sx={{ borderRadius: "8px", textTransform: "none", fontWeight: 600 }}
         >
-          Đóng / Thoát
+          Đóng
         </Button>
       </Box>
 
-      {/* Nội dung trình chỉnh sửa bài dạy - ĐÃ MỞ RỘNG CHIỀU NGANG TỐI ĐA */}
+      {/* Nội dung trình chỉnh sửa bài dạy - Gắn ref để quản lý cuộn */}
       <Box 
+        ref={scrollContainerRef}
         sx={{ 
           flex: 1, 
           overflowY: "auto", 
@@ -104,10 +120,10 @@ export default function EditLessonPlanDialog({
               },
             }}
             onClose={onClose}
-            viewOnly={viewOnly}           // 👈 Truyền cờ khóa chỉnh sửa xuống editor
-            defaultTab="edit"             // 👈 Mở về Tab 1: Soạn thảo form
+            viewOnly={viewOnly}          // 👈 Truyền cờ khóa chỉnh sửa xuống editor
+            defaultTab="edit"            // 👈 Mở về Tab 1: Soạn thảo form
             onSaveToFirestore={async (updatedPayload) => {
-              if (viewOnly) return;       // Nếu đang xem thì không thực hiện lưu
+              if (viewOnly) return;      // Nếu đang xem thì không thực hiện lưu
               try {
                 console.log("🔥 Đã xử lý dữ liệu KHBD:", updatedPayload);
 

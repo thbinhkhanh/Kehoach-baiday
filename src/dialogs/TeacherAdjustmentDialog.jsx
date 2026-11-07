@@ -73,6 +73,7 @@ export default function TeacherAdjustmentDialog({
     fileData.dieuChinhSauBaiDay ||
     fileData.string ||
     "";
+  
 
   return (
     <Dialog 
